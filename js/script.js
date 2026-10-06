@@ -155,7 +155,7 @@ document
 
 
         const result =
-            await registerUser(email, password);
+            await registerUser(email, password, nickname);
 
 
         if (result.success) {
