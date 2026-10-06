@@ -32,23 +32,22 @@ function generateEnclaveId() {
 
 async function generateUniqueEnclaveId() {
 
-    let enclaveId;
-    let idExists = true;
+    while (true) {
 
-    while (idExists) {
-
-        enclaveId = generateEnclaveId();
+        const enclaveId =
+            generateEnclaveId();
 
         const idDocument =
             await getDoc(
                 doc(db, "enclaveIds", enclaveId)
             );
 
-        idExists =
-            idDocument.exists();
-    }
+        if (!idDocument.exists()) {
 
-    return enclaveId;
+            return enclaveId;
+
+        }
+    }
 }
 
 
