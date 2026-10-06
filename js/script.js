@@ -3,6 +3,10 @@ import {
     loginUser
 } from "./auth.js";
 
+import {
+    sendEmailVerification
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
 
 console.log("Enclave avviato correttamente.");
 
@@ -69,6 +73,56 @@ function showHome() {
 }
 
 
+function showVerification(user) {
+
+    verificationEmail.textContent =
+        user.email;
+
+    verificationMessage.textContent =
+        "";
+
+    verificationSpinner.style.display =
+        "none";
+
+    verificationOverlay.classList.remove("hidden");
+
+}
+
+
+async function checkEmailVerification(user) {
+
+    verificationSpinner.style.display =
+        "block";
+
+
+    await user.reload();
+
+
+    if (user.emailVerified) {
+
+        verificationSpinner.style.display =
+            "none";
+
+        verificationOverlay.classList.add("hidden");
+
+        showHome();
+
+        document.getElementById("userEmail").textContent =
+            user.email;
+
+        return;
+    }
+
+
+    setTimeout(() => {
+
+        checkEmailVerification(user);
+
+    }, 2000);
+
+}
+
+
 // =========================
 // REGISTRAZIONE
 // =========================
@@ -109,15 +163,16 @@ document
 
         if (result.success) {
 
+    showVerification(result.user);
+
+    checkEmailVerification(result.user);
+
+} else {
+
     message.textContent =
-        "Account creato! Controlla la tua email per verificare l'account.";
+        "Errore: " + result.error.message;
 
-        } else {
-
-            message.textContent =
-                "Errore: " + result.error.message;
-
-        }
+}
 
     });
 
@@ -343,3 +398,34 @@ document
     }
 
 }
+
+
+resendVerificationButton
+    .addEventListener("click", async () => {
+
+        const user =
+            (await import("./firebase.js")).auth.currentUser;
+
+
+        if (!user) {
+            return;
+        }
+
+
+        try {
+
+            await sendEmailVerification(user);
+
+            verificationMessage.textContent =
+                "Email inviata nuovamente.";
+
+        } catch (error) {
+
+            console.error(error);
+
+            verificationMessage.textContent =
+                "Non è stato possibile inviare l'email.";
+
+        }
+
+    });
