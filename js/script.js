@@ -100,18 +100,15 @@ async function checkEmailVerification(user) {
 
     if (user.emailVerified) {
 
-        verificationSpinner.style.display =
-            "none";
+    verificationSpinner.style.display =
+        "none";
 
-        verificationOverlay.classList.add("hidden");
+    verificationOverlay.classList.add("hidden");
 
-        showHome();
+    showRegister();
 
-        document.getElementById("userEmail").textContent =
-            user.email;
-
-        return;
-    }
+    return;
+}
 
 
     setTimeout(() => {
