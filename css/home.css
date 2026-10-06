@@ -1,0 +1,76 @@
+.home-header {
+    height: 70px;
+
+    padding: 0 30px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    background: white;
+
+    border-bottom: 1px solid #e5e5e5;
+}
+
+.home-header h1 {
+    margin: 0;
+
+    font-size: 22px;
+
+    letter-spacing: 4px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+
+    gap: 15px;
+
+    font-size: 14px;
+}
+
+#logoutButton {
+    padding: 8px 14px;
+
+    border: 1px solid #ddd;
+    border-radius: 8px;
+
+    background: white;
+
+    cursor: pointer;
+}
+
+.home-content {
+    max-width: 900px;
+
+    margin: 60px auto;
+
+    padding: 0 25px;
+
+    text-align: center;
+}
+
+.home-content h2 {
+    margin-bottom: 8px;
+}
+
+.home-content p {
+    color: #777;
+}
+
+.empty-chat {
+    margin-top: 50px;
+
+    padding: 50px 20px;
+
+    background: white;
+
+    border-radius: 15px;
+
+    border: 1px solid #e5e5e5;
+}
+
+.empty-chat h3 {
+    margin: 0 0 8px;
+}
+
