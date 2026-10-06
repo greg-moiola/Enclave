@@ -174,29 +174,183 @@
 
 
     <!-- ========================= -->
-    <!-- SCHERMATA HOME -->
-    <!-- ========================= -->
+<!-- SCHERMATA HOME -->
+<!-- ========================= -->
 
-    <div id="homeScreen" class="screen hidden">
+<div id="homeScreen" class="screen hidden">
+
+    <div class="enclave-app">
+
+
+        <!-- ========================= -->
+        <!-- HEADER -->
+        <!-- ========================= -->
 
         <header class="home-header">
 
-            <h1>ENCLAVE</h1>
+            <div class="home-logo">
+                ENCLAVE
+            </div>
 
 
-           <div class="user-info">
+            <div class="home-user">
 
-    <div class="user-details">
+                <div class="user-details">
 
-        <span id="userEmail"></span>
+                    <span
+                        id="userNickname"
+                        class="user-nickname"
+                    >
+                        —
+                    </span>
 
-        <span id="userEnclaveId"></span>
+                    <span
+                        id="userEnclaveId"
+                        class="user-enclave-id"
+                    >
+                        —
+                    </span>
+
+                </div>
+
+
+                <button
+                    id="logoutButton"
+                    class="logout-button"
+                >
+                    Esci
+                </button>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- ========================= -->
+        <!-- CORPO HOME -->
+        <!-- ========================= -->
+
+        <main class="home-main">
+
+
+            <!-- ========================= -->
+            <!-- SIDEBAR -->
+            <!-- ========================= -->
+
+            <aside class="chat-sidebar">
+
+
+                <div class="sidebar-top">
+
+                    <div class="search-box">
+
+                        <span class="search-icon">
+                            🔍
+                        </span>
+
+                        <input
+                            type="text"
+                            placeholder="Cerca"
+                            id="chatSearch"
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <div class="conversation-section">
+
+                    <div class="section-title">
+                        CONVERSAZIONI
+                    </div>
+
+
+                    <div
+                        id="conversationList"
+                        class="conversation-list"
+                    >
+
+                        <div class="no-conversations">
+
+                            <span>
+                                Nessuna chat
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- PROFILO IN FONDO -->
+
+                <div class="sidebar-profile">
+
+                    <div class="profile-avatar">
+                        <span id="profileInitial">
+                            —
+                        </span>
+                    </div>
+
+
+                    <div class="profile-info">
+
+                        <span
+                            id="profileNickname"
+                            class="profile-nickname"
+                        >
+                            —
+                        </span>
+
+                        <span
+                            id="profileEnclaveId"
+                            class="profile-enclave-id"
+                        >
+                            —
+                        </span>
+
+                    </div>
+
+                </div>
+
+            </aside>
+
+
+
+            <!-- ========================= -->
+            <!-- AREA CHAT -->
+            <!-- ========================= -->
+
+            <section class="chat-area">
+
+
+                <div class="empty-chat">
+
+                    <div class="empty-chat-icon">
+                        💬
+                    </div>
+
+
+                    <h2>
+                        Nessuna conversazione
+                    </h2>
+
+
+                    <p>
+                        Seleziona una chat per iniziare.
+                    </p>
+
+                </div>
+
+
+            </section>
+
+        </main>
 
     </div>
-
-    <button id="logoutButton">
-        Esci
-    </button>
 
 </div>
         </header>
