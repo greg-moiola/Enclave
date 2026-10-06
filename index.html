@@ -14,9 +14,65 @@
 
     <h1>Enclave</h1>
 
-    <p>Connessione in corso...</p>
+    <h2>Registrazione</h2>
+
+    <input
+        type="email"
+        id="registerEmail"
+        placeholder="Email"
+    >
+
+    <br><br>
+
+    <input
+        type="password"
+        id="registerPassword"
+        placeholder="Password"
+    >
+
+    <br><br>
+
+    <input
+        type="text"
+        id="registerNickname"
+        placeholder="Nickname"
+    >
+
+    <br><br>
+
+    <button id="registerButton">
+        Registrati
+    </button>
+
+
+    <h2>Accesso</h2>
+
+    <input
+        type="email"
+        id="loginEmail"
+        placeholder="Email"
+    >
+
+    <br><br>
+
+    <input
+        type="password"
+        id="loginPassword"
+        placeholder="Password"
+    >
+
+    <br><br>
+
+    <button id="loginButton">
+        Accedi
+    </button>
+
+
+    <p id="message"></p>
+
 
     <script type="module" src="js/firebase.js"></script>
+    <script type="module" src="js/auth.js"></script>
     <script type="module" src="js/script.js"></script>
 
 </body>
