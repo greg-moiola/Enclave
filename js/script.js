@@ -7,6 +7,13 @@ import {
     sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
+import {
+    doc,
+    getDoc
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+import { db } from "./firebase.js";
+
 
 console.log("Enclave avviato correttamente.");
 
@@ -35,6 +42,9 @@ const verificationMessage =
 
 const verificationSpinner =
     document.getElementById("verificationSpinner");
+
+const userEnclaveId =
+    document.getElementById("userEnclaveId");
 
 const resendVerificationButton =
     document.getElementById("resendVerificationButton");
@@ -70,6 +80,30 @@ function showHome() {
 
     homeScreen.classList.remove("hidden");
 
+}
+
+async function loadUserProfile(user) {
+
+    const userDocument =
+        await getDoc(
+            doc(db, "users", user.uid)
+        );
+
+
+    if (!userDocument.exists()) {
+
+        console.error("Profilo utente non trovato.");
+
+        return;
+    }
+
+
+    const userData =
+        userDocument.data();
+
+
+    userEnclaveId.textContent =
+        userData.enclaveId;
 }
 
 
@@ -228,6 +262,10 @@ document
 
     document.getElementById("userEmail").textContent =
         result.user.email;
+
+    await loadUserProfile(result.user);
+
+}
 
 } else if (result.emailNotVerified) {
 
