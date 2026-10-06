@@ -9,85 +9,220 @@
     <title>Enclave</title>
 
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/home.css">
 
 </head>
 
 <body>
 
-    <div class="auth-container">
 
-        <div class="logo">
+    <!-- ========================= -->
+    <!-- SCHERMATA REGISTRAZIONE -->
+    <!-- ========================= -->
 
-            <h1>ENCLAVE</h1>
+    <div id="registerScreen" class="screen">
 
-            <p>Private. Connected.</p>
+        <div class="auth-container">
 
-        </div>
+            <div class="logo">
+
+                <h1>ENCLAVE</h1>
+
+                <p>Private. Connected.</p>
+
+            </div>
 
 
-        <div class="auth-title">
+            <div class="auth-title">
 
-            <h2>Crea il tuo account</h2>
+                <h2>Crea il tuo account</h2>
 
-        </div>
+            </div>
 
 
-        <div class="input-group">
+            <div class="input-group">
 
-            <input
-                type="email"
-                id="registerEmail"
-                placeholder="Email"
+                <input
+                    type="email"
+                    id="registerEmail"
+                    placeholder="Email"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <input
+                    type="password"
+                    id="registerPassword"
+                    placeholder="Password"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <input
+                    type="text"
+                    id="registerNickname"
+                    placeholder="Nickname"
+                >
+
+            </div>
+
+
+            <button
+                id="registerButton"
+                class="register-button"
             >
+                Registrati
+            </button>
+
+
+            <div class="login-link">
+
+                Hai già un account?
+
+                <span id="loginLink">
+                    Accedi
+                </span>
+
+            </div>
+
+
+            <p id="message"></p>
 
         </div>
-
-
-        <div class="input-group">
-
-            <input
-                type="password"
-                id="registerPassword"
-                placeholder="Password"
-            >
-
-        </div>
-
-
-        <div class="input-group">
-
-            <input
-                type="text"
-                id="registerNickname"
-                placeholder="Nickname"
-            >
-
-        </div>
-
-
-        <button
-            id="registerButton"
-            class="register-button"
-        >
-            Registrati
-        </button>
-
-
-        <div class="login-link">
-
-            Hai già un account?
-
-            <span id="loginLink">
-                Accedi
-            </span>
-
-        </div>
-
-
-        <p id="message"></p>
 
     </div>
 
+
+
+    <!-- ========================= -->
+    <!-- SCHERMATA LOGIN -->
+    <!-- ========================= -->
+
+    <div id="loginScreen" class="screen hidden">
+
+        <div class="auth-container">
+
+            <div class="logo">
+
+                <h1>ENCLAVE</h1>
+
+                <p>Private. Connected.</p>
+
+            </div>
+
+
+            <div class="auth-title">
+
+                <h2>Accedi</h2>
+
+            </div>
+
+
+            <div class="input-group">
+
+                <input
+                    type="email"
+                    id="loginEmail"
+                    placeholder="Email"
+                >
+
+            </div>
+
+
+            <div class="input-group">
+
+                <input
+                    type="password"
+                    id="loginPassword"
+                    placeholder="Password"
+                >
+
+            </div>
+
+
+            <button
+                id="loginButton"
+                class="register-button"
+            >
+                Accedi
+            </button>
+
+
+            <div class="login-link">
+
+                Non hai un account?
+
+                <span id="registerLink">
+                    Registrati
+                </span>
+
+            </div>
+
+
+            <p id="loginMessage"></p>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- SCHERMATA HOME -->
+    <!-- ========================= -->
+
+    <div id="homeScreen" class="screen hidden">
+
+        <header class="home-header">
+
+            <h1>ENCLAVE</h1>
+
+
+            <div class="user-info">
+
+                <span id="userEmail"></span>
+
+                <button id="logoutButton">
+                    Esci
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <main class="home-content">
+
+            <h2>Benvenuto in Enclave.</h2>
+
+            <p>Questa è la tua home.</p>
+
+
+            <div class="empty-chat">
+
+                <h3>Nessuna conversazione</h3>
+
+                <p>
+                    Le tue chat appariranno qui.
+                </p>
+
+            </div>
+
+        </main>
+
+    </div>
+
+
+
+    <!-- ========================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================= -->
 
     <script type="module" src="js/firebase.js"></script>
     <script type="module" src="js/auth.js"></script>
@@ -96,3 +231,4 @@
 </body>
 
 </html>
+
