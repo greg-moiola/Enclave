@@ -1,6 +1,5 @@
 import {
-    registerUser,
-    loginUser
+    registerUser
 } from "./auth.js";
 
 
@@ -46,54 +45,6 @@ document
 
             console.log(
                 "Utente registrato:",
-                result.user
-            );
-
-        } else {
-
-            message.textContent =
-                "Errore: " + result.error.message;
-        }
-
-    });
-
-
-// LOGIN
-
-document
-    .getElementById("loginButton")
-    .addEventListener("click", async () => {
-
-        const email =
-            document.getElementById("loginEmail").value;
-
-        const password =
-            document.getElementById("loginPassword").value;
-
-        const message =
-            document.getElementById("message");
-
-
-        if (!email || !password) {
-
-            message.textContent =
-                "Inserisci email e password.";
-
-            return;
-        }
-
-
-        const result =
-            await loginUser(email, password);
-
-
-        if (result.success) {
-
-            message.textContent =
-                "Accesso effettuato!";
-
-            console.log(
-                "Utente loggato:",
                 result.user
             );
 
