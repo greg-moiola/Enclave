@@ -317,20 +317,6 @@ document
 
 }
 
- else if (result.emailNotVerified) {
-
-    message.textContent =
-        "Devi prima verificare la tua email.";
-
-} else {
-
-    message.textContent =
-        "Email o password non corretti.";
-
-    console.error(result.error);
-
-}
-
     });
 
 
