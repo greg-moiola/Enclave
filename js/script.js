@@ -267,7 +267,7 @@ document
 
 }
 
-} else if (result.emailNotVerified) {
+ else if (result.emailNotVerified) {
 
     message.textContent =
         "Devi prima verificare la tua email.";
