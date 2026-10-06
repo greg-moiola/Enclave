@@ -1,68 +1,121 @@
 import {
     createUserWithEmailAndPassword,
-    signInWithEmailAndPassword
+    signInWithEmailAndPassword,
+    sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import { auth } from "./firebase.js";
 
 
+// =========================
 // REGISTRAZIONE
+// =========================
 
 export async function registerUser(email, password) {
 
     try {
 
-        const userCredential = await createUserWithEmailAndPassword(
-            auth,
-            email,
-            password
+        const userCredential =
+            await createUserWithEmailAndPassword(
+                auth,
+                email,
+                password
+            );
+
+
+        await sendEmailVerification(
+            userCredential.user
         );
 
-        console.log("Account creato:", userCredential.user.email);
+
+        console.log(
+            "Account creato. Email di verifica inviata:",
+            userCredential.user.email
+        );
+
 
         return {
             success: true,
             user: userCredential.user
         };
 
+
     } catch (error) {
 
-        console.error("Errore registrazione:", error);
+        console.error(
+            "Errore registrazione:",
+            error
+        );
+
 
         return {
             success: false,
             error: error
         };
+
     }
+
 }
 
 
+// =========================
 // LOGIN
+// =========================
 
 export async function loginUser(email, password) {
 
     try {
 
-        const userCredential = await signInWithEmailAndPassword(
-            auth,
-            email,
-            password
+        const userCredential =
+            await signInWithEmailAndPassword(
+                auth,
+                email,
+                password
+            );
+
+
+        const user =
+            userCredential.user;
+
+
+        // Controlla se l'email è verificata
+
+        if (!user.emailVerified) {
+
+            return {
+                success: false,
+                emailNotVerified: true,
+                user: user
+            };
+
+        }
+
+
+        console.log(
+            "Accesso effettuato:",
+            user.email
         );
 
-        console.log("Accesso effettuato:", userCredential.user.email);
 
         return {
             success: true,
-            user: userCredential.user
+            user: user
         };
+
 
     } catch (error) {
 
-        console.error("Errore login:", error);
+        console.error(
+            "Errore login:",
+            error
+        );
+
 
         return {
             success: false,
             error: error
         };
+
     }
+
 }
