@@ -388,69 +388,99 @@ const chatSearch =
 const searchResults =
     document.getElementById("searchResults");
 
-
-chatSearch.addEventListener("input", () => {
+chatSearch.addEventListener("input", async () => {
 
     const search =
         chatSearch.value.trim().toUpperCase();
 
-
     searchResults.innerHTML = "";
 
-
     if (!search) {
-
         return;
-
     }
 
+    // Cerchiamo l'Enclave ID
+    try {
 
-    // RISULTATO DI PROVA
+        const idDocument =
+            await getDoc(
+                doc(db, "enclaveIds", search)
+            );
 
-    if (search === "AB-3817") {
+        if (!idDocument.exists()) {
 
+            const noResult =
+                document.createElement("div");
+
+            noResult.className =
+                "search-no-result";
+
+            noResult.textContent =
+                "Nessun utente trovato.";
+
+            searchResults.appendChild(noResult);
+
+            return;
+        }
+
+        // Recuperiamo il UID dell'utente
+        const userUid =
+            idDocument.data().uid;
+
+        // Recuperiamo il profilo
+        const userDocument =
+            await getDoc(
+                doc(db, "users", userUid)
+            );
+
+        if (!userDocument.exists()) {
+            return;
+        }
+
+        const userData =
+            userDocument.data();
+
+        const nickname =
+            userData.nickname;
+
+        const enclaveId =
+            userData.enclaveId;
+
+        // Creiamo il risultato
         const result =
             document.createElement("div");
 
         result.className =
             "search-result";
 
-
         result.innerHTML = `
 
             <div class="search-result-avatar">
-                G
+                ${nickname.charAt(0).toUpperCase()}
             </div>
 
             <div class="search-result-info">
 
                 <span class="search-result-nickname">
-                    Greg
+                    ${nickname}
                 </span>
 
                 <span class="search-result-id">
-                    AB-3817
+                    ${enclaveId}
                 </span>
 
             </div>
 
         `;
 
-
         searchResults.appendChild(result);
 
-    } else {
+    } catch (error) {
 
-        const noResult =
-            document.createElement("div");
-
-        noResult.className =
-            "search-no-result";
-
-        noResult.textContent =
-            "Nessun utente trovato.";
-
-        searchResults.appendChild(noResult);
+        console.error(
+            "Errore ricerca utente:",
+            error
+        );
 
     }
 
