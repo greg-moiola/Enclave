@@ -8,67 +8,85 @@
 
     <title>Enclave</title>
 
+    <link rel="stylesheet" href="css/style.css">
+
 </head>
 
 <body>
 
-    <h1>Enclave</h1>
+    <div class="auth-container">
 
-    <h2>Registrazione</h2>
+        <div class="logo">
 
-    <input
-        type="email"
-        id="registerEmail"
-        placeholder="Email"
-    >
+            <h1>ENCLAVE</h1>
 
-    <br><br>
+            <p>Private. Connected.</p>
 
-    <input
-        type="password"
-        id="registerPassword"
-        placeholder="Password"
-    >
-
-    <br><br>
-
-    <input
-        type="text"
-        id="registerNickname"
-        placeholder="Nickname"
-    >
-
-    <br><br>
-
-    <button id="registerButton">
-        Registrati
-    </button>
+        </div>
 
 
-    <h2>Accesso</h2>
+        <div class="auth-title">
 
-    <input
-        type="email"
-        id="loginEmail"
-        placeholder="Email"
-    >
+            <h2>Crea il tuo account</h2>
 
-    <br><br>
-
-    <input
-        type="password"
-        id="loginPassword"
-        placeholder="Password"
-    >
-
-    <br><br>
-
-    <button id="loginButton">
-        Accedi
-    </button>
+        </div>
 
 
-    <p id="message"></p>
+        <div class="input-group">
+
+            <input
+                type="email"
+                id="registerEmail"
+                placeholder="Email"
+            >
+
+        </div>
+
+
+        <div class="input-group">
+
+            <input
+                type="password"
+                id="registerPassword"
+                placeholder="Password"
+            >
+
+        </div>
+
+
+        <div class="input-group">
+
+            <input
+                type="text"
+                id="registerNickname"
+                placeholder="Nickname"
+            >
+
+        </div>
+
+
+        <button
+            id="registerButton"
+            class="register-button"
+        >
+            Registrati
+        </button>
+
+
+        <div class="login-link">
+
+            Hai già un account?
+
+            <span id="loginLink">
+                Accedi
+            </span>
+
+        </div>
+
+
+        <p id="message"></p>
+
+    </div>
 
 
     <script type="module" src="js/firebase.js"></script>
