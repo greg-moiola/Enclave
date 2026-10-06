@@ -132,3 +132,19 @@ body {
 
     font-size: 14px;
 }
+
+.screen {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#homeScreen {
+    display: block;
+}
