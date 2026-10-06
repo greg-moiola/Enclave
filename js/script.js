@@ -94,10 +94,8 @@ document
 
         if (result.success) {
 
-            showHome();
-
-            document.getElementById("userEmail").textContent =
-                result.user.email;
+    message.textContent =
+        "Account creato! Controlla la tua email per verificare l'account.";
 
         } else {
 
@@ -159,19 +157,24 @@ document
 
         if (result.success) {
 
-            showHome();
+    showHome();
 
-            document.getElementById("userEmail").textContent =
-                result.user.email;
+    document.getElementById("userEmail").textContent =
+        result.user.email;
 
-        } else {
+} else if (result.emailNotVerified) {
 
-            message.textContent =
-                "Email o password non corretti.";
+    message.textContent =
+        "Devi prima verificare la tua email.";
 
-            console.error(result.error);
+} else {
 
-        }
+    message.textContent =
+        "Email o password non corretti.";
+
+    console.error(result.error);
+
+}
 
     });
 
