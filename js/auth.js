@@ -7,6 +7,7 @@ import {
 import {
     doc,
     setDoc,
+    getDoc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -29,6 +30,27 @@ function generateEnclaveId() {
     return `${firstLetter}${secondLetter}-${numbers}`;
 }
 
+async function generateUniqueEnclaveId() {
+
+    let enclaveId;
+    let idExists = true;
+
+    while (idExists) {
+
+        enclaveId = generateEnclaveId();
+
+        const idDocument =
+            await getDoc(
+                doc(db, "enclaveIds", enclaveId)
+            );
+
+        idExists =
+            idDocument.exists();
+    }
+
+    return enclaveId;
+}
+
 
 // =========================
 // REGISTRAZIONE
@@ -47,7 +69,15 @@ export async function registerUser(email, password, nickname) {
 
         const user = userCredential.user;
 
-const enclaveId = generateEnclaveId();
+const enclaveId =
+    await generateUniqueEnclaveId();
+
+        await setDoc(
+    doc(db, "enclaveIds", enclaveId),
+    {
+        uid: user.uid
+    }
+);
 
 await setDoc(
     doc(db, "users", user.uid),
