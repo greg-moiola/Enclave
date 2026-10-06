@@ -13,6 +13,23 @@ import {
 import { auth, db } from "./firebase.js";
 
 
+function generateEnclaveId() {
+
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    const firstLetter =
+        letters[Math.floor(Math.random() * letters.length)];
+
+    const secondLetter =
+        letters[Math.floor(Math.random() * letters.length)];
+
+    const numbers =
+        Math.floor(1000 + Math.random() * 9000);
+
+    return `${firstLetter}${secondLetter}-${numbers}`;
+}
+
+
 // =========================
 // REGISTRAZIONE
 // =========================
