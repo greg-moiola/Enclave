@@ -4,7 +4,13 @@ import {
     sendEmailVerification
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
-import { auth } from "./firebase.js";
+import {
+    doc,
+    setDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+
+import { auth, db } from "./firebase.js";
 
 
 // =========================
