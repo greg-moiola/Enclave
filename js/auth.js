@@ -34,7 +34,7 @@ function generateEnclaveId() {
 // REGISTRAZIONE
 // =========================
 
-export async function registerUser(email, password) {
+export async function registerUser(email, password, nickname) {
 
     try {
 
@@ -44,6 +44,20 @@ export async function registerUser(email, password) {
                 email,
                 password
             );
+
+        const user = userCredential.user;
+
+const enclaveId = generateEnclaveId();
+
+await setDoc(
+    doc(db, "users", user.uid),
+    {
+        nickname: nickname,
+        enclaveId: enclaveId,
+        email: user.email,
+        createdAt: serverTimestamp()
+    }
+);
 
 
         await sendEmailVerification(
