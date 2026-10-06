@@ -46,6 +46,18 @@ const verificationSpinner =
 const userEnclaveId =
     document.getElementById("userEnclaveId");
 
+const userNickname =
+    document.getElementById("userNickname");
+
+const profileNickname =
+    document.getElementById("profileNickname");
+
+const profileEnclaveId =
+    document.getElementById("profileEnclaveId");
+
+const profileInitial =
+    document.getElementById("profileInitial");
+
 const resendVerificationButton =
     document.getElementById("resendVerificationButton");
 
@@ -82,6 +94,7 @@ function showHome() {
 
 }
 
+
 async function loadUserProfile(user) {
 
     const userDocument =
@@ -102,10 +115,38 @@ async function loadUserProfile(user) {
         userDocument.data();
 
 
-    userEnclaveId.textContent =
+    const nickname =
+        userData.nickname;
+
+    const enclaveId =
         userData.enclaveId;
+
+
+    // HEADER
+
+    userNickname.textContent =
+        nickname;
+
+    userEnclaveId.textContent =
+        enclaveId;
+
+
+    // PROFILO SIDEBAR
+
+    profileNickname.textContent =
+        nickname;
+
+    profileEnclaveId.textContent =
+        enclaveId;
+
+
+    // INIZIALE AVATAR
+
+    profileInitial.textContent =
+        nickname.charAt(0).toUpperCase();
 }
 
+    
 
 function showVerification(user) {
 
@@ -260,10 +301,19 @@ document
 
     showHome();
 
-    document.getElementById("userEmail").textContent =
-        result.user.email;
-
     await loadUserProfile(result.user);
+
+} else if (result.emailNotVerified) {
+
+    message.textContent =
+        "Devi prima verificare la tua email.";
+
+} else {
+
+    message.textContent =
+        "Email o password non corretti.";
+
+    console.error(result.error);
 
 }
 
