@@ -376,3 +376,82 @@ resendVerificationButton
         }
 
     });
+
+
+// =========================
+// RICERCA UTENTI
+// =========================
+
+const chatSearch =
+    document.getElementById("chatSearch");
+
+const searchResults =
+    document.getElementById("searchResults");
+
+
+chatSearch.addEventListener("input", () => {
+
+    const search =
+        chatSearch.value.trim().toUpperCase();
+
+
+    searchResults.innerHTML = "";
+
+
+    if (!search) {
+
+        return;
+
+    }
+
+
+    // RISULTATO DI PROVA
+
+    if (search === "AB-3817") {
+
+        const result =
+            document.createElement("div");
+
+        result.className =
+            "search-result";
+
+
+        result.innerHTML = `
+
+            <div class="search-result-avatar">
+                G
+            </div>
+
+            <div class="search-result-info">
+
+                <span class="search-result-nickname">
+                    Greg
+                </span>
+
+                <span class="search-result-id">
+                    AB-3817
+                </span>
+
+            </div>
+
+        `;
+
+
+        searchResults.appendChild(result);
+
+    } else {
+
+        const noResult =
+            document.createElement("div");
+
+        noResult.className =
+            "search-no-result";
+
+        noResult.textContent =
+            "Nessun utente trovato.";
+
+        searchResults.appendChild(noResult);
+
+    }
+
+});
