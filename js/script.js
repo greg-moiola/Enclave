@@ -1058,6 +1058,12 @@ function openMessageMenu(
         "message-menu";
 
 
+    const isOwnMessage =
+        auth.currentUser &&
+        message.senderId ===
+            auth.currentUser.uid;
+
+
     // =========================
     // RISPONDI
     // =========================
@@ -1096,102 +1102,103 @@ function openMessageMenu(
     );
 
 
-    // =========================
-    // MODIFICA
-    // =========================
-
-    const editButton =
-        document.createElement(
-            "button"
-        );
-
-
-    editButton.className =
-        "message-menu-button";
-
-
-    editButton.type =
-        "button";
-
-
-    editButton.textContent =
-        "Modifica";
-
-
-    editButton.addEventListener(
-        "click",
-        async (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            closeMessageMenus();
-
-            await editMessage(
-                message.id,
-                currentChatId,
-                message.text
-            );
-
-        }
-    );
-
-
-    // =========================
-    // ELIMINA
-    // =========================
-
-    const deleteButton =
-        document.createElement(
-            "button"
-        );
-
-
-    deleteButton.className =
-        "message-menu-button";
-
-
-    deleteButton.type =
-        "button";
-
-
-    deleteButton.textContent =
-        "Elimina";
-
-
-    deleteButton.addEventListener(
-        "click",
-        async (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            closeMessageMenus();
-
-            await deleteMessage(
-                message.id,
-                currentChatId
-            );
-
-        }
-    );
-
-
     menu.appendChild(
         replyButton
     );
 
 
-    menu.appendChild(
-        editButton
-    );
+    // =========================
+    // MODIFICA + ELIMINA
+    // SOLO PER I TUOI MESSAGGI
+    // =========================
+
+    if (isOwnMessage) {
+
+        const editButton =
+            document.createElement(
+                "button"
+            );
 
 
-    menu.appendChild(
-        deleteButton
-    );
+        editButton.className =
+            "message-menu-button";
+
+
+        editButton.type =
+            "button";
+
+
+        editButton.textContent =
+            "Modifica";
+
+
+        editButton.addEventListener(
+            "click",
+            async (event) => {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                closeMessageMenus();
+
+                await editMessage(
+                    message.id,
+                    currentChatId,
+                    message.text
+                );
+
+            }
+        );
+
+
+        const deleteButton =
+            document.createElement(
+                "button"
+            );
+
+
+        deleteButton.className =
+            "message-menu-button";
+
+
+        deleteButton.type =
+            "button";
+
+
+        deleteButton.textContent =
+            "Elimina";
+
+
+        deleteButton.addEventListener(
+            "click",
+            async (event) => {
+
+                event.preventDefault();
+
+                event.stopPropagation();
+
+                closeMessageMenus();
+
+                await deleteMessage(
+                    message.id,
+                    currentChatId
+                );
+
+            }
+        );
+
+
+        menu.appendChild(
+            editButton
+        );
+
+
+        menu.appendChild(
+            deleteButton
+        );
+
+    }
 
 
     messageElement.appendChild(
@@ -1340,12 +1347,6 @@ function loadMessages(chatId) {
                         // =========================
                         // DATI DEL MESSAGGIO
                         // =========================
-
-                        // Salviamo direttamente il messaggio
-                        // sull'elemento DOM.
-                        //
-                        // Questo evita il problema precedente
-                        // in cui la freccetta trovava dataset vuoti.
 
                         messageElement._enclaveMessage =
                             message;
@@ -1602,41 +1603,169 @@ function loadMessages(chatId) {
 
 
                         // =========================
-                        // AZIONI TUOI MESSAGGI
+                        // AZIONI
+                        // TUTTI I MESSAGGI
                         // =========================
 
-                        if (isOwnMessage) {
-
-                            const actionButton =
-                                document.createElement(
-                                    "button"
-                                );
-
-
-                            actionButton.className =
-                                "message-actions";
-
-
-                            actionButton.type =
-                                "button";
-
-
-                            actionButton.textContent =
-                                "⌄";
-
-
-                            // IMPORTANTE:
-                            // non mettiamo più un listener
-                            // individuale qui.
-                            //
-                            // Il click viene gestito dal
-                            // listener delegato sotto.
-
-                            messageElement.appendChild(
-                                actionButton
+                        const actionButton =
+                            document.createElement(
+                                "button"
                             );
 
-                        }
+
+                        actionButton.className =
+                            "message-actions";
+
+
+                        actionButton.type =
+                            "button";
+
+
+                        actionButton.textContent =
+                            "⌄";
+
+
+                        // =========================
+                        // APERTURA MENU
+                        // TOUCH + CLICK
+                        // =========================
+
+                        let lastTouchTime =
+                            0;
+
+
+                        const openActions =
+                            (event) => {
+
+                                event.preventDefault();
+
+                                event.stopPropagation();
+
+
+                                openMessageMenu(
+                                    messageElement,
+                                    message
+                                );
+
+                            };
+
+
+                        actionButton.addEventListener(
+                            "touchend",
+                            (event) => {
+
+                                lastTouchTime =
+                                    Date.now();
+
+                                openActions(
+                                    event
+                                );
+
+                            },
+                            {
+                                passive:
+                                    false
+                            }
+                        );
+
+
+                        actionButton.addEventListener(
+                            "click",
+                            (event) => {
+
+                                if (
+                                    Date.now() -
+                                    lastTouchTime <
+                                    600
+                                ) {
+
+                                    return;
+
+                                }
+
+
+                                openActions(
+                                    event
+                                );
+
+                            }
+                        );
+
+
+                        messageElement.appendChild(
+                            actionButton
+                        );
+
+
+                        // =========================
+                        // TAP SU MOBILE
+                        // MOSTRA FRECCETTA
+                        // =========================
+
+                        messageElement.addEventListener(
+                            "click",
+                            (event) => {
+
+                                if (
+                                    window.innerWidth >
+                                    700
+                                ) {
+
+                                    return;
+
+                                }
+
+
+                                if (
+                                    event.target.closest(
+                                        ".message-actions"
+                                    )
+                                ) {
+
+                                    return;
+
+                                }
+
+
+                                if (
+                                    event.target.closest(
+                                        ".message-menu"
+                                    )
+                                ) {
+
+                                    return;
+
+                                }
+
+
+                                document
+                                    .querySelectorAll(
+                                        ".message-actions-visible"
+                                    )
+                                    .forEach(
+                                        (element) => {
+
+                                            if (
+                                                element !==
+                                                messageElement
+                                            ) {
+
+                                                element.classList.remove(
+                                                    "message-actions-visible"
+                                                );
+
+                                            }
+
+                                        }
+                                    );
+
+
+                                messageElement.classList.toggle(
+                                    "message-actions-visible"
+                                );
+
+                            }
+                        );
 
 
                         // =========================
@@ -1704,71 +1833,6 @@ function loadMessages(chatId) {
         );
 
 }
-
-
-// =========================
-// CLICK SULLA FRECCETTA
-// =========================
-//
-// Un solo listener sul contenitore.
-// Funziona sia desktop che mobile.
-//
-
-chatMessages.addEventListener(
-    "click",
-    (event) => {
-
-        const actionButton =
-            event.target.closest(
-                ".message-actions"
-            );
-
-
-        if (!actionButton) {
-            return;
-        }
-
-
-        event.preventDefault();
-
-        event.stopPropagation();
-
-
-        const messageElement =
-            actionButton.closest(
-                ".message"
-            );
-
-
-        if (!messageElement) {
-            return;
-        }
-
-
-        // Recuperiamo direttamente il messaggio
-        // che avevamo salvato nell'elemento DOM.
-
-        const message =
-            messageElement._enclaveMessage;
-
-
-        if (!message) {
-
-            console.error(
-                "Messaggio non trovato per la freccetta."
-            );
-
-            return;
-        }
-
-
-        openMessageMenu(
-            messageElement,
-            message
-        );
-
-    }
-);
 
 
 // =========================
