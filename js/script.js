@@ -630,6 +630,8 @@ async function sendMessage() {
         currentChatId =
             chatId;
 
+        console.log("STEP 1 - Chat ID:", chatId);
+
 
         // Riferimento alla conversazione
         const chatReference =
@@ -643,6 +645,8 @@ async function sendMessage() {
         // Controlliamo se esiste già
         const chatDocument =
             await getDoc(chatReference);
+
+        console.log("STEP 2 - Chat esistente:", chatDocument.exists());
 
 
         // Se è la prima volta, creiamo la conversazione
@@ -659,6 +663,7 @@ async function sendMessage() {
                     lastMessageAt: serverTimestamp()
                 }
             );
+            console.log("STEP 3 - Chat creata");
 
         } else {
 
@@ -673,6 +678,8 @@ async function sendMessage() {
                     merge: true
                 }
             );
+
+            console.log("STEP 3B - Chat aggiornata");
 
         }
 
@@ -691,6 +698,8 @@ async function sendMessage() {
                 createdAt: serverTimestamp()
             }
         );
+
+        console.log("STEP 4 - Messaggio salvato");
 
 
         // Rimuoviamo "Nessun messaggio"
