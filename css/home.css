@@ -674,6 +674,15 @@
         display: none;
     }
 
+    .home-main.chat-open .chat-sidebar {
+        display: none;
+    }
+
+    .home-main.chat-open .chat-area {
+        display: flex;
+        width: 100%;
+    }
+
     .home-user .user-details {
         display: none;
     }
@@ -687,6 +696,11 @@
         padding: 18px 14px;
     }
 
+    .chat-input-area {
+        padding: 10px 12px;
+    }
+
+}
     .chat-input-area {
         padding: 10px 12px;
     }
