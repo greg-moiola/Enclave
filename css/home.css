@@ -839,6 +839,7 @@
 }
 
 
+
 /* ========================= */
 /* AZIONI MESSAGGIO */
 /* ========================= */
@@ -847,6 +848,7 @@
     position: relative;
 }
 
+/* La freccia viene posizionata vicino al bubble */
 .message-actions {
     position: absolute;
 
@@ -875,16 +877,15 @@
     z-index: 5;
 }
 
+/* Messaggio proprio: freccia appena a sinistra del bubble */
 .message-own .message-actions {
-    right: calc(100% + 6px);
+    right: 6px;
 }
 
-.message-own:hover .message-actions {
+/* Mostra la freccia quando il mouse è sul messaggio O sulla freccia */
+.message-own:hover .message-actions,
+.message-own .message-actions:hover {
     display: flex;
-}
-
-.message-actions:hover {
-    background: #f2f2f2;
 }
 
 
@@ -894,6 +895,9 @@
 
 .message-menu {
     position: absolute;
+
+    right: 0;
+    top: calc(100% + 5px);
 
     min-width: 120px;
 
@@ -960,6 +964,24 @@
     }
 
     .message-menu {
+        position: fixed;
+    }
+
+    /* Impedisce la selezione del testo durante il long press */
+    .message-own {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+    }
+
+    .message-own .message-bubble {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+}
+
+
         position: fixed;
     }
 
