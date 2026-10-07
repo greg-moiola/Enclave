@@ -870,6 +870,8 @@ function openMessageMenu(
         "click",
         async (event) => {
 
+            event.preventDefault();
+
             event.stopPropagation();
 
             closeMessageMenus();
@@ -887,6 +889,8 @@ function openMessageMenu(
     deleteButton.addEventListener(
         "click",
         async (event) => {
+
+            event.preventDefault();
 
             event.stopPropagation();
 
@@ -981,8 +985,6 @@ function loadMessages(chatId) {
                     }
                 );
 
-
-                // ORDINA I MESSAGGI
 
                 messages.sort(
                     (a, b) => {
@@ -1123,7 +1125,7 @@ function loadMessages(chatId) {
 
 
                         // =========================
-                        // AZIONI SOLO SUI TUOI MESSAGGI
+                        // AZIONI TUOI MESSAGGI
                         // =========================
 
                         if (isOwnMessage) {
@@ -1143,24 +1145,17 @@ function loadMessages(chatId) {
                                 "⌄";
 
 
-                            /*
-                             * IMPORTANTE:
-                             * la freccetta viene inserita
-                             * nello stesso elemento del messaggio
-                             * e resta cliccabile.
-                             */
-
                             messageElement.appendChild(
                                 actionButton
                             );
 
 
                             // =========================
-                            // PC
+                            // CLICK / TAP
                             // =========================
 
                             actionButton.addEventListener(
-                                "click",
+                                "pointerup",
                                 (event) => {
 
                                     event.preventDefault();
@@ -1177,29 +1172,43 @@ function loadMessages(chatId) {
 
 
                             // =========================
-                            // TELEFONO
+                            // LONG PRESS MOBILE
                             // =========================
 
                             let longPressTimer =
                                 null;
 
+                            let longPressTriggered =
+                                false;
+
 
                             messageElement.addEventListener(
-                                "touchstart",
+                                "pointerdown",
                                 (event) => {
 
                                     if (
-                                        event.touches.length !== 1
+                                        event.pointerType !==
+                                        "touch"
                                     ) {
                                         return;
                                     }
+
+
+                                    longPressTriggered =
+                                        false;
+
+
+                                    clearTimeout(
+                                        longPressTimer
+                                    );
 
 
                                     longPressTimer =
                                         setTimeout(
                                             () => {
 
-                                                event.preventDefault();
+                                                longPressTriggered =
+                                                    true;
 
                                                 openMessageMenu(
                                                     messageElement,
@@ -1210,15 +1219,12 @@ function loadMessages(chatId) {
                                             500
                                         );
 
-                                },
-                                {
-                                    passive: false
                                 }
                             );
 
 
                             messageElement.addEventListener(
-                                "touchend",
+                                "pointerup",
                                 () => {
 
                                     clearTimeout(
@@ -1230,7 +1236,7 @@ function loadMessages(chatId) {
 
 
                             messageElement.addEventListener(
-                                "touchmove",
+                                "pointercancel",
                                 () => {
 
                                     clearTimeout(
@@ -1242,7 +1248,7 @@ function loadMessages(chatId) {
 
 
                             messageElement.addEventListener(
-                                "touchcancel",
+                                "pointermove",
                                 () => {
 
                                     clearTimeout(
@@ -1253,15 +1259,38 @@ function loadMessages(chatId) {
                             );
 
 
-                            // Impedisce il menu contestuale
-                            // del browser su mobile
+                            // =========================
+                            // EVITA SELEZIONE TESTO
+                            // =========================
+
+                            messageElement.addEventListener(
+                                "selectstart",
+                                (event) => {
+
+                                    if (
+                                        window.innerWidth <=
+                                        700
+                                    ) {
+
+                                        event.preventDefault();
+
+                                    }
+
+                                }
+                            );
+
+
+                            // =========================
+                            // EVITA MENU BROWSER
+                            // =========================
 
                             messageElement.addEventListener(
                                 "contextmenu",
                                 (event) => {
 
                                     if (
-                                        window.innerWidth <= 700
+                                        window.innerWidth <=
+                                        700
                                     ) {
 
                                         event.preventDefault();
@@ -1374,16 +1403,6 @@ chatSearch.addEventListener(
                 "DOCUMENTO ID ESISTE:",
                 idDocument.exists()
             );
-
-
-            if (idDocument.exists()) {
-
-                console.log(
-                    "DATI ID:",
-                    idDocument.data()
-                );
-
-            }
 
 
             if (!idDocument.exists()) {
@@ -1893,6 +1912,10 @@ function loadConversations() {
                 }
 
 
+                // ==========================================
+                // COSTRUISCE LE CONVERSAZIONI
+                // ==========================================
+
                 const conversations = [];
 
 
@@ -1964,7 +1987,70 @@ function loadConversations() {
                 }
 
 
-                conversations.sort(
+                // ==========================================
+                // ELIMINA I DUPLICATI VISIVI
+                // ==========================================
+
+                const uniqueConversations =
+                    new Map();
+
+
+                conversations.forEach(
+                    (conversation) => {
+
+                        const existing =
+                            uniqueConversations.get(
+                                conversation.uid
+                            );
+
+
+                        if (!existing) {
+
+                            uniqueConversations.set(
+                                conversation.uid,
+                                conversation
+                            );
+
+                            return;
+                        }
+
+
+                        const existingTime =
+                            existing.lastMessageAt
+                                ?.toMillis?.() || 0;
+
+                        const currentTime =
+                            conversation.lastMessageAt
+                                ?.toMillis?.() || 0;
+
+
+                        if (
+                            currentTime >
+                            existingTime
+                        ) {
+
+                            uniqueConversations.set(
+                                conversation.uid,
+                                conversation
+                            );
+
+                        }
+
+                    }
+                );
+
+
+                const finalConversations =
+                    Array.from(
+                        uniqueConversations.values()
+                    );
+
+
+                // ==========================================
+                // ORDINA PER ULTIMO MESSAGGIO
+                // ==========================================
+
+                finalConversations.sort(
                     (a, b) => {
 
                         const timeA =
@@ -1981,7 +2067,39 @@ function loadConversations() {
                 );
 
 
-                conversations.forEach(
+                // ==========================================
+                // NESSUNA CONVERSAZIONE
+                // ==========================================
+
+                if (
+                    finalConversations.length === 0
+                ) {
+
+                    const empty =
+                        document.createElement(
+                            "div"
+                        );
+
+                    empty.className =
+                        "no-conversations";
+
+                    empty.textContent =
+                        "Nessuna conversazione";
+
+                    conversationList.appendChild(
+                        empty
+                    );
+
+                    return;
+
+                }
+
+
+                // ==========================================
+                // CREA LA LISTA
+                // ==========================================
+
+                finalConversations.forEach(
                     (conversation) => {
 
                         const conversationElement =
@@ -2111,6 +2229,10 @@ function loadConversations() {
                         );
 
 
+                        // ==========================================
+                        // APRI CONVERSAZIONE
+                        // ==========================================
+
                         conversationElement.addEventListener(
                             "click",
                             () => {
@@ -2139,8 +2261,16 @@ function loadConversations() {
                                 currentChatUserUid =
                                     conversation.uid;
 
+
+                                // IMPORTANTE:
+                                // usiamo SEMPRE il chatId
+                                // deterministico
+
                                 currentChatId =
-                                    conversation.chatId;
+                                    createChatId(
+                                        currentUser.uid,
+                                        conversation.uid
+                                    );
 
 
                                 loadMessages(
@@ -2154,7 +2284,8 @@ function loadConversations() {
 
 
                                 if (
-                                    window.innerWidth <= 700
+                                    window.innerWidth <=
+                                    700
                                 ) {
 
                                     chatSidebar.style.display =
