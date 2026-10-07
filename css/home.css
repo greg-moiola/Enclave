@@ -900,51 +900,54 @@
 
 .message-menu {
     position: absolute;
+    top: 50%;
+    z-index: 1000;
 
-    right: 0;
+    min-width: 150px;
+    padding: 6px;
 
-    top: calc(100% + 5px);
-
-    min-width: 120px;
-
-    padding: 5px;
-
-    background: white;
-
+    background: #252525;
+    border: 1px solid #3d3d3d;
     border-radius: 10px;
 
-    box-shadow:
-        0 5px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
 
-    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    transform: translateY(-50%);
 }
 
-.message-menu-button {
-    width: 100%;
+/* Menu dei TUOI messaggi → a sinistra della freccia */
+.message-own .message-menu {
+    right: calc(100% + 8px);
+}
 
+/* Menu dei messaggi DEGLI ALTRI → a destra della freccia */
+.message-other .message-menu {
+    left: calc(100% + 8px);
+}
+
+.message-menu button {
+    width: 100%;
     padding: 9px 12px;
 
     border: none;
-
     border-radius: 7px;
 
     background: transparent;
+    color: white;
 
     text-align: left;
-
-    font-family: inherit;
-
-    font-size: 13px;
-
-    color: #111;
+    font-size: 14px;
 
     cursor: pointer;
 }
 
-.message-menu-button:hover {
-    background: #f3f3f3;
+.message-menu button:hover {
+    background: #3a3a3a;
 }
-
 
 /* ========================= */
 /* MESSAGGIO MODIFICATO */
@@ -968,95 +971,82 @@
 
     left: 12px;
     right: 12px;
-
     bottom: calc(100% + 8px);
 
     min-height: 48px;
-
-    display: none;
-
-    align-items: center;
-
-    justify-content: space-between;
-
-    gap: 12px;
-
-    padding: 10px 12px;
-
     box-sizing: border-box;
 
+    display: none;
+    align-items: center;
+
+    padding: 8px 42px 8px 12px;
+
     background: #303030;
+    border-left: 4px solid #8b8b8b;
 
-    color: white;
+    border-radius: 10px;
 
-    border-radius: 12px;
+    color: #ffffff;
 
-    box-shadow:
-        0 5px 20px rgba(0, 0, 0, 0.20);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
 
     z-index: 50;
 }
 
-.message-reply-info {
+.message-reply-bar.visible {
+    display: flex;
+}
+
+.message-reply-content {
     min-width: 0;
 
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
 }
 
 .message-reply-title {
-    margin-bottom: 2px;
-
-    font-size: 11px;
-
+    font-size: 12px;
     font-weight: 600;
-
     color: #bdbdbd;
 }
 
 .message-reply-text {
-    overflow: hidden;
+    font-size: 13px;
+    color: #eeeeee;
 
     white-space: nowrap;
-
+    overflow: hidden;
     text-overflow: ellipsis;
-
-    font-size: 13px;
-
-    color: #f1f1f1;
 }
 
 .message-reply-cancel {
+    position: absolute;
+
+    right: 10px;
+    top: 50%;
+
+    transform: translateY(-50%);
+
     width: 28px;
     height: 28px;
 
-    display: flex;
-
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-
-    padding: 0;
-
     border: none;
-
     border-radius: 50%;
 
-    background: #444;
-
-    color: white;
+    background: transparent;
+    color: #aaaaaa;
 
     font-size: 20px;
-
-    line-height: 1;
+    line-height: 28px;
 
     cursor: pointer;
 }
 
 .message-reply-cancel:hover {
-    background: #555;
+    background: #444;
+    color: white;
 }
-
 
 /* ========================= */
 /* MESSAGGIO CITATO */
@@ -1180,25 +1170,6 @@
 
     .message-actions-visible .message-actions {
         display: flex;
-    }
-
-
-    /* ========================= */
-    /* MENU MOBILE */
-    /* ========================= */
-
-    .message-menu {
-        position: fixed;
-
-        top: auto;
-
-        right: 12px;
-
-        bottom: 78px;
-
-        min-width: 130px;
-
-        max-width: calc(100vw - 24px);
     }
 
 
