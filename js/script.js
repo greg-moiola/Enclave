@@ -423,6 +423,7 @@ chatSearch.addEventListener("input", async () => {
             return;
         }
 
+
         // Recuperiamo il UID dell'utente
         const userUid =
             idDocument.data().uid;
@@ -474,6 +475,17 @@ chatSearch.addEventListener("input", async () => {
         `;
 
         searchResults.appendChild(result);
+
+        result.addEventListener("click", () => {
+
+    console.log(
+        "Utente selezionato:",
+        nickname,
+        enclaveId,
+        userUid
+    );
+
+});
 
     } catch (error) {
 
