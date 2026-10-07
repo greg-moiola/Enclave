@@ -620,11 +620,6 @@ async function sendMessage() {
         return;
     }
 
-    if (!currentChatUserUid) {
-        return;
-    }
-
-
     const currentUser =
         auth.currentUser;
 
@@ -632,10 +627,18 @@ async function sendMessage() {
         return;
     }
 
+    if (!currentChatUserUid) {
+        return;
+    }
+
+    // Evita di scrivere a se stessi
+    if (currentUser.uid === currentChatUserUid) {
+        return;
+    }
 
     try {
 
-        // Creiamo un ID unico per la coppia
+        // Crea sempre lo stesso ID per questa coppia di utenti
         const chatId =
             createChatId(
                 currentUser.uid,
@@ -645,10 +648,16 @@ async function sendMessage() {
         currentChatId =
             chatId;
 
-        console.log("STEP 1 - Chat ID:", chatId);
+        console.log(
+            "CHAT ID:",
+            chatId
+        );
 
 
-        // Riferimento alla conversazione
+        // =========================
+        // CREA / AGGIORNA CHAT
+        // =========================
+
         const chatReference =
             doc(
                 db,
@@ -656,50 +665,36 @@ async function sendMessage() {
                 chatId
             );
 
+        await setDoc(
+            chatReference,
+            {
+                participants: [
+                    currentUser.uid,
+                    currentChatUserUid
+                ],
 
-        // Controlliamo se esiste già
-        const chatDocument =
-            await getDoc(chatReference);
+                lastMessage: message,
 
-        console.log("STEP 2 - Chat esistente:", chatDocument.exists());
+                lastMessageAt:
+                    serverTimestamp(),
 
+                lastSenderId:
+                    currentUser.uid
+            },
+            {
+                merge: true
+            }
+        );
 
-        // Se è la prima volta, creiamo la conversazione
-        if (!chatDocument.exists()) {
-
-            await setDoc(
-                chatReference,
-                {
-                    participants: [
-                        currentUser.uid,
-                        currentChatUserUid
-                    ],
-                    lastMessage: message,
-                    lastMessageAt: serverTimestamp()
-                }
-            );
-            console.log("STEP 3 - Chat creata");
-
-        } else {
-
-            // Aggiorniamo l'ultimo messaggio
-            await setDoc(
-                chatReference,
-                {
-                    lastMessage: message,
-                    lastMessageAt: serverTimestamp()
-                },
-                {
-                    merge: true
-                }
-            );
-
-            console.log("STEP 3B - Chat aggiornata");
-
-        }
+        console.log(
+            "CHAT CREATA / AGGIORNATA"
+        );
 
 
-        // Salviamo il messaggio
+        // =========================
+        // SALVA MESSAGGIO
+        // =========================
+
         await addDoc(
             collection(
                 db,
@@ -709,15 +704,24 @@ async function sendMessage() {
             ),
             {
                 text: message,
-                senderId: currentUser.uid,
-                createdAt: serverTimestamp()
+
+                senderId:
+                    currentUser.uid,
+
+                createdAt:
+                    serverTimestamp()
             }
         );
 
-        console.log("STEP 4 - Messaggio salvato");
+        console.log(
+            "MESSAGGIO SALVATO"
+        );
 
 
-        // Rimuoviamo "Nessun messaggio"
+        // =========================
+        // MOSTRA MESSAGGIO
+        // =========================
+
         const emptyMessage =
             chatMessages.querySelector(
                 ".chat-empty-messages"
@@ -728,53 +732,81 @@ async function sendMessage() {
         }
 
 
-        // Mostriamo subito il messaggio
         const messageElement =
             document.createElement("div");
 
         messageElement.className =
             "message message-own";
 
-        messageElement.innerHTML = `
 
-            <div class="message-bubble">
+        const bubble =
+            document.createElement("div");
 
-                <span class="message-text">
-                    ${message}
-                </span>
+        bubble.className =
+            "message-bubble";
 
-                <span class="message-time">
-                    ${new Date().toLocaleTimeString(
-                        "it-IT",
-                        {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                        }
-                    )}
-                </span>
 
-            </div>
+        const textElement =
+            document.createElement("span");
 
-        `;
+        textElement.className =
+            "message-text";
+
+        textElement.textContent =
+            message;
+
+
+        const timeElement =
+            document.createElement("span");
+
+        timeElement.className =
+            "message-time";
+
+        timeElement.textContent =
+            new Date().toLocaleTimeString(
+                "it-IT",
+                {
+                    hour: "2-digit",
+                    minute: "2-digit"
+                }
+            );
+
+
+        bubble.appendChild(
+            textElement
+        );
+
+        bubble.appendChild(
+            timeElement
+        );
+
+        messageElement.appendChild(
+            bubble
+        );
 
         chatMessages.appendChild(
             messageElement
         );
 
 
-        // Svuotiamo l'input
+        // =========================
+        // PULISCI INPUT
+        // =========================
+
         messageInput.value = "";
 
-
-        // Scroll in fondo
         chatMessages.scrollTop =
             chatMessages.scrollHeight;
 
 
+        console.log(
+            "INVIO COMPLETATO ✅"
+        );
+
     } catch (error) {
 
         console.error(
-            "Errore invio messaggio:",
+            "ERRORE INVIO MESSAGGIO:",
             error
         );
 
@@ -783,15 +815,11 @@ async function sendMessage() {
 }
 
 
-// CLICK INVIO
-
 sendMessageButton.addEventListener(
     "click",
     sendMessage
 );
 
-
-// INVIO CON ENTER
 
 messageInput.addEventListener(
     "keydown",
