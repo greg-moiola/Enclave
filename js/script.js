@@ -105,6 +105,8 @@ let currentChatId = null;
 
 let unsubscribeMessages = null;
 
+let unsubscribeChats = null;
+
 
 function showRegister() {
 
@@ -346,6 +348,10 @@ document
     showHome();
 
     await loadUserProfile(result.user);
+
+    loadConversations();
+
+}
 
 } else if (result.emailNotVerified) {
 
@@ -998,3 +1004,358 @@ messageInput.addEventListener(
 
     }
 );
+
+
+// =========================
+// CARICAMENTO CONVERSAZIONI
+// =========================
+
+function loadConversations() {
+
+    if (unsubscribeChats) {
+
+        unsubscribeChats();
+
+        unsubscribeChats = null;
+
+    }
+
+
+    const currentUser =
+        auth.currentUser;
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    const chatsReference =
+        collection(
+            db,
+            "chats"
+        );
+
+
+    const chatsQuery =
+        query(
+            chatsReference,
+            where(
+                "participants",
+                "array-contains",
+                currentUser.uid
+            )
+        );
+
+
+    unsubscribeChats =
+        onSnapshot(
+            chatsQuery,
+            async (snapshot) => {
+
+                const conversationList =
+                    document.querySelector(
+                        ".conversation-list"
+                    );
+
+
+                if (!conversationList) {
+                    return;
+                }
+
+
+                conversationList.innerHTML = "";
+
+
+                if (snapshot.empty) {
+
+                    const empty =
+                        document.createElement("div");
+
+                    empty.className =
+                        "no-conversations";
+
+                    empty.textContent =
+                        "Nessuna conversazione";
+
+                    conversationList.appendChild(
+                        empty
+                    );
+
+                    return;
+                }
+
+
+                const conversations = [];
+
+
+                for (
+                    const chatDocument
+                    of snapshot.docs
+                ) {
+
+                    const chatData =
+                        chatDocument.data();
+
+
+                    const otherUserUid =
+                        chatData.participants.find(
+                            uid =>
+                                uid !== currentUser.uid
+                        );
+
+
+                    if (!otherUserUid) {
+                        continue;
+                    }
+
+
+                    const userDocument =
+                        await getDoc(
+                            doc(
+                                db,
+                                "publicUsers",
+                                otherUserUid
+                            )
+                        );
+
+
+                    if (!userDocument.exists()) {
+                        continue;
+                    }
+
+
+                    const userData =
+                        userDocument.data();
+
+
+                    conversations.push({
+
+                        chatId:
+                            chatDocument.id,
+
+                        uid:
+                            otherUserUid,
+
+                        nickname:
+                            userData.nickname,
+
+                        enclaveId:
+                            userData.enclaveId,
+
+                        lastMessage:
+                            chatData.lastMessage || "",
+
+                        lastMessageAt:
+                            chatData.lastMessageAt || null
+
+                    });
+
+                }
+
+
+                // Ordina dalla conversazione
+                // più recente alla più vecchia
+
+                conversations.sort(
+                    (a, b) => {
+
+                        const timeA =
+                            a.lastMessageAt?.toMillis?.() || 0;
+
+                        const timeB =
+                            b.lastMessageAt?.toMillis?.() || 0;
+
+                        return timeB - timeA;
+
+                    }
+                );
+
+
+                conversations.forEach(
+                    (conversation) => {
+
+                        const conversationElement =
+                            document.createElement("div");
+
+
+                        conversationElement.className =
+                            "conversation-item";
+
+
+                        const avatar =
+                            document.createElement("div");
+
+                        avatar.className =
+                            "conversation-avatar";
+
+                        avatar.textContent =
+                            conversation.nickname
+                                .charAt(0)
+                                .toUpperCase();
+
+
+                        const info =
+                            document.createElement("div");
+
+                        info.className =
+                            "conversation-info";
+
+
+                        const top =
+                            document.createElement("div");
+
+                        top.className =
+                            "conversation-top";
+
+
+                        const nickname =
+                            document.createElement("span");
+
+                        nickname.className =
+                            "conversation-nickname";
+
+                        nickname.textContent =
+                            conversation.nickname;
+
+
+                        const time =
+                            document.createElement("span");
+
+                        time.className =
+                            "conversation-time";
+
+
+                        if (
+                            conversation.lastMessageAt
+                        ) {
+
+                            time.textContent =
+                                conversation.lastMessageAt
+                                    .toDate()
+                                    .toLocaleTimeString(
+                                        "it-IT",
+                                        {
+                                            hour: "2-digit",
+                                            minute: "2-digit"
+                                        }
+                                    );
+
+                        }
+
+
+                        const preview =
+                            document.createElement("div");
+
+                        preview.className =
+                            "conversation-preview";
+
+                        preview.textContent =
+                            conversation.lastMessage;
+
+
+                        top.appendChild(
+                            nickname
+                        );
+
+                        top.appendChild(
+                            time
+                        );
+
+
+                        info.appendChild(
+                            top
+                        );
+
+                        info.appendChild(
+                            preview
+                        );
+
+
+                        conversationElement.appendChild(
+                            avatar
+                        );
+
+                        conversationElement.appendChild(
+                            info
+                        );
+
+
+                        conversationList.appendChild(
+                            conversationElement
+                        );
+
+
+                        conversationElement.addEventListener(
+                            "click",
+                            () => {
+
+                                chatEmptyState.classList.add(
+                                    "hidden"
+                                );
+
+                                activeChat.classList.remove(
+                                    "hidden"
+                                );
+
+
+                                chatUserNickname.textContent =
+                                    conversation.nickname;
+
+                                chatUserId.textContent =
+                                    conversation.enclaveId;
+
+                                chatUserAvatar.textContent =
+                                    conversation.nickname
+                                        .charAt(0)
+                                        .toUpperCase();
+
+
+                                currentChatUserUid =
+                                    conversation.uid;
+
+                                currentChatId =
+                                    conversation.chatId;
+
+
+                                loadMessages(
+                                    currentChatId
+                                );
+
+
+                                homeMain.classList.add(
+                                    "chat-open"
+                                );
+
+
+                                if (
+                                    window.innerWidth <= 700
+                                ) {
+
+                                    chatSidebar.style.display =
+                                        "none";
+
+                                    chatArea.style.display =
+                                        "flex";
+
+                                    chatArea.style.width =
+                                        "100%";
+
+                                }
+
+                            }
+                        );
+
+                    }
+                );
+
+            },
+            (error) => {
+
+                console.error(
+                    "Errore caricamento conversazioni:",
+                    error
+                );
+
+            }
+        );
+}
