@@ -61,6 +61,21 @@ const profileInitial =
 const resendVerificationButton =
     document.getElementById("resendVerificationButton");
 
+const chatEmptyState =
+    document.getElementById("chatEmptyState");
+
+const activeChat =
+    document.getElementById("activeChat");
+
+const chatUserAvatar =
+    document.getElementById("chatUserAvatar");
+
+const chatUserNickname =
+    document.getElementById("chatUserNickname");
+
+const chatUserId =
+    document.getElementById("chatUserId");
+
 
 function showRegister() {
 
@@ -478,12 +493,21 @@ chatSearch.addEventListener("input", async () => {
 
         result.addEventListener("click", () => {
 
-    console.log(
-        "Utente selezionato:",
-        nickname,
-        enclaveId,
-        userUid
-    );
+    // Chiudiamo la schermata iniziale
+    chatEmptyState.classList.add("hidden");
+
+    // Apriamo la chat
+    activeChat.classList.remove("hidden");
+
+    // Inseriamo i dati dell'utente
+    chatUserNickname.textContent =
+        nickname;
+
+    chatUserId.textContent =
+        enclaveId;
+
+    chatUserAvatar.textContent =
+        nickname.charAt(0).toUpperCase();
 
 });
 
