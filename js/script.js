@@ -959,3 +959,42 @@ async function sendMessage() {
         console.log(
             "MESSAGGIO SALVATO"
         );
+
+            messageInput.value = "";
+
+        console.log(
+            "INVIO COMPLETATO ✅"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ERRORE INVIO MESSAGGIO:",
+            error
+        );
+
+    }
+
+}
+
+
+sendMessageButton.addEventListener(
+    "click",
+    sendMessage
+);
+
+
+messageInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            sendMessage();
+
+        }
+
+    }
+);
