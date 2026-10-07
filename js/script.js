@@ -76,6 +76,9 @@ const chatUserNickname =
 const chatUserId =
     document.getElementById("chatUserId");
 
+const homeMain =
+    document.querySelector(".home-main");
+
 
 function showRegister() {
 
@@ -508,6 +511,8 @@ chatSearch.addEventListener("input", async () => {
 
     chatUserAvatar.textContent =
         nickname.charAt(0).toUpperCase();
+
+    homeMain.classList.add("chat-open");
 
 });
 
