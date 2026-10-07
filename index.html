@@ -314,7 +314,7 @@
 
             <section class="chat-area">
 
-                <div id="chatEmptyState" class="empty-chat">
+               <div id="chatEmptyState" class="empty-chat">
 
     <div class="empty-chat-icon">
         💬
@@ -333,9 +333,14 @@
 
 <div id="activeChat" class="active-chat hidden">
 
+    <!-- HEADER CHAT -->
+
     <div class="chat-header">
 
-        <div class="chat-user-avatar" id="chatUserAvatar">
+        <div
+            class="chat-user-avatar"
+            id="chatUserAvatar"
+        >
             ?
         </div>
 
@@ -360,16 +365,31 @@
     </div>
 
 
-    <div class="chat-messages" id="chatMessages">
+    <!-- MESSAGGI -->
+
+    <div
+        class="chat-messages"
+        id="chatMessages"
+    >
 
         <div class="chat-empty-messages">
-            Nessun messaggio.
+            Nessun messaggio
         </div>
 
     </div>
 
 
+    <!-- INPUT -->
+
     <div class="chat-input-area">
+
+        <button
+            class="message-attach-button"
+            id="messageAttachButton"
+            type="button"
+        >
+            +
+        </button>
 
         <input
             type="text"
@@ -378,7 +398,10 @@
             autocomplete="off"
         >
 
-        <button id="sendMessageButton">
+        <button
+            id="sendMessageButton"
+            type="button"
+        >
             ➤
         </button>
 
