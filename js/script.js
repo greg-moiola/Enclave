@@ -10,8 +10,11 @@ import {
 import {
     doc,
     getDoc,
+    getDocs,
     setDoc,
     addDoc,
+    updateDoc,
+    deleteDoc,
     collection,
     query,
     where,
@@ -193,8 +196,6 @@ async function loadUserProfile(user) {
         userData.enclaveId;
 
 
-    // HEADER
-
     userNickname.textContent =
         nickname;
 
@@ -202,16 +203,12 @@ async function loadUserProfile(user) {
         enclaveId;
 
 
-    // PROFILO SIDEBAR
-
     profileNickname.textContent =
         nickname;
 
     profileEnclaveId.textContent =
         enclaveId;
 
-
-    // INIZIALE AVATAR
 
     profileInitial.textContent =
         nickname.charAt(0).toUpperCase();
@@ -552,6 +549,355 @@ function createChatId(uid1, uid2) {
 
 
 // =========================
+// CHIUDI MENU MESSAGGI
+// =========================
+
+function closeMessageMenus() {
+
+    document
+        .querySelectorAll(".message-menu")
+        .forEach((menu) => {
+
+            menu.remove();
+
+        });
+
+}
+
+
+// =========================
+// AGGIORNA ULTIMO MESSAGGIO
+// =========================
+
+async function updateChatLastMessage(chatId) {
+
+    if (!chatId) {
+        return;
+    }
+
+
+    try {
+
+        const messagesReference =
+            collection(
+                db,
+                "chats",
+                chatId,
+                "messages"
+            );
+
+
+        const snapshot =
+            await getDocs(
+                messagesReference
+            );
+
+
+        const messages = [];
+
+
+        snapshot.forEach(
+            (messageDocument) => {
+
+                messages.push({
+                    id:
+                        messageDocument.id,
+
+                    ...messageDocument.data()
+                });
+
+            }
+        );
+
+
+        messages.sort(
+            (a, b) => {
+
+                const timeA =
+                    a.createdAt
+                        ?.toMillis?.() || 0;
+
+                const timeB =
+                    b.createdAt
+                        ?.toMillis?.() || 0;
+
+                return timeB - timeA;
+
+            }
+        );
+
+
+        const chatReference =
+            doc(
+                db,
+                "chats",
+                chatId
+            );
+
+
+        if (messages.length === 0) {
+
+            await updateDoc(
+                chatReference,
+                {
+                    lastMessage: "",
+                    lastMessageAt: null,
+                    lastSenderId: null
+                }
+            );
+
+            return;
+        }
+
+
+        const latestMessage =
+            messages[0];
+
+
+        await updateDoc(
+            chatReference,
+            {
+                lastMessage:
+                    latestMessage.text,
+
+                lastMessageAt:
+                    latestMessage.createdAt,
+
+                lastSenderId:
+                    latestMessage.senderId
+            }
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore aggiornamento ultimo messaggio:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// ELIMINA MESSAGGIO
+// =========================
+
+async function deleteMessage(
+    messageId,
+    chatId
+) {
+
+    if (!messageId || !chatId) {
+        return;
+    }
+
+
+    try {
+
+        const messageReference =
+            doc(
+                db,
+                "chats",
+                chatId,
+                "messages",
+                messageId
+            );
+
+
+        await deleteDoc(
+            messageReference
+        );
+
+
+        await updateChatLastMessage(
+            chatId
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore eliminazione messaggio:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// MODIFICA MESSAGGIO
+// =========================
+
+async function editMessage(
+    messageId,
+    chatId,
+    oldText
+) {
+
+    const newText =
+        prompt(
+            "Modifica messaggio:",
+            oldText
+        );
+
+
+    if (newText === null) {
+        return;
+    }
+
+
+    const trimmedText =
+        newText.trim();
+
+
+    if (!trimmedText) {
+        return;
+    }
+
+
+    try {
+
+        const messageReference =
+            doc(
+                db,
+                "chats",
+                chatId,
+                "messages",
+                messageId
+            );
+
+
+        await updateDoc(
+            messageReference,
+            {
+                text:
+                    trimmedText,
+
+                edited:
+                    true
+            }
+        );
+
+
+        await updateChatLastMessage(
+            chatId
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore modifica messaggio:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// MENU MESSAGGIO
+// =========================
+
+function openMessageMenu(
+    messageElement,
+    message
+) {
+
+    closeMessageMenus();
+
+
+    const menu =
+        document.createElement(
+            "div"
+        );
+
+    menu.className =
+        "message-menu";
+
+
+    const editButton =
+        document.createElement(
+            "button"
+        );
+
+    editButton.className =
+        "message-menu-button";
+
+    editButton.textContent =
+        "Modifica";
+
+
+    const deleteButton =
+        document.createElement(
+            "button"
+        );
+
+    deleteButton.className =
+        "message-menu-button";
+
+    deleteButton.textContent =
+        "Elimina";
+
+
+    menu.appendChild(
+        editButton
+    );
+
+    menu.appendChild(
+        deleteButton
+    );
+
+
+    messageElement.appendChild(
+        menu
+    );
+
+
+    editButton.addEventListener(
+        "click",
+        async (event) => {
+
+            event.stopPropagation();
+
+            closeMessageMenus();
+
+            await editMessage(
+                message.id,
+                currentChatId,
+                message.text
+            );
+
+        }
+    );
+
+
+    deleteButton.addEventListener(
+        "click",
+        async (event) => {
+
+            event.stopPropagation();
+
+            closeMessageMenus();
+
+            await deleteMessage(
+                message.id,
+                currentChatId
+            );
+
+        }
+    );
+
+}
+
+
+// =========================
 // CARICAMENTO MESSAGGI
 // =========================
 
@@ -586,7 +932,10 @@ function loadMessages(chatId) {
             messagesQuery,
             (snapshot) => {
 
-                chatMessages.innerHTML = "";
+                closeMessageMenus();
+
+                chatMessages.innerHTML =
+                    "";
 
 
                 if (snapshot.empty) {
@@ -659,11 +1008,13 @@ function loadMessages(chatId) {
                             );
 
 
-                        if (
+                        const isOwnMessage =
                             currentUser &&
                             message.senderId ===
-                                currentUser.uid
-                        ) {
+                                currentUser.uid;
+
+
+                        if (isOwnMessage) {
 
                             messageElement.className =
                                 "message message-own";
@@ -734,6 +1085,27 @@ function loadMessages(chatId) {
                             textElement
                         );
 
+
+                        if (message.edited) {
+
+                            const editedElement =
+                                document.createElement(
+                                    "span"
+                                );
+
+                            editedElement.className =
+                                "message-edited";
+
+                            editedElement.textContent =
+                                "modificato";
+
+                            bubble.appendChild(
+                                editedElement
+                            );
+
+                        }
+
+
                         bubble.appendChild(
                             timeElement
                         );
@@ -742,6 +1114,123 @@ function loadMessages(chatId) {
                         messageElement.appendChild(
                             bubble
                         );
+
+
+                        // =========================
+                        // AZIONI SOLO SUI TUOI MESSAGGI
+                        // =========================
+
+                        if (isOwnMessage) {
+
+                            const actionButton =
+                                document.createElement(
+                                    "button"
+                                );
+
+                            actionButton.className =
+                                "message-actions";
+
+                            actionButton.type =
+                                "button";
+
+                            actionButton.textContent =
+                                "⌄";
+
+
+                            messageElement.appendChild(
+                                actionButton
+                            );
+
+
+                            // PC:
+                            // clic sulla freccetta
+
+                            actionButton.addEventListener(
+                                "click",
+                                (event) => {
+
+                                    event.stopPropagation();
+
+                                    openMessageMenu(
+                                        messageElement,
+                                        message
+                                    );
+
+                                }
+                            );
+
+
+                            // TELEFONO:
+                            // pressione prolungata
+
+                            let longPressTimer =
+                                null;
+
+
+                            messageElement.addEventListener(
+                                "touchstart",
+                                (event) => {
+
+                                    if (
+                                        event.touches.length !== 1
+                                    ) {
+                                        return;
+                                    }
+
+
+                                    longPressTimer =
+                                        setTimeout(
+                                            () => {
+
+                                                openMessageMenu(
+                                                    messageElement,
+                                                    message
+                                                );
+
+                                            },
+                                            500
+                                        );
+
+                                }
+                            );
+
+
+                            messageElement.addEventListener(
+                                "touchend",
+                                () => {
+
+                                    clearTimeout(
+                                        longPressTimer
+                                    );
+
+                                }
+                            );
+
+
+                            messageElement.addEventListener(
+                                "touchmove",
+                                () => {
+
+                                    clearTimeout(
+                                        longPressTimer
+                                    );
+
+                                }
+                            );
+
+
+                            messageElement.addEventListener(
+                                "touchcancel",
+                                () => {
+
+                                    clearTimeout(
+                                        longPressTimer
+                                    );
+
+                                }
+                            );
+
+                        }
 
 
                         chatMessages.appendChild(
@@ -767,6 +1256,31 @@ function loadMessages(chatId) {
         );
 
 }
+
+
+// =========================
+// CHIUDI MENU CLICCANDO FUORI
+// =========================
+
+document.addEventListener(
+    "click",
+    (event) => {
+
+        if (
+            !event.target.closest(
+                ".message-menu"
+            ) &&
+            !event.target.closest(
+                ".message-actions"
+            )
+        ) {
+
+            closeMessageMenus();
+
+        }
+
+    }
+);
 
 
 // =========================
@@ -852,13 +1366,9 @@ chatSearch.addEventListener(
             }
 
 
-            // UID DELL'UTENTE
-
             const userUid =
                 idDocument.data().uid;
 
-
-            // PROFILO PUBBLICO
 
             const userDocument =
                 await getDoc(
@@ -885,8 +1395,6 @@ chatSearch.addEventListener(
             const enclaveId =
                 userData.enclaveId;
 
-
-            // RISULTATO RICERCA
 
             const result =
                 document.createElement(
@@ -966,8 +1474,6 @@ chatSearch.addEventListener(
                 result
             );
 
-
-            // APERTURA CHAT
 
             result.addEventListener(
                 "click",
@@ -1055,6 +1561,9 @@ chatBackButton.addEventListener(
     "click",
     () => {
 
+        closeMessageMenus();
+
+
         chatEmptyState.classList.remove(
             "hidden"
         );
@@ -1125,8 +1634,6 @@ async function sendMessage() {
     }
 
 
-    // EVITA DI SCRIVERE A SE STESSI
-
     if (
         currentUser.uid ===
         currentChatUserUid
@@ -1137,8 +1644,6 @@ async function sendMessage() {
 
 
     try {
-
-        // CREA ID CHAT
 
         const chatId =
             createChatId(
@@ -1156,10 +1661,6 @@ async function sendMessage() {
             chatId
         );
 
-
-        // =========================
-        // CREA / AGGIORNA CHAT
-        // =========================
 
         const chatReference =
             doc(
@@ -1197,10 +1698,6 @@ async function sendMessage() {
         );
 
 
-        // =========================
-        // SALVA MESSAGGIO
-        // =========================
-
         await addDoc(
             collection(
                 db,
@@ -1216,7 +1713,10 @@ async function sendMessage() {
                     currentUser.uid,
 
                 createdAt:
-                    serverTimestamp()
+                    serverTimestamp(),
+
+                edited:
+                    false
             }
         );
 
@@ -1423,9 +1923,6 @@ function loadConversations() {
                 }
 
 
-                // ORDINA LE CHAT
-                // DALLA PIÙ RECENTE
-
                 conversations.sort(
                     (a, b) => {
 
@@ -1443,8 +1940,6 @@ function loadConversations() {
                 );
 
 
-                // CREA LE CHAT NELLA SIDEBAR
-
                 conversations.forEach(
                     (conversation) => {
 
@@ -1456,8 +1951,6 @@ function loadConversations() {
                         conversationElement.className =
                             "conversation-item";
 
-
-                        // AVATAR
 
                         const avatar =
                             document.createElement(
@@ -1473,8 +1966,6 @@ function loadConversations() {
                                 .toUpperCase();
 
 
-                        // INFO
-
                         const info =
                             document.createElement(
                                 "div"
@@ -1484,8 +1975,6 @@ function loadConversations() {
                             "conversation-info";
 
 
-                        // PARTE SUPERIORE
-
                         const top =
                             document.createElement(
                                 "div"
@@ -1494,8 +1983,6 @@ function loadConversations() {
                         top.className =
                             "conversation-top";
 
-
-                        // NICKNAME
 
                         const nickname =
                             document.createElement(
@@ -1508,8 +1995,6 @@ function loadConversations() {
                         nickname.textContent =
                             conversation.nickname;
 
-
-                        // ORARIO
 
                         const time =
                             document.createElement(
@@ -1541,8 +2026,6 @@ function loadConversations() {
                         }
 
 
-                        // ANTEPRIMA
-
                         const preview =
                             document.createElement(
                                 "div"
@@ -1554,8 +2037,6 @@ function loadConversations() {
                         preview.textContent =
                             conversation.lastMessage;
 
-
-                        // ASSEMBLA INFO
 
                         top.appendChild(
                             nickname
@@ -1575,8 +2056,6 @@ function loadConversations() {
                         );
 
 
-                        // ASSEMBLA CHAT
-
                         conversationElement.appendChild(
                             avatar
                         );
@@ -1590,8 +2069,6 @@ function loadConversations() {
                             conversationElement
                         );
 
-
-                        // APERTURA CHAT
 
                         conversationElement.addEventListener(
                             "click",
