@@ -551,3 +551,107 @@ chatSearch.addEventListener("input", async () => {
     }
 
 });
+
+
+// =========================
+// INVIO MESSAGGI
+// =========================
+
+const messageInput =
+    document.getElementById("messageInput");
+
+const sendMessageButton =
+    document.getElementById("sendMessageButton");
+
+const chatMessages =
+    document.getElementById("chatMessages");
+
+
+function sendMessage() {
+
+    const message =
+        messageInput.value.trim();
+
+    if (!message) {
+        return;
+    }
+
+
+    // Rimuoviamo "Nessun messaggio"
+    const emptyMessage =
+        chatMessages.querySelector(
+            ".chat-empty-messages"
+        );
+
+    if (emptyMessage) {
+        emptyMessage.remove();
+    }
+
+
+    // Creiamo il messaggio
+    const messageElement =
+        document.createElement("div");
+
+    messageElement.className =
+        "message message-own";
+
+    messageElement.innerHTML = `
+
+        <div class="message-bubble">
+
+            <span class="message-text">
+                ${message}
+            </span>
+
+            <span class="message-time">
+                ${new Date().toLocaleTimeString(
+                    "it-IT",
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                )}
+            </span>
+
+        </div>
+
+    `;
+
+
+    chatMessages.appendChild(
+        messageElement
+    );
+
+
+    // Svuotiamo il campo
+    messageInput.value = "";
+
+    // Scroll in fondo
+    chatMessages.scrollTop =
+        chatMessages.scrollHeight;
+
+}
+
+
+// CLICK SUL PULSANTE
+sendMessageButton.addEventListener(
+    "click",
+    sendMessage
+);
+
+
+// INVIO CON ENTER
+messageInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            sendMessage();
+
+        }
+
+    }
+);
