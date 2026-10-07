@@ -1201,9 +1201,154 @@ function openMessageMenu(
     }
 
 
-    messageElement.appendChild(
+    // =========================
+    // POSIZIONAMENTO
+    // =========================
+
+    const actionButton =
+        messageElement.querySelector(
+            ".message-actions"
+        );
+
+
+    if (!actionButton) {
+        return;
+    }
+
+
+    // Il menu viene messo nel body
+    // così non viene limitato dal
+    // contenitore del messaggio.
+
+    document.body.appendChild(
         menu
     );
+
+
+    // Forziamo il posizionamento
+    // rispetto alla freccetta.
+
+    menu.style.position =
+        "fixed";
+
+    menu.style.right =
+        "auto";
+
+    menu.style.bottom =
+        "auto";
+
+
+    const arrowRect =
+        actionButton.getBoundingClientRect();
+
+
+    const menuRect =
+        menu.getBoundingClientRect();
+
+
+    const gap =
+        8;
+
+
+    let top =
+        arrowRect.top +
+        (
+            arrowRect.height -
+            menuRect.height
+        ) / 2;
+
+
+    let left;
+
+
+    // =========================
+    // MESSAGGIO TUO
+    // MENU A SINISTRA
+    // =========================
+
+    if (isOwnMessage) {
+
+        left =
+            arrowRect.left -
+            menuRect.width -
+            gap;
+
+    }
+
+    // =========================
+    // MESSAGGIO ALTRUI
+    // MENU A DESTRA
+    // =========================
+
+    else {
+
+        left =
+            arrowRect.right +
+            gap;
+
+    }
+
+
+    // =========================
+    // NON USCIRE DALLO SCHERMO
+    // =========================
+
+    const margin =
+        8;
+
+
+    if (
+        left +
+        menuRect.width >
+        window.innerWidth -
+        margin
+    ) {
+
+        left =
+            window.innerWidth -
+            menuRect.width -
+            margin;
+
+    }
+
+
+    if (left < margin) {
+
+        left =
+            margin;
+
+    }
+
+
+    if (
+        top +
+        menuRect.height >
+        window.innerHeight -
+        margin
+    ) {
+
+        top =
+            window.innerHeight -
+            menuRect.height -
+            margin;
+
+    }
+
+
+    if (top < margin) {
+
+        top =
+            margin;
+
+    }
+
+
+    menu.style.left =
+        `${left}px`;
+
+
+    menu.style.top =
+        `${top}px`;
 
 }
 
@@ -1370,72 +1515,155 @@ function loadMessages(chatId) {
                             "message-bubble";
 
 
-                        // =========================
-                        // RISPOSTA QUOTATA
-                        // =========================
+// =========================
+// RISPOSTA QUOTATA
+// =========================
 
-                        if (
-                            message.replyTo
-                        ) {
-
-                            const replyQuote =
-                                document.createElement(
-                                    "div"
-                                );
+let replyQuote = null;
 
 
-                            replyQuote.className =
-                                "message-reply-quote";
+if (
+    message.replyTo
+) {
+
+    replyQuote =
+        document.createElement(
+            "div"
+        );
 
 
-                            const replyQuoteTitle =
-                                document.createElement(
-                                    "div"
-                                );
+    replyQuote.className =
+        "message-reply-quote";
 
 
-                            replyQuoteTitle.className =
-                                "message-reply-quote-title";
+    const replyQuoteTitle =
+        document.createElement(
+            "div"
+        );
 
 
-                            if (
-                                message.replyTo.senderId ===
-                                currentUser?.uid
-                            ) {
-
-                                replyQuoteTitle.textContent =
-                                    "Tu";
-
-                            } else {
-
-                                replyQuoteTitle.textContent =
-                                    chatUserNickname.textContent;
-
-                            }
+    replyQuoteTitle.className =
+        "message-reply-quote-title";
 
 
-                            const replyQuoteText =
-                                document.createElement(
-                                    "div"
-                                );
+    if (
+        message.replyTo.senderId ===
+        currentUser?.uid
+    ) {
+
+        replyQuoteTitle.textContent =
+            "Tu";
+
+    } else {
+
+        replyQuoteTitle.textContent =
+            chatUserNickname.textContent;
+
+    }
 
 
-                            replyQuoteText.className =
-                                "message-reply-quote-text";
+    const replyQuoteText =
+        document.createElement(
+            "div"
+        );
 
 
-                            replyQuoteText.textContent =
-                                message.replyTo.text || "";
+    replyQuoteText.className =
+        "message-reply-quote-text";
 
 
-                            replyQuote.appendChild(
-                                replyQuoteTitle
-                            );
+    replyQuoteText.textContent =
+        message.replyTo.text || "";
 
 
-                            replyQuote.appendChild(
-                                replyQuoteText
-                            );
+    replyQuote.appendChild(
+        replyQuoteTitle
+    );
+
+
+    replyQuote.appendChild(
+        replyQuoteText
+    );
+
+
+    // =========================
+    // CLICK SULLA RISPOSTA
+    // =========================
+
+    replyQuote.addEventListener(
+        "click",
+        (event) => {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+
+            const targetMessage =
+                Array.from(
+                    chatMessages.querySelectorAll(
+                        ".message"
+                    )
+                ).find(
+                    (element) =>
+                        element.dataset.messageId ===
+                        message.replyTo.messageId
+                );
+
+
+            if (!targetMessage) {
+                return;
+            }
+
+
+            targetMessage.scrollIntoView({
+                behavior:
+                    "smooth",
+
+                block:
+                    "center"
+            });
+
+
+            targetMessage.classList.add(
+                "reply-highlight"
+            );
+
+
+            setTimeout(
+                () => {
+
+                    targetMessage.classList.remove(
+                        "reply-highlight"
+                    );
+
+                },
+                1200
+            );
+
+        }
+    );
+
+
+    // ==================================================
+    // IMPORTANTISSIMO:
+    // LA CITAZIONE VIENE MESSA SOPRA ALLA BOLLA
+    // ==================================================
+
+    messageElement.appendChild(
+        replyQuote
+    );
+
+}
+
+
+// =========================
+// BUBBLE
+// =========================
+
+messageElement.appendChild(
+    bubble
+);
 
 
                             // =========================
