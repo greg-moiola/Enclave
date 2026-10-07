@@ -453,10 +453,24 @@ chatSearch.addEventListener("input", async () => {
     // Cerchiamo l'Enclave ID
     try {
 
+        console.log("RICERCA ID:", search);
+
         const idDocument =
             await getDoc(
                 doc(db, "enclaveIds", search)
             );
+
+        console.log(
+    "DOCUMENTO ID ESISTE:",
+    idDocument.exists()
+);
+
+if (idDocument.exists()) {
+    console.log(
+        "DATI ID:",
+        idDocument.data()
+    );
+}
 
         if (!idDocument.exists()) {
 
