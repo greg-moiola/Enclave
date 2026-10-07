@@ -314,22 +314,77 @@
 
             <section class="chat-area">
 
-                <div class="empty-chat">
+                <div id="chatEmptyState" class="empty-chat">
 
-                    <div class="empty-chat-icon">
-                        💬
-                    </div>
+    <div class="empty-chat-icon">
+        💬
+    </div>
 
-                    <h2>
-                        Nessuna conversazione
-                    </h2>
+    <h2>
+        Nessuna conversazione selezionata
+    </h2>
 
-                    <p>
-                        Seleziona una chat per iniziare.
-                    </p>
+    <p>
+        Seleziona una conversazione per iniziare a chattare.
+    </p>
 
-                </div>
+</div>
 
+
+<div id="activeChat" class="active-chat hidden">
+
+    <div class="chat-header">
+
+        <div class="chat-user-avatar" id="chatUserAvatar">
+            ?
+        </div>
+
+        <div class="chat-user-info">
+
+            <span
+                class="chat-user-nickname"
+                id="chatUserNickname"
+            >
+                Utente
+            </span>
+
+            <span
+                class="chat-user-id"
+                id="chatUserId"
+            >
+                XX-0000
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <div class="chat-messages" id="chatMessages">
+
+        <div class="chat-empty-messages">
+            Nessun messaggio.
+        </div>
+
+    </div>
+
+
+    <div class="chat-input-area">
+
+        <input
+            type="text"
+            id="messageInput"
+            placeholder="Scrivi un messaggio..."
+            autocomplete="off"
+        >
+
+        <button id="sendMessageButton">
+            ➤
+        </button>
+
+    </div>
+
+</div>
             </section>
 
         </main>
