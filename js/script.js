@@ -1216,17 +1216,10 @@ function openMessageMenu(
     }
 
 
-    // Il menu viene messo nel body
-    // così non viene limitato dal
-    // contenitore del messaggio.
-
     document.body.appendChild(
         menu
     );
 
-
-    // Forziamo il posizionamento
-    // rispetto alla freccetta.
 
     menu.style.position =
         "fixed";
@@ -1261,11 +1254,6 @@ function openMessageMenu(
     let left;
 
 
-    // =========================
-    // MESSAGGIO TUO
-    // MENU A SINISTRA
-    // =========================
-
     if (isOwnMessage) {
 
         left =
@@ -1273,14 +1261,7 @@ function openMessageMenu(
             menuRect.width -
             gap;
 
-    }
-
-    // =========================
-    // MESSAGGIO ALTRUI
-    // MENU A DESTRA
-    // =========================
-
-    else {
+    } else {
 
         left =
             arrowRect.right +
@@ -1288,10 +1269,6 @@ function openMessageMenu(
 
     }
 
-
-    // =========================
-    // NON USCIRE DALLO SCHERMO
-    // =========================
 
     const margin =
         8;
@@ -1515,155 +1492,70 @@ function loadMessages(chatId) {
                             "message-bubble";
 
 
-// =========================
-// RISPOSTA QUOTATA
-// =========================
+                        // =========================
+                        // RISPOSTA QUOTATA
+                        // =========================
 
-let replyQuote = null;
+                        if (message.replyTo) {
 
-
-if (
-    message.replyTo
-) {
-
-    replyQuote =
-        document.createElement(
-            "div"
-        );
+                            const replyQuote =
+                                document.createElement(
+                                    "div"
+                                );
 
 
-    replyQuote.className =
-        "message-reply-quote";
+                            replyQuote.className =
+                                "message-reply-quote";
 
 
-    const replyQuoteTitle =
-        document.createElement(
-            "div"
-        );
+                            const replyQuoteTitle =
+                                document.createElement(
+                                    "div"
+                                );
 
 
-    replyQuoteTitle.className =
-        "message-reply-quote-title";
+                            replyQuoteTitle.className =
+                                "message-reply-quote-title";
 
 
-    if (
-        message.replyTo.senderId ===
-        currentUser?.uid
-    ) {
+                            if (
+                                message.replyTo.senderId ===
+                                currentUser?.uid
+                            ) {
 
-        replyQuoteTitle.textContent =
-            "Tu";
+                                replyQuoteTitle.textContent =
+                                    "Tu";
 
-    } else {
+                            } else {
 
-        replyQuoteTitle.textContent =
-            chatUserNickname.textContent;
+                                replyQuoteTitle.textContent =
+                                    chatUserNickname.textContent;
 
-    }
-
-
-    const replyQuoteText =
-        document.createElement(
-            "div"
-        );
+                            }
 
 
-    replyQuoteText.className =
-        "message-reply-quote-text";
+                            const replyQuoteText =
+                                document.createElement(
+                                    "div"
+                                );
 
 
-    replyQuoteText.textContent =
-        message.replyTo.text || "";
+                            replyQuoteText.className =
+                                "message-reply-quote-text";
 
 
-    replyQuote.appendChild(
-        replyQuoteTitle
-    );
+                            replyQuoteText.textContent =
+                                message.replyTo.text || "";
 
 
-    replyQuote.appendChild(
-        replyQuoteText
-    );
+                            replyQuote.appendChild(
+                                replyQuoteTitle
+                            );
 
 
-    // =========================
-    // CLICK SULLA RISPOSTA
-    // =========================
-
-    replyQuote.addEventListener(
-        "click",
-        (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-
-            const targetMessage =
-                Array.from(
-                    chatMessages.querySelectorAll(
-                        ".message"
-                    )
-                ).find(
-                    (element) =>
-                        element.dataset.messageId ===
-                        message.replyTo.messageId
-                );
-
-
-            if (!targetMessage) {
-                return;
-            }
-
-
-            targetMessage.scrollIntoView({
-                behavior:
-                    "smooth",
-
-                block:
-                    "center"
-            });
-
-
-            targetMessage.classList.add(
-                "reply-highlight"
-            );
-
-
-            setTimeout(
-                () => {
-
-                    targetMessage.classList.remove(
-                        "reply-highlight"
-                    );
-
-                },
-                1200
-            );
-
-        }
-    );
-
-
-    // ==================================================
-    // IMPORTANTISSIMO:
-    // LA CITAZIONE VIENE MESSA SOPRA ALLA BOLLA
-    // ==================================================
-
-    messageElement.appendChild(
-        replyQuote
-    );
-
-}
-
-
-// =========================
-// BUBBLE
-// =========================
-
-messageElement.appendChild(
-    bubble
-);
+                            replyQuote.appendChild(
+                                replyQuoteText
+                            );
 
 
                             // =========================
@@ -1725,10 +1617,14 @@ messageElement.appendChild(
                             );
 
 
-                            bubble.appendChild(
+                            // La citazione viene
+                            // messa SOPRA alla bolla.
+
+                            messageElement.appendChild(
                                 replyQuote
                             );
 
+                        }
 
 
                         // =========================
@@ -1823,6 +1719,10 @@ messageElement.appendChild(
                             timeElement
                         );
 
+
+                        // =========================
+                        // BOLLA
+                        // =========================
 
                         messageElement.appendChild(
                             bubble
@@ -2058,8 +1958,7 @@ messageElement.appendChild(
 
             }
         );
-
-}
+    }
 
 
 // =========================
@@ -3120,3 +3019,4 @@ function loadConversations() {
         );
 
 }
+
