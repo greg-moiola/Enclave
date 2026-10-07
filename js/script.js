@@ -28,527 +28,265 @@ import {
 } from "./firebase.js";
 
 
-console.log("Enclave avviato correttamente.");
-
-
-// =========================
-// FUNZIONI SCHERMATE
-// =========================
-
-const registerScreen =
-    document.getElementById("registerScreen");
-
-const loginScreen =
-    document.getElementById("loginScreen");
-
-const homeScreen =
-    document.getElementById("homeScreen");
-
-const verificationOverlay =
-    document.getElementById("verificationOverlay");
-
-const verificationEmail =
-    document.getElementById("verificationEmail");
-
-const verificationMessage =
-    document.getElementById("verificationMessage");
-
-const verificationSpinner =
-    document.getElementById("verificationSpinner");
-
-const userEnclaveId =
-    document.getElementById("userEnclaveId");
-
-const userNickname =
-    document.getElementById("userNickname");
-
-const profileNickname =
-    document.getElementById("profileNickname");
-
-const profileEnclaveId =
-    document.getElementById("profileEnclaveId");
-
-const profileInitial =
-    document.getElementById("profileInitial");
-
-const resendVerificationButton =
-    document.getElementById("resendVerificationButton");
-
-const chatEmptyState =
-    document.getElementById("chatEmptyState");
-
-const activeChat =
-    document.getElementById("activeChat");
-
-const chatUserAvatar =
-    document.getElementById("chatUserAvatar");
-
-const chatUserNickname =
-    document.getElementById("chatUserNickname");
-
-const chatUserId =
-    document.getElementById("chatUserId");
-
-const chatBackButton =
-    document.getElementById("chatBackButton");
-
-const homeMain =
-    document.querySelector(".home-main");
-
-const chatArea =
-    document.querySelector(".chat-area");
-
-const chatSidebar =
-    document.querySelector(".chat-sidebar");
-
-const chatMessages =
-    document.getElementById("chatMessages");
-
-const messageInput =
-    document.getElementById("messageInput");
-
-const sendMessageButton =
-    document.getElementById("sendMessageButton");
-
-const chatSearch =
-    document.getElementById("chatSearch");
-
-const searchResults =
-    document.getElementById("searchResults");
-
-
 let currentChatUserUid = null;
-
 let currentChatId = null;
-
 let unsubscribeMessages = null;
-
 let unsubscribeChats = null;
-
 let conversationsRenderVersion = 0;
-
-
-// =========================
-// RISPOSTA A UN MESSAGGIO
-// =========================
-
 let replyTarget = null;
 
 
-// =========================
-// CAMBIO SCHERMATE
-// =========================
+/* =========================
+   SCHERMATE
+========================= */
 
 function showRegister() {
-
-    registerScreen.classList.remove("hidden");
-
-    loginScreen.classList.add("hidden");
-
-    homeScreen.classList.add("hidden");
-
+    document.getElementById("registerScreen").classList.remove("hidden");
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("homeScreen").classList.add("hidden");
 }
-
 
 function showLogin() {
-
-    registerScreen.classList.add("hidden");
-
-    loginScreen.classList.remove("hidden");
-
-    homeScreen.classList.add("hidden");
-
+    document.getElementById("registerScreen").classList.add("hidden");
+    document.getElementById("loginScreen").classList.remove("hidden");
+    document.getElementById("homeScreen").classList.add("hidden");
 }
-
 
 function showHome() {
+    document.getElementById("registerScreen").classList.add("hidden");
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("homeScreen").classList.remove("hidden");
 
-    registerScreen.classList.add("hidden");
-
-    loginScreen.classList.add("hidden");
-
-    homeScreen.classList.remove("hidden");
-
+    loadProfile();
+    loadConversations();
 }
 
 
-// =========================
-// PROFILO UTENTE
-// =========================
+/* =========================
+   PROFILO
+========================= */
 
-async function loadUserProfile(user) {
+async function loadProfile() {
 
-    const userDocument =
-        await getDoc(
-            doc(db, "users", user.uid)
-        );
+    const user = auth.currentUser;
 
+    if (!user) return;
 
-    if (!userDocument.exists()) {
-
-        console.error(
-            "Profilo utente non trovato."
-        );
-
-        return;
-    }
-
-
-    const userData =
-        userDocument.data();
-
-
-    const nickname =
-        userData.nickname;
-
-    const enclaveId =
-        userData.enclaveId;
-
-
-    userNickname.textContent =
-        nickname;
-
-    userEnclaveId.textContent =
-        enclaveId;
-
-
-    profileNickname.textContent =
-        nickname;
-
-    profileEnclaveId.textContent =
-        enclaveId;
-
-
-    profileInitial.textContent =
-        nickname.charAt(0).toUpperCase();
-
-}
-
-
-// =========================
-// VERIFICA EMAIL
-// =========================
-
-function showVerification(user) {
-
-    verificationEmail.textContent =
-        user.email;
-
-    verificationMessage.textContent =
-        "";
-
-    verificationSpinner.style.display =
-        "none";
-
-    verificationOverlay.classList.remove(
-        "hidden"
+    const userSnap = await getDoc(
+        doc(db, "users", user.uid)
     );
 
+    if (!userSnap.exists()) return;
+
+    const data = userSnap.data();
+
+    const nicknameElement =
+        document.getElementById("profileNickname");
+
+    const enclaveIdElement =
+        document.getElementById("profileEnclaveId");
+
+    if (nicknameElement) {
+        nicknameElement.textContent =
+            data.nickname || "Utente";
+    }
+
+    if (enclaveIdElement) {
+        enclaveIdElement.textContent =
+            data.enclaveId || "XX-0000";
+    }
 }
 
 
-async function checkEmailVerification(user) {
+/* =========================
+   VERIFICA EMAIL
+========================= */
 
-    verificationSpinner.style.display =
-        "block";
+function showVerificationOverlay(email) {
 
+    const overlay =
+        document.getElementById("verificationOverlay");
 
-    await user.reload();
+    const emailElement =
+        document.getElementById("verificationEmail");
 
+    if (!overlay) return;
 
-    if (user.emailVerified) {
-
-        verificationSpinner.style.display =
-            "none";
-
-        verificationOverlay.classList.add(
-            "hidden"
-        );
-
-        showRegister();
-
-        return;
+    if (emailElement) {
+        emailElement.textContent = email;
     }
 
+    overlay.classList.remove("hidden");
 
-    setTimeout(() => {
+    startVerificationCheck();
+}
 
-        checkEmailVerification(user);
+
+let verificationInterval = null;
+
+function startVerificationCheck() {
+
+    if (verificationInterval) {
+        clearInterval(verificationInterval);
+    }
+
+    verificationInterval = setInterval(async () => {
+
+        const user = auth.currentUser;
+
+        if (!user) return;
+
+        try {
+
+            await user.reload();
+
+            if (user.emailVerified) {
+
+                clearInterval(verificationInterval);
+                verificationInterval = null;
+
+                const overlay =
+                    document.getElementById("verificationOverlay");
+
+                if (overlay) {
+                    overlay.classList.add("hidden");
+                }
+
+                showRegister();
+            }
+
+        } catch (error) {
+
+            console.error(
+                "Errore controllo verifica:",
+                error
+            );
+
+        }
 
     }, 2000);
-
 }
 
 
-// =========================
-// REGISTRAZIONE
-// =========================
+/* =========================
+   REGISTRAZIONE
+========================= */
 
 document
-    .getElementById("registerButton")
-    .addEventListener(
-        "click",
-        async () => {
+    .getElementById("registerForm")
+    ?.addEventListener("submit", async (event) => {
 
-            const email =
-                document
-                    .getElementById("registerEmail")
-                    .value
-                    .trim();
+        event.preventDefault();
 
-            const password =
-                document
-                    .getElementById("registerPassword")
-                    .value;
+        const nickname =
+            document.getElementById("registerNickname").value.trim();
 
-            const nickname =
-                document
-                    .getElementById("registerNickname")
-                    .value
-                    .trim();
+        const email =
+            document.getElementById("registerEmail").value.trim();
 
-            const message =
-                document.getElementById("message");
+        const password =
+            document.getElementById("registerPassword").value;
+
+        const confirmPassword =
+            document.getElementById("registerConfirmPassword").value;
+
+        if (password !== confirmPassword) {
+
+            alert("Le password non coincidono.");
+            return;
+
+        }
+
+        try {
+
+            const result = await registerUser(
+                nickname,
+                email,
+                password
+            );
+
+            await sendEmailVerification(result.user);
+
+            showVerificationOverlay(email);
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                error.message ||
+                "Errore durante la registrazione."
+            );
+
+        }
+
+    });
 
 
-            if (!email || !password || !nickname) {
+/* =========================
+   LOGIN
+========================= */
 
-                message.textContent =
-                    "Compila tutti i campi.";
+document
+    .getElementById("loginForm")
+    ?.addEventListener("submit", async (event) => {
+
+        event.preventDefault();
+
+        const email =
+            document.getElementById("loginEmail").value.trim();
+
+        const password =
+            document.getElementById("loginPassword").value;
+
+        try {
+
+            const result = await loginUser(
+                email,
+                password
+            );
+
+            if (!result.user.emailVerified) {
+
+                showVerificationOverlay(
+                    result.user.email
+                );
 
                 return;
             }
 
+            showHome();
 
-            message.textContent =
-                "Creazione account...";
+        } catch (error) {
 
+            console.error(error);
 
-            const result =
-                await registerUser(
-                    email,
-                    password,
-                    nickname
-                );
-
-
-            if (result.success) {
-
-                showVerification(
-                    result.user
-                );
-
-                checkEmailVerification(
-                    result.user
-                );
-
-            } else {
-
-                message.textContent =
-                    "Errore: " +
-                    result.error.message;
-
-            }
+            alert(
+                error.message ||
+                "Errore durante l'accesso."
+            );
 
         }
-    );
+
+    });
 
 
-// =========================
-// APRI LOGIN
-// =========================
-
-document
-    .getElementById("loginLink")
-    .addEventListener(
-        "click",
-        () => {
-
-            showLogin();
-
-        }
-    );
-
-
-// =========================
-// LOGIN
-// =========================
-
-document
-    .getElementById("loginButton")
-    .addEventListener(
-        "click",
-        async () => {
-
-            const email =
-                document
-                    .getElementById("loginEmail")
-                    .value
-                    .trim();
-
-            const password =
-                document
-                    .getElementById("loginPassword")
-                    .value;
-
-            const message =
-                document.getElementById(
-                    "loginMessage"
-                );
-
-
-            if (!email || !password) {
-
-                message.textContent =
-                    "Inserisci email e password.";
-
-                return;
-            }
-
-
-            message.textContent =
-                "Accesso in corso...";
-
-
-            const result =
-                await loginUser(
-                    email,
-                    password
-                );
-
-
-            if (result.success) {
-
-                showHome();
-
-                await loadUserProfile(
-                    result.user
-                );
-
-                loadConversations();
-
-            } else if (result.emailNotVerified) {
-
-                message.textContent =
-                    "Devi prima verificare la tua email.";
-
-            } else {
-
-                message.textContent =
-                    "Email o password non corretti.";
-
-                console.error(
-                    result.error
-                );
-
-            }
-
-        }
-    );
-
-
-// =========================
-// TORNA ALLA REGISTRAZIONE
-// =========================
-
-document
-    .getElementById("registerLink")
-    .addEventListener(
-        "click",
-        () => {
-
-            showRegister();
-
-        }
-    );
-
-
-// =========================
-// LOGOUT
-// =========================
+/* =========================
+   LOGOUT
+========================= */
 
 document
     .getElementById("logoutButton")
-    .addEventListener(
-        "click",
-        () => {
+    ?.addEventListener("click", () => {
 
-            if (unsubscribeMessages) {
+        showRegister();
 
-                unsubscribeMessages();
-
-                unsubscribeMessages = null;
-
-            }
+    });
 
 
-            if (unsubscribeChats) {
-
-                unsubscribeChats();
-
-                unsubscribeChats = null;
-
-            }
-
-
-            currentChatUserUid = null;
-
-            currentChatId = null;
-
-            clearReply();
-
-
-            showRegister();
-
-        }
-    );
-
-
-// =========================
-// REINVIO EMAIL
-// =========================
-
-resendVerificationButton
-    .addEventListener(
-        "click",
-        async () => {
-
-            const user =
-                (
-                    await import("./firebase.js")
-                ).auth.currentUser;
-
-
-            if (!user) {
-                return;
-            }
-
-
-            try {
-
-                await sendEmailVerification(
-                    user
-                );
-
-                verificationMessage.textContent =
-                    "Email inviata nuovamente.";
-
-            } catch (error) {
-
-                console.error(error);
-
-                verificationMessage.textContent =
-                    "Non è stato possibile inviare l'email.";
-
-            }
-
-        }
-    );
-
-
-// =========================
-// ID CONVERSAZIONE
-// =========================
+/* =========================
+   CHAT ID
+========================= */
 
 function createChatId(uid1, uid2) {
 
@@ -559,403 +297,181 @@ function createChatId(uid1, uid2) {
 }
 
 
-// =========================
-// CHIUDI MENU MESSAGGI
-// =========================
+/* =========================
+   MENU MESSAGGI
+========================= */
 
 function closeMessageMenus() {
 
     document
         .querySelectorAll(".message-menu")
-        .forEach((menu) => {
-
+        .forEach(menu => {
             menu.remove();
-
         });
 
 }
 
 
-// =========================
-// BARRA RISPOSTA
-// =========================
-
 function createReplyBar() {
 
     let replyBar =
-        document.getElementById(
-            "messageReplyBar"
-        );
-
+        document.getElementById("messageReplyBar");
 
     if (replyBar) {
         return replyBar;
     }
 
-
     const chatInputArea =
-        document.querySelector(
-            ".chat-input-area"
-        );
-
+        document.querySelector(".chat-input-area");
 
     if (!chatInputArea) {
         return null;
     }
 
+    replyBar = document.createElement("div");
 
-    replyBar =
-        document.createElement(
-            "div"
-        );
+    replyBar.id = "messageReplyBar";
+    replyBar.className = "message-reply-bar";
 
+    replyBar.innerHTML = `
+        <div class="message-reply-info">
+            <div class="message-reply-title">
+                Risposta
+            </div>
 
-    replyBar.id =
-        "messageReplyBar";
+            <div class="message-reply-text"></div>
+        </div>
 
-
-    replyBar.className =
-        "message-reply-bar";
-
-
-    const replyInfo =
-        document.createElement(
-            "div"
-        );
-
-
-    replyInfo.className =
-        "message-reply-info";
-
-
-    const replyTitle =
-        document.createElement(
-            "div"
-        );
-
-
-    replyTitle.className =
-        "message-reply-title";
-
-
-    replyTitle.textContent =
-        "Rispondi a";
-
-
-    const replyText =
-        document.createElement(
-            "div"
-        );
-
-
-    replyText.className =
-        "message-reply-text";
-
-
-    replyInfo.appendChild(
-        replyTitle
-    );
-
-
-    replyInfo.appendChild(
-        replyText
-    );
-
-
-    const cancelButton =
-        document.createElement(
-            "button"
-        );
-
-
-    cancelButton.type =
-        "button";
-
-
-    cancelButton.className =
-        "message-reply-cancel";
-
-
-    cancelButton.textContent =
-        "×";
-
-
-    cancelButton.addEventListener(
-        "click",
-        (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            clearReply();
-
-        }
-    );
-
-
-    replyBar.appendChild(
-        replyInfo
-    );
-
-
-    replyBar.appendChild(
-        cancelButton
-    );
-
+        <button
+            class="message-reply-cancel"
+            type="button"
+            aria-label="Annulla risposta"
+        >
+            ×
+        </button>
+    `;
 
     chatInputArea.insertBefore(
         replyBar,
         chatInputArea.firstChild
     );
 
+    replyBar
+        .querySelector(".message-reply-cancel")
+        .addEventListener("click", () => {
+
+            clearReply();
+
+        });
 
     return replyBar;
-
 }
 
 
-// =========================
-// INIZIA RISPOSTA
-// =========================
-
 function startReply(message) {
-
-    if (!message) {
-        return;
-    }
-
 
     replyTarget = {
 
-        messageId:
-            message.id,
+        messageId: message.id,
 
-        text:
-            message.text || "",
+        text: message.text || "",
 
-        senderId:
-            message.senderId || ""
+        senderId: message.senderId || ""
 
     };
 
-
-    const replyBar =
-        createReplyBar();
-
+    const replyBar = createReplyBar();
 
     if (!replyBar) {
         return;
     }
-
 
     const replyText =
         replyBar.querySelector(
             ".message-reply-text"
         );
 
-
     if (replyText) {
 
         replyText.textContent =
-            message.text || "";
+            message.text || "Messaggio";
 
     }
 
+    replyBar.style.display = "flex";
 
-    replyBar.style.display =
-        "flex";
+    const messageInput =
+        document.getElementById("messageInput");
 
-
-    messageInput.focus();
-
+    if (messageInput) {
+        messageInput.focus();
+    }
 
     closeMessageMenus();
 
 }
 
 
-// =========================
-// CANCELLA RISPOSTA
-// =========================
-
 function clearReply() {
 
     replyTarget = null;
 
-
     const replyBar =
-        document.getElementById(
-            "messageReplyBar"
-        );
-
+        document.getElementById("messageReplyBar");
 
     if (replyBar) {
-
-        replyBar.style.display =
-            "none";
-
+        replyBar.style.display = "none";
     }
 
 }
 
 
-// =========================
-// AGGIORNA ULTIMO MESSAGGIO
-// =========================
+/* =========================
+   ULTIMO MESSAGGIO CHAT
+========================= */
 
-async function updateChatLastMessage(chatId) {
-
-    if (!chatId) {
-        return;
-    }
-
-
-    try {
-
-        const messagesReference =
-            collection(
-                db,
-                "chats",
-                chatId,
-                "messages"
-            );
-
-
-        const snapshot =
-            await getDocs(
-                messagesReference
-            );
-
-
-        const messages = [];
-
-
-        snapshot.forEach(
-            (messageDocument) => {
-
-                messages.push({
-                    id:
-                        messageDocument.id,
-
-                    ...messageDocument.data()
-                });
-
-            }
-        );
-
-
-        messages.sort(
-            (a, b) => {
-
-                const timeA =
-                    a.createdAt
-                        ?.toMillis?.() || 0;
-
-                const timeB =
-                    b.createdAt
-                        ?.toMillis?.() || 0;
-
-                return timeB - timeA;
-
-            }
-        );
-
-
-        const chatReference =
-            doc(
-                db,
-                "chats",
-                chatId
-            );
-
-
-        if (messages.length === 0) {
-
-            await updateDoc(
-                chatReference,
-                {
-                    lastMessage: "",
-                    lastMessageAt: null,
-                    lastSenderId: null
-                }
-            );
-
-            return;
-        }
-
-
-        const latestMessage =
-            messages[0];
-
-
-        await updateDoc(
-            chatReference,
-            {
-                lastMessage:
-                    latestMessage.text,
-
-                lastMessageAt:
-                    latestMessage.createdAt,
-
-                lastSenderId:
-                    latestMessage.senderId
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Errore aggiornamento ultimo messaggio:",
-            error
-        );
-
-    }
-
-}
-
-
-// =========================
-// ELIMINA MESSAGGIO
-// =========================
-
-async function deleteMessage(
-    messageId,
-    chatId
+async function updateChatLastMessage(
+    chatId,
+    text,
+    senderId
 ) {
 
-    if (!messageId || !chatId) {
-        return;
-    }
+    await updateDoc(
+        doc(db, "chats", chatId),
+        {
+            lastMessage: text,
+            lastMessageAt: serverTimestamp(),
+            lastSenderId: senderId
+        }
+    );
 
+}
+
+
+/* =========================
+   ELIMINA MESSAGGIO
+========================= */
+
+async function deleteMessage(messageId) {
+
+    if (!currentChatId) return;
 
     try {
 
-        const messageReference =
+        await deleteDoc(
             doc(
                 db,
                 "chats",
-                chatId,
+                currentChatId,
                 "messages",
                 messageId
-            );
-
-
-        await deleteDoc(
-            messageReference
+            )
         );
-
-
-        await updateChatLastMessage(
-            chatId
-        );
-
 
     } catch (error) {
 
         console.error(
-            "Errore eliminazione messaggio:",
+            "Errore eliminazione:",
             error
         );
 
@@ -964,13 +480,12 @@ async function deleteMessage(
 }
 
 
-// =========================
-// MODIFICA MESSAGGIO
-// =========================
+/* =========================
+   MODIFICA MESSAGGIO
+========================= */
 
 async function editMessage(
     messageId,
-    chatId,
     oldText
 ) {
 
@@ -980,54 +495,33 @@ async function editMessage(
             oldText
         );
 
-
-    if (newText === null) {
+    if (
+        newText === null ||
+        !newText.trim()
+    ) {
         return;
     }
-
-
-    const trimmedText =
-        newText.trim();
-
-
-    if (!trimmedText) {
-        return;
-    }
-
 
     try {
 
-        const messageReference =
+        await updateDoc(
             doc(
                 db,
                 "chats",
-                chatId,
+                currentChatId,
                 "messages",
                 messageId
-            );
-
-
-        await updateDoc(
-            messageReference,
+            ),
             {
-                text:
-                    trimmedText,
-
-                edited:
-                    true
+                text: newText.trim(),
+                edited: true
             }
         );
-
-
-        await updateChatLastMessage(
-            chatId
-        );
-
 
     } catch (error) {
 
         console.error(
-            "Errore modifica messaggio:",
+            "Errore modifica:",
             error
         );
 
@@ -1036,9 +530,9 @@ async function editMessage(
 }
 
 
-// =========================
-// MENU MESSAGGIO
-// =========================
+/* =========================
+   MENU AZIONI
+========================= */
 
 function openMessageMenu(
     messageElement,
@@ -1047,257 +541,170 @@ function openMessageMenu(
 
     closeMessageMenus();
 
+    const isOwnMessage =
+        auth.currentUser &&
+        message.senderId === auth.currentUser.uid;
 
     const menu =
-        document.createElement(
-            "div"
-        );
+        document.createElement("div");
 
+    menu.className = "message-menu";
 
-    menu.className =
-        "message-menu";
-
-
-    // =========================
-    // RISPONDI
-    // =========================
+    /* RISPOSTA - SEMPRE DISPONIBILE */
 
     const replyButton =
-        document.createElement(
-            "button"
-        );
-
+        document.createElement("button");
 
     replyButton.className =
         "message-menu-button";
 
-
-    replyButton.type =
-        "button";
-
+    replyButton.type = "button";
 
     replyButton.textContent =
         "↩ Rispondi";
-
 
     replyButton.addEventListener(
         "click",
         (event) => {
 
             event.preventDefault();
-
             event.stopPropagation();
 
-            startReply(
-                message
-            );
+            startReply(message);
 
         }
     );
 
+    menu.appendChild(replyButton);
 
-    // =========================
-    // MODIFICA
-    // =========================
 
-    const editButton =
-        document.createElement(
-            "button"
+    /* MODIFICA + ELIMINA
+       SOLO PER I PROPRI MESSAGGI */
+
+    if (isOwnMessage) {
+
+        const editButton =
+            document.createElement("button");
+
+        editButton.className =
+            "message-menu-button";
+
+        editButton.type = "button";
+
+        editButton.textContent =
+            "Modifica";
+
+        editButton.addEventListener(
+            "click",
+            (event) => {
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                editMessage(
+                    message.id,
+                    message.text || ""
+                );
+
+                closeMessageMenus();
+
+            }
         );
 
-
-    editButton.className =
-        "message-menu-button";
+        menu.appendChild(editButton);
 
 
-    editButton.type =
-        "button";
+        const deleteButton =
+            document.createElement("button");
 
+        deleteButton.className =
+            "message-menu-button";
 
-    editButton.textContent =
-        "Modifica";
+        deleteButton.type = "button";
 
+        deleteButton.textContent =
+            "Elimina";
 
-    editButton.addEventListener(
-        "click",
-        async (event) => {
+        deleteButton.addEventListener(
+            "click",
+            async (event) => {
 
-            event.preventDefault();
+                event.preventDefault();
+                event.stopPropagation();
 
-            event.stopPropagation();
+                const confirmed =
+                    confirm(
+                        "Vuoi eliminare questo messaggio?"
+                    );
 
-            closeMessageMenus();
+                if (!confirmed) {
+                    return;
+                }
 
-            await editMessage(
-                message.id,
-                currentChatId,
-                message.text
-            );
+                await deleteMessage(
+                    message.id
+                );
 
-        }
-    );
+                closeMessageMenus();
 
-
-    // =========================
-    // ELIMINA
-    // =========================
-
-    const deleteButton =
-        document.createElement(
-            "button"
+            }
         );
 
-
-    deleteButton.className =
-        "message-menu-button";
-
-
-    deleteButton.type =
-        "button";
-
-
-    deleteButton.textContent =
-        "Elimina";
-
-
-    deleteButton.addEventListener(
-        "click",
-        async (event) => {
-
-            event.preventDefault();
-
-            event.stopPropagation();
-
-            closeMessageMenus();
-
-            await deleteMessage(
-                message.id,
-                currentChatId
-            );
-
-        }
-    );
-
-
-    menu.appendChild(
-        replyButton
-    );
-
-
-    menu.appendChild(
-        editButton
-    );
-
-
-    menu.appendChild(
-        deleteButton
-    );
-
-
-    messageElement.appendChild(
-        menu
-    );
-
-}
-
-
-// =========================
-// CARICAMENTO MESSAGGI
-// =========================
-
-function loadMessages(chatId) {
-
-    if (unsubscribeMessages) {
-
-        unsubscribeMessages();
-
-        unsubscribeMessages = null;
+        menu.appendChild(deleteButton);
 
     }
 
 
+    messageElement.appendChild(menu);
+
+}
+
+
+/* =========================
+   CARICAMENTO MESSAGGI
+========================= */
+
+function loadMessages(chatId) {
+
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+    }
+
     clearReply();
 
+    const chatMessages =
+        document.getElementById("chatMessages");
 
-    const messagesReference =
-        collection(
-            db,
-            "chats",
-            chatId,
-            "messages"
-        );
-
-
-    const messagesQuery =
-        query(
-            messagesReference
-        );
-
+    if (!chatMessages) {
+        return;
+    }
 
     unsubscribeMessages =
         onSnapshot(
-            messagesQuery,
+            collection(
+                db,
+                "chats",
+                chatId,
+                "messages"
+            ),
             (snapshot) => {
 
-                closeMessageMenus();
-
-                chatMessages.innerHTML =
-                    "";
-
-
-                if (snapshot.empty) {
-
-                    const emptyMessage =
-                        document.createElement(
-                            "div"
-                        );
-
-
-                    emptyMessage.className =
-                        "chat-empty-messages";
-
-
-                    emptyMessage.textContent =
-                        "Nessun messaggio";
-
-
-                    chatMessages.appendChild(
-                        emptyMessage
+                const messages =
+                    snapshot.docs.map(
+                        document => ({
+                            id: document.id,
+                            ...document.data()
+                        })
                     );
-
-
-                    return;
-
-                }
-
-
-                const messages = [];
-
-
-                snapshot.forEach(
-                    (messageDocument) => {
-
-                        messages.push({
-                            id:
-                                messageDocument.id,
-
-                            ...messageDocument.data()
-                        });
-
-                    }
-                );
-
 
                 messages.sort(
                     (a, b) => {
 
                         const timeA =
-                            a.createdAt
-                                ?.toMillis?.() || 0;
+                            a.createdAt?.toMillis?.() || 0;
 
                         const timeB =
-                            b.createdAt
-                                ?.toMillis?.() || 0;
+                            b.createdAt?.toMillis?.() || 0;
 
                         return timeA - timeB;
 
@@ -1305,400 +712,374 @@ function loadMessages(chatId) {
                 );
 
 
-                const currentUser =
-                    auth.currentUser;
+                chatMessages.innerHTML = "";
 
 
-                messages.forEach(
-                    (message) => {
+                if (messages.length === 0) {
 
-                        const messageElement =
-                            document.createElement(
-                                "div"
-                            );
+                    const empty =
+                        document.createElement("div");
 
+                    empty.className =
+                        "chat-empty-messages";
 
-                        const isOwnMessage =
-                            currentUser &&
-                            message.senderId ===
-                                currentUser.uid;
+                    empty.textContent =
+                        "Nessun messaggio";
 
+                    chatMessages.appendChild(
+                        empty
+                    );
 
-                        if (isOwnMessage) {
+                    return;
 
-                            messageElement.className =
-                                "message message-own";
-
-                        } else {
-
-                            messageElement.className =
-                                "message message-other";
-
-                        }
+                }
 
 
-                        // =========================
-                        // DATI DEL MESSAGGIO
-                        // =========================
+                messages.forEach(message => {
 
-                        // Salviamo direttamente il messaggio
-                        // sull'elemento DOM.
-                        //
-                        // Questo evita il problema precedente
-                        // in cui la freccetta trovava dataset vuoti.
-
-                        messageElement._enclaveMessage =
-                            message;
+                    const isOwnMessage =
+                        auth.currentUser &&
+                        message.senderId ===
+                        auth.currentUser.uid;
 
 
-                        messageElement.dataset.messageId =
-                            message.id;
+                    const messageElement =
+                        document.createElement("div");
+
+                    messageElement.className =
+                        "message " +
+                        (
+                            isOwnMessage
+                                ? "message-own"
+                                : "message-other"
+                        );
+
+                    messageElement.dataset.messageId =
+                        message.id;
+
+                    messageElement._enclaveMessage =
+                        message;
 
 
-                        // =========================
-                        // BUBBLE
-                        // =========================
+                    /* BUBBLE */
 
-                        const bubble =
-                            document.createElement(
-                                "div"
-                            );
+                    const bubble =
+                        document.createElement("div");
 
-
-                        bubble.className =
-                            "message-bubble";
+                    bubble.className =
+                        "message-bubble";
 
 
-                        // =========================
-                        // RISPOSTA QUOTATA
-                        // =========================
+                    /* RISPOSTA QUOTATA */
 
-                        if (
-                            message.replyTo
-                        ) {
+                    if (message.replyTo) {
 
-                            const replyQuote =
-                                document.createElement(
-                                    "div"
+                        const replyQuote =
+                            document.createElement("div");
+
+                        replyQuote.className =
+                            "message-reply-quote";
+
+                        const replyTitle =
+                            document.createElement("div");
+
+                        replyTitle.className =
+                            "message-reply-quote-title";
+
+                        replyTitle.textContent =
+                            message.replyTo.senderId ===
+                            auth.currentUser?.uid
+                                ? "Tu"
+                                : (
+                                    document.getElementById(
+                                        "chatUserNickname"
+                                    )?.textContent ||
+                                    "Utente"
                                 );
 
 
-                            replyQuote.className =
-                                "message-reply-quote";
+                        const replyText =
+                            document.createElement("div");
+
+                        replyText.className =
+                            "message-reply-quote-text";
+
+                        replyText.textContent =
+                            message.replyTo.text || "";
 
 
-                            const replyQuoteTitle =
-                                document.createElement(
-                                    "div"
+                        replyQuote.appendChild(
+                            replyTitle
+                        );
+
+                        replyQuote.appendChild(
+                            replyText
+                        );
+
+
+                        replyQuote.addEventListener(
+                            "click",
+                            (event) => {
+
+                                event.preventDefault();
+                                event.stopPropagation();
+
+                                const originalMessage =
+                                    document.querySelector(
+                                        `[data-message-id="${message.replyTo.messageId}"]`
+                                    );
+
+                                if (!originalMessage) {
+                                    return;
+                                }
+
+                                originalMessage.scrollIntoView({
+                                    behavior: "smooth",
+                                    block: "center"
+                                });
+
+                                originalMessage.classList.add(
+                                    "reply-highlight"
                                 );
 
+                                setTimeout(() => {
 
-                            replyQuoteTitle.className =
-                                "message-reply-quote-title";
-
-
-                            if (
-                                message.replyTo.senderId ===
-                                currentUser?.uid
-                            ) {
-
-                                replyQuoteTitle.textContent =
-                                    "Tu";
-
-                            } else {
-
-                                replyQuoteTitle.textContent =
-                                    chatUserNickname.textContent;
-
-                            }
-
-
-                            const replyQuoteText =
-                                document.createElement(
-                                    "div"
-                                );
-
-
-                            replyQuoteText.className =
-                                "message-reply-quote-text";
-
-
-                            replyQuoteText.textContent =
-                                message.replyTo.text || "";
-
-
-                            replyQuote.appendChild(
-                                replyQuoteTitle
-                            );
-
-
-                            replyQuote.appendChild(
-                                replyQuoteText
-                            );
-
-
-                            // =========================
-                            // CLICK SULLA RISPOSTA
-                            // =========================
-
-                            replyQuote.addEventListener(
-                                "click",
-                                (event) => {
-
-                                    event.preventDefault();
-
-                                    event.stopPropagation();
-
-
-                                    const targetMessage =
-                                        Array.from(
-                                            chatMessages.querySelectorAll(
-                                                ".message"
-                                            )
-                                        ).find(
-                                            (element) =>
-                                                element.dataset.messageId ===
-                                                message.replyTo.messageId
-                                        );
-
-
-                                    if (!targetMessage) {
-                                        return;
-                                    }
-
-
-                                    targetMessage.scrollIntoView({
-                                        behavior:
-                                            "smooth",
-
-                                        block:
-                                            "center"
-                                    });
-
-
-                                    targetMessage.classList.add(
+                                    originalMessage.classList.remove(
                                         "reply-highlight"
                                     );
 
-
-                                    setTimeout(
-                                        () => {
-
-                                            targetMessage.classList.remove(
-                                                "reply-highlight"
-                                            );
-
-                                        },
-                                        1200
-                                    );
-
-                                }
-                            );
-
-
-                            bubble.appendChild(
-                                replyQuote
-                            );
-
-                        }
-
-
-                        // =========================
-                        // TESTO
-                        // =========================
-
-                        const textElement =
-                            document.createElement(
-                                "span"
-                            );
-
-
-                        textElement.className =
-                            "message-text";
-
-
-                        textElement.textContent =
-                            message.text;
-
-
-                        // =========================
-                        // ORARIO
-                        // =========================
-
-                        const timeElement =
-                            document.createElement(
-                                "span"
-                            );
-
-
-                        timeElement.className =
-                            "message-time";
-
-
-                        if (message.createdAt) {
-
-                            timeElement.textContent =
-                                message.createdAt
-                                    .toDate()
-                                    .toLocaleTimeString(
-                                        "it-IT",
-                                        {
-                                            hour:
-                                                "2-digit",
-
-                                            minute:
-                                                "2-digit"
-                                        }
-                                    );
-
-                        } else {
-
-                            timeElement.textContent =
-                                "";
-
-                        }
-
-
-                        bubble.appendChild(
-                            textElement
-                        );
-
-
-                        // =========================
-                        // MODIFICATO
-                        // =========================
-
-                        if (message.edited) {
-
-                            const editedElement =
-                                document.createElement(
-                                    "span"
-                                );
-
-
-                            editedElement.className =
-                                "message-edited";
-
-
-                            editedElement.textContent =
-                                "modificato";
-
-
-                            bubble.appendChild(
-                                editedElement
-                            );
-
-                        }
-
-
-                        bubble.appendChild(
-                            timeElement
-                        );
-
-
-                        messageElement.appendChild(
-                            bubble
-                        );
-
-
-                        // =========================
-                        // AZIONI TUOI MESSAGGI
-                        // =========================
-
-                        if (isOwnMessage) {
-
-                            const actionButton =
-                                document.createElement(
-                                    "button"
-                                );
-
-
-                            actionButton.className =
-                                "message-actions";
-
-
-                            actionButton.type =
-                                "button";
-
-
-                            actionButton.textContent =
-                                "⌄";
-
-
-                            // IMPORTANTE:
-                            // non mettiamo più un listener
-                            // individuale qui.
-                            //
-                            // Il click viene gestito dal
-                            // listener delegato sotto.
-
-                            messageElement.appendChild(
-                                actionButton
-                            );
-
-                        }
-
-
-                        // =========================
-                        // EVITA SELEZIONE TESTO
-                        // =========================
-
-                        messageElement.addEventListener(
-                            "selectstart",
-                            (event) => {
-
-                                if (
-                                    window.innerWidth <=
-                                    700
-                                ) {
-
-                                    event.preventDefault();
-
-                                }
+                                }, 1200);
 
                             }
                         );
 
 
-                        // =========================
-                        // EVITA MENU BROWSER
-                        // =========================
-
-                        messageElement.addEventListener(
-                            "contextmenu",
-                            (event) => {
-
-                                if (
-                                    window.innerWidth <=
-                                    700
-                                ) {
-
-                                    event.preventDefault();
-
-                                }
-
-                            }
-                        );
-
-
-                        chatMessages.appendChild(
-                            messageElement
+                        bubble.appendChild(
+                            replyQuote
                         );
 
                     }
-                );
+
+
+                    /* TESTO */
+
+                    const textElement =
+                        document.createElement("span");
+
+                    textElement.className =
+                        "message-text";
+
+                    textElement.textContent =
+                        message.text || "";
+
+
+                    /* ORARIO */
+
+                    const timeElement =
+                        document.createElement("span");
+
+                    timeElement.className =
+                        "message-time";
+
+
+                    if (message.createdAt) {
+
+                        const date =
+                            message.createdAt.toDate();
+
+                        timeElement.textContent =
+                            date.toLocaleTimeString(
+                                "it-IT",
+                                {
+                                    hour: "2-digit",
+                                    minute: "2-digit"
+                                }
+                            );
+
+                    }
+
+
+                    bubble.appendChild(
+                        textElement
+                    );
+
+                    if (message.edited) {
+
+                        const edited =
+                            document.createElement("span");
+
+                        edited.className =
+                            "message-edited";
+
+                        edited.textContent =
+                            "modificato";
+
+                        bubble.appendChild(
+                            edited
+                        );
+
+                    }
+
+                    bubble.appendChild(
+                        timeElement
+                    );
+
+
+                    messageElement.appendChild(
+                        bubble
+                    );
+
+
+                    /* =========================
+                       FRECCETTA
+                       SU TUTTI I MESSAGGI
+                    ========================= */
+
+                    const actionButton =
+                        document.createElement("button");
+
+                    actionButton.className =
+                        "message-actions " +
+                        (
+                            isOwnMessage
+                                ? "message-actions-own"
+                                : "message-actions-other"
+                        );
+
+                    actionButton.type = "button";
+
+                    actionButton.textContent = "⌄";
+
+
+                    /*
+                       APERTURA MENU DIRETTA.
+
+                       touchend è importante per il telefono:
+                       non ci affidiamo solamente al click delegato.
+                    */
+
+                    let lastTouchTime = 0;
+
+
+                    const openActions =
+                        (event) => {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            openMessageMenu(
+                                messageElement,
+                                message
+                            );
+
+                        };
+
+
+                    actionButton.addEventListener(
+                        "touchend",
+                        (event) => {
+
+                            lastTouchTime =
+                                Date.now();
+
+                            openActions(event);
+
+                        },
+                        {
+                            passive: false
+                        }
+                    );
+
+
+                    actionButton.addEventListener(
+                        "click",
+                        (event) => {
+
+                            /*
+                               Evita il doppio evento
+                               touchend + click.
+                            */
+
+                            if (
+                                Date.now() -
+                                lastTouchTime <
+                                600
+                            ) {
+                                return;
+                            }
+
+                            openActions(event);
+
+                        }
+                    );
+
+
+                    messageElement.appendChild(
+                        actionButton
+                    );
+
+
+                    /* =========================
+                       TAP SU MOBILE
+                       MOSTRA FRECCETTA
+                    ========================= */
+
+                    messageElement.addEventListener(
+                        "click",
+                        (event) => {
+
+                            if (
+                                window.innerWidth > 700
+                            ) {
+                                return;
+                            }
+
+                            if (
+                                event.target.closest(
+                                    ".message-actions"
+                                )
+                            ) {
+                                return;
+                            }
+
+                            if (
+                                event.target.closest(
+                                    ".message-menu"
+                                )
+                            ) {
+                                return;
+                            }
+
+                            document
+                                .querySelectorAll(
+                                    ".message.message-actions-visible"
+                                )
+                                .forEach(element => {
+
+                                    element.classList.remove(
+                                        "message-actions-visible"
+                                    );
+
+                                });
+
+
+                            messageElement.classList.add(
+                                "message-actions-visible"
+                            );
+
+                        }
+                    );
+
+
+                    chatMessages.appendChild(
+                        messageElement
+                    );
+
+                });
 
 
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
-
-            },
-            (error) => {
-
-                console.error(
-                    "Errore caricamento messaggi:",
-                    error
-                );
 
             }
         );
@@ -1706,562 +1087,394 @@ function loadMessages(chatId) {
 }
 
 
-// =========================
-// CLICK SULLA FRECCETTA
-// =========================
-//
-// Un solo listener sul contenitore.
-// Funziona sia desktop che mobile.
-//
-
-chatMessages.addEventListener(
-    "click",
-    (event) => {
-
-        const actionButton =
-            event.target.closest(
-                ".message-actions"
-            );
-
-
-        if (!actionButton) {
-            return;
-        }
-
-
-        event.preventDefault();
-
-        event.stopPropagation();
-
-
-        const messageElement =
-            actionButton.closest(
-                ".message"
-            );
-
-
-        if (!messageElement) {
-            return;
-        }
-
-
-        // Recuperiamo direttamente il messaggio
-        // che avevamo salvato nell'elemento DOM.
-
-        const message =
-            messageElement._enclaveMessage;
-
-
-        if (!message) {
-
-            console.error(
-                "Messaggio non trovato per la freccetta."
-            );
-
-            return;
-        }
-
-
-        openMessageMenu(
-            messageElement,
-            message
-        );
-
-    }
-);
-
-
-// =========================
-// CHIUDI MENU CLICCANDO FUORI
-// =========================
+/* =========================
+   CHIUSURA MENU ESTERNO
+========================= */
 
 document.addEventListener(
     "click",
     (event) => {
 
         if (
-            !event.target.closest(
-                ".message-menu"
-            ) &&
-            !event.target.closest(
+            event.target.closest(
                 ".message-actions"
             )
         ) {
-
-            closeMessageMenus();
-
-        }
-
-    }
-);
-
-
-// =========================
-// RICERCA UTENTI
-// =========================
-
-chatSearch.addEventListener(
-    "input",
-    async () => {
-
-        console.log(
-            "RICERCA ATTIVATA"
-        );
-
-
-        const search =
-            chatSearch.value
-                .trim()
-                .toUpperCase();
-
-
-        searchResults.innerHTML =
-            "";
-
-
-        if (!search) {
             return;
         }
 
-
-        try {
-
-            console.log(
-                "RICERCA ID:",
-                search
-            );
-
-
-            const idDocument =
-                await getDoc(
-                    doc(
-                        db,
-                        "enclaveIds",
-                        search
-                    )
-                );
-
-
-            console.log(
-                "DOCUMENTO ID ESISTE:",
-                idDocument.exists()
-            );
-
-
-            if (!idDocument.exists()) {
-
-                const noResult =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                noResult.className =
-                    "search-no-result";
-
-
-                noResult.textContent =
-                    "Nessun utente trovato.";
-
-
-                searchResults.appendChild(
-                    noResult
-                );
-
-
-                return;
-
-            }
-
-
-            const userUid =
-                idDocument.data().uid;
-
-
-            const userDocument =
-                await getDoc(
-                    doc(
-                        db,
-                        "publicUsers",
-                        userUid
-                    )
-                );
-
-
-            if (!userDocument.exists()) {
-                return;
-            }
-
-
-            const userData =
-                userDocument.data();
-
-
-            const nickname =
-                userData.nickname;
-
-
-            const enclaveId =
-                userData.enclaveId;
-
-
-            const result =
-                document.createElement(
-                    "div"
-                );
-
-
-            result.className =
-                "search-result";
-
-
-            const avatar =
-                document.createElement(
-                    "div"
-                );
-
-
-            avatar.className =
-                "search-result-avatar";
-
-
-            avatar.textContent =
-                nickname
-                    .charAt(0)
-                    .toUpperCase();
-
-
-            const resultInfo =
-                document.createElement(
-                    "div"
-                );
-
-
-            resultInfo.className =
-                "search-result-info";
-
-
-            const resultNickname =
-                document.createElement(
-                    "span"
-                );
-
-
-            resultNickname.className =
-                "search-result-nickname";
-
-
-            resultNickname.textContent =
-                nickname;
-
-
-            const resultId =
-                document.createElement(
-                    "span"
-                );
-
-
-            resultId.className =
-                "search-result-id";
-
-
-            resultId.textContent =
-                enclaveId;
-
-
-            resultInfo.appendChild(
-                resultNickname
-            );
-
-
-            resultInfo.appendChild(
-                resultId
-            );
-
-
-            result.appendChild(
-                avatar
-            );
-
-
-            result.appendChild(
-                resultInfo
-            );
-
-
-            searchResults.appendChild(
-                result
-            );
-
-
-            result.addEventListener(
-                "click",
-                () => {
-
-                    chatEmptyState.classList.add(
-                        "hidden"
-                    );
-
-
-                    activeChat.classList.remove(
-                        "hidden"
-                    );
-
-
-                    chatUserNickname.textContent =
-                        nickname;
-
-
-                    chatUserId.textContent =
-                        enclaveId;
-
-
-                    chatUserAvatar.textContent =
-                        nickname
-                            .charAt(0)
-                            .toUpperCase();
-
-
-                    currentChatUserUid =
-                        userUid;
-
-
-                    currentChatId =
-                        createChatId(
-                            auth.currentUser.uid,
-                            userUid
-                        );
-
-
-                    loadMessages(
-                        currentChatId
-                    );
-
-
-                    homeMain.classList.add(
-                        "chat-open"
-                    );
-
-
-                    if (
-                        window.innerWidth <= 700
-                    ) {
-
-                        chatSidebar.style.display =
-                            "none";
-
-
-                        chatArea.style.display =
-                            "flex";
-
-
-                        chatArea.style.width =
-                            "100%";
-
-                    }
-
-                }
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                "Errore ricerca utente:",
-                error
-            );
-
+        if (
+            event.target.closest(
+                ".message-menu"
+            )
+        ) {
+            return;
         }
-
-    }
-);
-
-
-// =========================
-// TORNA ALLA LISTA CHAT
-// =========================
-
-chatBackButton.addEventListener(
-    "click",
-    () => {
 
         closeMessageMenus();
 
-        clearReply();
-
-
-        chatEmptyState.classList.remove(
-            "hidden"
-        );
-
-
-        activeChat.classList.add(
-            "hidden"
-        );
-
-
-        homeMain.classList.remove(
-            "chat-open"
-        );
-
-
-        if (unsubscribeMessages) {
-
-            unsubscribeMessages();
-
-            unsubscribeMessages = null;
-
-        }
-
-
-        currentChatUserUid = null;
-
-        currentChatId = null;
-
-
-        if (window.innerWidth <= 700) {
-
-            chatSidebar.style.display =
-                "flex";
-
-
-            chatArea.style.display =
-                "none";
-
-        }
-
     }
 );
 
 
-// =========================
-// INVIO MESSAGGI
-// =========================
+/* =========================
+   RICERCA UTENTE
+========================= */
+
+document
+    .getElementById("userSearchForm")
+    ?.addEventListener(
+        "submit",
+        async (event) => {
+
+            event.preventDefault();
+
+            const input =
+                document.getElementById(
+                    "userSearchInput"
+                );
+
+            const resultContainer =
+                document.getElementById(
+                    "userSearchResult"
+                );
+
+            if (!input || !resultContainer) {
+                return;
+            }
+
+            const searchId =
+                input.value
+                    .trim()
+                    .toUpperCase();
+
+            if (!searchId) {
+                return;
+            }
+
+            try {
+
+                const enclaveSnap =
+                    await getDoc(
+                        doc(
+                            db,
+                            "enclaveIds",
+                            searchId
+                        )
+                    );
+
+
+                if (!enclaveSnap.exists()) {
+
+                    resultContainer.innerHTML = `
+                        <div class="search-no-result">
+                            Nessun utente trovato
+                        </div>
+                    `;
+
+                    return;
+
+                }
+
+
+                const uid =
+                    enclaveSnap.data().uid;
+
+
+                const publicSnap =
+                    await getDoc(
+                        doc(
+                            db,
+                            "publicUsers",
+                            uid
+                        )
+                    );
+
+
+                if (!publicSnap.exists()) {
+                    return;
+                }
+
+
+                const user =
+                    publicSnap.data();
+
+
+                resultContainer.innerHTML = `
+
+                    <button
+                        class="search-user-result"
+                        type="button"
+                    >
+
+                        <div class="search-user-name">
+                            ${user.nickname}
+                        </div>
+
+                        <div class="search-user-id">
+                            ${user.enclaveId}
+                        </div>
+
+                    </button>
+
+                `;
+
+
+                resultContainer
+                    .querySelector(
+                        ".search-user-result"
+                    )
+                    .addEventListener(
+                        "click",
+                        () => {
+
+                            openChat(
+                                uid,
+                                user.nickname,
+                                user.enclaveId
+                            );
+
+                        }
+                    );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Errore ricerca:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+/* =========================
+   APRI CHAT
+========================= */
+
+function openChat(
+    uid,
+    nickname,
+    enclaveId
+) {
+
+    currentChatUserUid = uid;
+
+    currentChatId =
+        createChatId(
+            auth.currentUser.uid,
+            uid
+        );
+
+
+    document
+        .getElementById("chatEmptyState")
+        ?.classList.add("hidden");
+
+    document
+        .getElementById("activeChat")
+        ?.classList.remove("hidden");
+
+
+    const nicknameElement =
+        document.getElementById(
+            "chatUserNickname"
+        );
+
+    const idElement =
+        document.getElementById(
+            "chatUserId"
+        );
+
+    const avatarElement =
+        document.getElementById(
+            "chatUserAvatar"
+        );
+
+
+    if (nicknameElement) {
+        nicknameElement.textContent =
+            nickname;
+    }
+
+    if (idElement) {
+        idElement.textContent =
+            enclaveId;
+    }
+
+    if (avatarElement) {
+
+        avatarElement.textContent =
+            nickname
+                ? nickname.charAt(0).toUpperCase()
+                : "?";
+
+    }
+
+
+    loadMessages(
+        currentChatId
+    );
+
+}
+
+
+/* =========================
+   TORNA ALLA LISTA
+========================= */
+
+document
+    .getElementById("chatBackButton")
+    ?.addEventListener(
+        "click",
+        () => {
+
+            clearReply();
+
+            closeMessageMenus();
+
+            document
+                .getElementById("activeChat")
+                ?.classList.add("hidden");
+
+            document
+                .getElementById("chatEmptyState")
+                ?.classList.remove("hidden");
+
+            currentChatUserUid = null;
+            currentChatId = null;
+
+        }
+    );
+
+
+/* =========================
+   INVIO MESSAGGIO
+========================= */
+
+document
+    .getElementById("sendMessageButton")
+    ?.addEventListener(
+        "click",
+        sendMessage
+    );
+
+
+document
+    .getElementById("messageInput")
+    ?.addEventListener(
+        "keydown",
+        (event) => {
+
+            if (
+                event.key === "Enter"
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+
+            }
+
+        }
+    );
+
 
 async function sendMessage() {
 
-    const message =
-        messageInput.value.trim();
+    const input =
+        document.getElementById(
+            "messageInput"
+        );
 
-
-    if (!message) {
+    if (!input) {
         return;
     }
 
+    const text =
+        input.value.trim();
 
-    const currentUser =
-        auth.currentUser;
-
-
-    if (!currentUser) {
+    if (!text || !currentChatId) {
         return;
     }
 
-
-    if (!currentChatUserUid) {
-        return;
-    }
+    const senderId =
+        auth.currentUser.uid;
 
 
-    if (
-        currentUser.uid ===
-        currentChatUserUid
-    ) {
+    const messageData = {
 
-        return;
+        text,
+
+        senderId,
+
+        createdAt:
+            serverTimestamp(),
+
+        edited: false
+
+    };
+
+
+    if (replyTarget) {
+
+        messageData.replyTo = {
+
+            messageId:
+                replyTarget.messageId,
+
+            text:
+                replyTarget.text,
+
+            senderId:
+                replyTarget.senderId
+
+        };
+
     }
 
 
     try {
 
-        const chatId =
-            createChatId(
-                currentUser.uid,
-                currentChatUserUid
-            );
-
-
-        currentChatId =
-            chatId;
-
-
-        console.log(
-            "CHAT ID:",
-            chatId
-        );
-
-
-        const chatReference =
+        const chatRef =
             doc(
                 db,
                 "chats",
-                chatId
+                currentChatId
             );
 
 
-        await setDoc(
-            chatReference,
-            {
-                participants: [
-                    currentUser.uid,
-                    currentChatUserUid
-                ],
-
-                lastMessage:
-                    message,
-
-                lastMessageAt:
-                    serverTimestamp(),
-
-                lastSenderId:
-                    currentUser.uid
-            },
-            {
-                merge: true
-            }
-        );
+        const chatSnap =
+            await getDoc(chatRef);
 
 
-        console.log(
-            "CHAT CREATA / AGGIORNATA"
-        );
+        if (!chatSnap.exists()) {
 
+            await setDoc(
+                chatRef,
+                {
+                    participants: [
+                        auth.currentUser.uid,
+                        currentChatUserUid
+                    ],
+                    lastMessage: text,
+                    lastMessageAt:
+                        serverTimestamp(),
+                    lastSenderId:
+                        senderId
+                }
+            );
 
-        const messageData = {
+        } else {
 
-            text:
-                message,
-
-            senderId:
-                currentUser.uid,
-
-            createdAt:
-                serverTimestamp(),
-
-            edited:
-                false
-
-        };
-
-
-        // =========================
-        // SALVA RISPOSTA
-        // =========================
-
-        if (replyTarget) {
-
-            messageData.replyTo = {
-
-                messageId:
-                    replyTarget.messageId,
-
-                text:
-                    replyTarget.text,
-
-                senderId:
-                    replyTarget.senderId
-
-            };
+            await updateChatLastMessage(
+                currentChatId,
+                text,
+                senderId
+            );
 
         }
 
@@ -2270,34 +1483,22 @@ async function sendMessage() {
             collection(
                 db,
                 "chats",
-                chatId,
+                currentChatId,
                 "messages"
             ),
             messageData
         );
 
 
-        console.log(
-            "MESSAGGIO SALVATO"
-        );
-
-
-        messageInput.value =
-            "";
-
+        input.value = "";
 
         clearReply();
-
-
-        console.log(
-            "INVIO COMPLETATO ✅"
-        );
 
 
     } catch (error) {
 
         console.error(
-            "ERRORE INVIO MESSAGGIO:",
+            "Errore invio messaggio:",
             error
         );
 
@@ -2306,62 +1507,27 @@ async function sendMessage() {
 }
 
 
-sendMessageButton.addEventListener(
-    "click",
-    sendMessage
-);
+/* =========================
+   LISTA CONVERSAZIONI
+========================= */
 
-
-messageInput.addEventListener(
-    "keydown",
-    (event) => {
-
-        if (event.key === "Enter") {
-
-            event.preventDefault();
-
-            sendMessage();
-
-        }
-
-    }
-);
-
-
-// =========================
-// CARICAMENTO CONVERSAZIONI
-// =========================
-
-function loadConversations() {
+async function loadConversations() {
 
     if (unsubscribeChats) {
-
         unsubscribeChats();
-
-        unsubscribeChats = null;
-
     }
-
 
     const currentUser =
         auth.currentUser;
-
 
     if (!currentUser) {
         return;
     }
 
 
-    const chatsReference =
-        collection(
-            db,
-            "chats"
-        );
-
-
-    const chatsQuery =
+    const conversationsQuery =
         query(
-            chatsReference,
+            collection(db, "chats"),
             where(
                 "participants",
                 "array-contains",
@@ -2372,7 +1538,7 @@ function loadConversations() {
 
     unsubscribeChats =
         onSnapshot(
-            chatsQuery,
+            conversationsQuery,
             async (snapshot) => {
 
                 const renderVersion =
@@ -2380,10 +1546,9 @@ function loadConversations() {
 
 
                 const conversationList =
-                    document.querySelector(
-                        ".conversation-list"
+                    document.getElementById(
+                        "conversationList"
                     );
-
 
                 if (!conversationList) {
                     return;
@@ -2392,77 +1557,69 @@ function loadConversations() {
 
                 const conversationResults =
                     await Promise.all(
-
                         snapshot.docs.map(
-                            async (chatDocument) => {
+                            async (chatDoc) => {
 
-                                const chatData =
-                                    chatDocument.data();
+                                const data =
+                                    chatDoc.data();
 
 
-                                const otherUserUid =
-                                    chatData.participants.find(
-                                        (uid) =>
+                                const otherUid =
+                                    data.participants.find(
+                                        uid =>
                                             uid !==
                                             currentUser.uid
                                     );
 
 
-                                if (!otherUserUid) {
+                                if (!otherUid) {
                                     return null;
                                 }
 
 
-                                const userDocument =
+                                const userSnap =
                                     await getDoc(
                                         doc(
                                             db,
                                             "publicUsers",
-                                            otherUserUid
+                                            otherUid
                                         )
                                     );
 
 
-                                if (
-                                    !userDocument.exists()
-                                ) {
-
+                                if (!userSnap.exists()) {
                                     return null;
-
                                 }
 
 
-                                const userData =
-                                    userDocument.data();
+                                const user =
+                                    userSnap.data();
 
 
                                 return {
 
                                     chatId:
-                                        chatDocument.id,
+                                        chatDoc.id,
 
                                     uid:
-                                        otherUserUid,
+                                        otherUid,
 
                                     nickname:
-                                        userData.nickname,
+                                        user.nickname,
 
                                     enclaveId:
-                                        userData.enclaveId,
+                                        user.enclaveId,
 
                                     lastMessage:
-                                        chatData.lastMessage ||
-                                        "",
+                                        data.lastMessage || "",
 
                                     lastMessageAt:
-                                        chatData.lastMessageAt ||
-                                        null
+                                        data.lastMessageAt
 
                                 };
 
                             }
                         )
-
                     );
 
 
@@ -2470,102 +1627,7 @@ function loadConversations() {
                     renderVersion !==
                     conversationsRenderVersion
                 ) {
-
                     return;
-
-                }
-
-
-                const conversations =
-                    conversationResults.filter(
-                        (conversation) =>
-                            conversation !== null
-                    );
-
-
-                const uniqueConversations =
-                    new Map();
-
-
-                conversations.forEach(
-                    (conversation) => {
-
-                        const existing =
-                            uniqueConversations.get(
-                                conversation.uid
-                            );
-
-
-                        if (!existing) {
-
-                            uniqueConversations.set(
-                                conversation.uid,
-                                conversation
-                            );
-
-                            return;
-
-                        }
-
-
-                        const existingTime =
-                            existing.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
-                        const currentTime =
-                            conversation.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
-                        if (
-                            currentTime >
-                            existingTime
-                        ) {
-
-                            uniqueConversations.set(
-                                conversation.uid,
-                                conversation
-                            );
-
-                        }
-
-                    }
-                );
-
-
-                const finalConversations =
-                    Array.from(
-                        uniqueConversations.values()
-                    );
-
-
-                finalConversations.sort(
-                    (a, b) => {
-
-                        const timeA =
-                            a.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
-                        const timeB =
-                            b.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
-                        return timeB - timeA;
-
-                    }
-                );
-
-
-                if (
-                    renderVersion !==
-                    conversationsRenderVersion
-                ) {
-
-                    return;
-
                 }
 
 
@@ -2573,259 +1635,103 @@ function loadConversations() {
                     "";
 
 
-                if (
-                    finalConversations.length === 0
-                ) {
+                conversationResults
+                    .filter(Boolean)
+                    .sort(
+                        (a, b) => {
 
-                    const empty =
-                        document.createElement(
-                            "div"
-                        );
+                            const timeA =
+                                a.lastMessageAt
+                                    ?.toMillis?.() || 0;
 
+                            const timeB =
+                                b.lastMessageAt
+                                    ?.toMillis?.() || 0;
 
-                    empty.className =
-                        "no-conversations";
-
-
-                    empty.textContent =
-                        "Nessuna conversazione";
-
-
-                    conversationList.appendChild(
-                        empty
-                    );
-
-
-                    return;
-
-                }
-
-
-                finalConversations.forEach(
-                    (conversation) => {
-
-                        const conversationElement =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        conversationElement.className =
-                            "conversation-item";
-
-
-                        const avatar =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        avatar.className =
-                            "conversation-avatar";
-
-
-                        avatar.textContent =
-                            conversation.nickname
-                                .charAt(0)
-                                .toUpperCase();
-
-
-                        const info =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        info.className =
-                            "conversation-info";
-
-
-                        const top =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        top.className =
-                            "conversation-top";
-
-
-                        const nickname =
-                            document.createElement(
-                                "span"
-                            );
-
-
-                        nickname.className =
-                            "conversation-nickname";
-
-
-                        nickname.textContent =
-                            conversation.nickname;
-
-
-                        const time =
-                            document.createElement(
-                                "span"
-                            );
-
-
-                        time.className =
-                            "conversation-time";
-
-
-                        if (
-                            conversation.lastMessageAt
-                        ) {
-
-                            time.textContent =
-                                conversation.lastMessageAt
-                                    .toDate()
-                                    .toLocaleTimeString(
-                                        "it-IT",
-                                        {
-                                            hour:
-                                                "2-digit",
-
-                                            minute:
-                                                "2-digit"
-                                        }
-                                    );
+                            return timeB - timeA;
 
                         }
+                    )
+                    .forEach(
+                        conversation => {
+
+                            const element =
+                                document.createElement(
+                                    "button"
+                                );
+
+                            element.className =
+                                "conversation-item";
+
+                            element.type =
+                                "button";
 
 
-                        const preview =
-                            document.createElement(
-                                "div"
+                            element.innerHTML = `
+
+                                <div class="conversation-avatar">
+                                    ${conversation.nickname
+                                        ?.charAt(0)
+                                        .toUpperCase() || "?"}
+                                </div>
+
+                                <div class="conversation-info">
+
+                                    <div class="conversation-name">
+                                        ${conversation.nickname}
+                                    </div>
+
+                                    <div class="conversation-last-message">
+                                        ${conversation.lastMessage}
+                                    </div>
+
+                                </div>
+
+                            `;
+
+
+                            element.addEventListener(
+                                "click",
+                                () => {
+
+                                    openChat(
+                                        conversation.uid,
+                                        conversation.nickname,
+                                        conversation.enclaveId
+                                    );
+
+                                }
                             );
 
 
-                        preview.className =
-                            "conversation-preview";
+                            conversationList.appendChild(
+                                element
+                            );
 
-
-                        preview.textContent =
-                            conversation.lastMessage;
-
-
-                        top.appendChild(
-                            nickname
-                        );
-
-
-                        top.appendChild(
-                            time
-                        );
-
-
-                        info.appendChild(
-                            top
-                        );
-
-
-                        info.appendChild(
-                            preview
-                        );
-
-
-                        conversationElement.appendChild(
-                            avatar
-                        );
-
-
-                        conversationElement.appendChild(
-                            info
-                        );
-
-
-                        conversationList.appendChild(
-                            conversationElement
-                        );
-
-
-                        conversationElement.addEventListener(
-                            "click",
-                            () => {
-
-                                chatEmptyState.classList.add(
-                                    "hidden"
-                                );
-
-
-                                activeChat.classList.remove(
-                                    "hidden"
-                                );
-
-
-                                chatUserNickname.textContent =
-                                    conversation.nickname;
-
-
-                                chatUserId.textContent =
-                                    conversation.enclaveId;
-
-
-                                chatUserAvatar.textContent =
-                                    conversation.nickname
-                                        .charAt(0)
-                                        .toUpperCase();
-
-
-                                currentChatUserUid =
-                                    conversation.uid;
-
-
-                                currentChatId =
-                                    createChatId(
-                                        currentUser.uid,
-                                        conversation.uid
-                                    );
-
-
-                                loadMessages(
-                                    currentChatId
-                                );
-
-
-                                homeMain.classList.add(
-                                    "chat-open"
-                                );
-
-
-                                if (
-                                    window.innerWidth <=
-                                    700
-                                ) {
-
-                                    chatSidebar.style.display =
-                                        "none";
-
-
-                                    chatArea.style.display =
-                                        "flex";
-
-
-                                    chatArea.style.width =
-                                        "100%";
-
-                                }
-
-                            }
-                        );
-
-                    }
-                );
-
-            },
-            (error) => {
-
-                console.error(
-                    "Errore caricamento conversazioni:",
-                    error
-                );
+                        }
+                    );
 
             }
         );
 
 }
+
+
+/* =========================
+   NAVIGAZIONE
+========================= */
+
+document
+    .getElementById("goToLogin")
+    ?.addEventListener(
+        "click",
+        showLogin
+    );
+
+
+document
+    .getElementById("goToRegister")
+    ?.addEventListener(
+        "click",
+        showRegister
+    );
