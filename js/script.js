@@ -1729,7 +1729,6 @@ messageElement.appendChild(
                                 replyQuote
                             );
 
-                        }
 
 
                         // =========================
