@@ -86,6 +86,9 @@ const chatUserNickname =
 const chatUserId =
     document.getElementById("chatUserId");
 
+const chatBackButton =
+    document.getElementById("chatBackButton");
+
 const homeMain =
     document.querySelector(".home-main");
 
@@ -595,6 +598,31 @@ if (idDocument.exists()) {
     }
 
 });
+
+
+chatBackButton.addEventListener(
+    "click",
+    () => {
+
+        chatEmptyState.classList.remove("hidden");
+
+        activeChat.classList.add("hidden");
+
+        homeMain.classList.remove("chat-open");
+
+        currentChatUserUid = null;
+        currentChatId = null;
+
+        if (window.innerWidth <= 700) {
+
+            chatSidebar.style.display = "flex";
+
+            chatArea.style.display = "none";
+
+        }
+
+    }
+);
 
 
 // =========================
