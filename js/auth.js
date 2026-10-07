@@ -79,6 +79,15 @@ const enclaveId =
 );
 
 await setDoc(
+    doc(db, "publicUsers", user.uid),
+    {
+        nickname: nickname,
+        enclaveId: enclaveId,
+        createdAt: serverTimestamp()
+    }
+);
+
+await setDoc(
     doc(db, "users", user.uid),
     {
         nickname: nickname,
