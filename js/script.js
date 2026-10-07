@@ -481,9 +481,9 @@ chatSearch.addEventListener("input", async () => {
 
         // Recuperiamo il profilo
         const userDocument =
-            await getDoc(
-                doc(db, "users", userUid)
-            );
+    await getDoc(
+        doc(db, "publicUsers", userUid)
+    );
 
         if (!userDocument.exists()) {
             return;
