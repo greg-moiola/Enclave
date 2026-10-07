@@ -9,10 +9,20 @@ import {
 
 import {
     doc,
-    getDoc
+    getDoc,
+    setDoc,
+    addDoc,
+    collection,
+    query,
+    where,
+    getDocs,
+    serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
-import { db } from "./firebase.js";
+import {
+    db,
+    auth
+} from "./firebase.js";
 
 
 console.log("Enclave avviato correttamente.");
@@ -84,6 +94,10 @@ const chatArea =
 
 const chatSidebar =
     document.querySelector(".chat-sidebar");
+
+let currentChatUserUid = null;
+
+let currentChatId = null;
 
 
 function showRegister() {
@@ -403,6 +417,19 @@ resendVerificationButton
 
 
 // =========================
+// ID CONVERSAZIONE
+// =========================
+
+function createChatId(uid1, uid2) {
+
+    return [uid1, uid2]
+        .sort()
+        .join("_");
+
+}
+
+
+// =========================
 // RICERCA UTENTI
 // =========================
 
@@ -518,6 +545,8 @@ chatSearch.addEventListener("input", async () => {
 
     chatUserAvatar.textContent =
         nickname.charAt(0).toUpperCase();
+            
+    currentChatUserUid = userUid;
 
 
     // =========================
@@ -567,7 +596,7 @@ const chatMessages =
     document.getElementById("chatMessages");
 
 
-function sendMessage() {
+async function sendMessage() {
 
     const message =
         messageInput.value.trim();
@@ -576,64 +605,162 @@ function sendMessage() {
         return;
     }
 
-
-    // Rimuoviamo "Nessun messaggio"
-    const emptyMessage =
-        chatMessages.querySelector(
-            ".chat-empty-messages"
-        );
-
-    if (emptyMessage) {
-        emptyMessage.remove();
+    if (!currentChatUserUid) {
+        return;
     }
 
 
-    // Creiamo il messaggio
-    const messageElement =
-        document.createElement("div");
+    const currentUser =
+        auth.currentUser;
 
-    messageElement.className =
-        "message message-own";
-
-    messageElement.innerHTML = `
-
-        <div class="message-bubble">
-
-            <span class="message-text">
-                ${message}
-            </span>
-
-            <span class="message-time">
-                ${new Date().toLocaleTimeString(
-                    "it-IT",
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }
-                )}
-            </span>
-
-        </div>
-
-    `;
+    if (!currentUser) {
+        return;
+    }
 
 
-    chatMessages.appendChild(
-        messageElement
-    );
+    try {
+
+        // Creiamo un ID unico per la coppia
+        const chatId =
+            createChatId(
+                currentUser.uid,
+                currentChatUserUid
+            );
+
+        currentChatId =
+            chatId;
 
 
-    // Svuotiamo il campo
-    messageInput.value = "";
+        // Riferimento alla conversazione
+        const chatReference =
+            doc(
+                db,
+                "chats",
+                chatId
+            );
 
-    // Scroll in fondo
-    chatMessages.scrollTop =
-        chatMessages.scrollHeight;
+
+        // Controlliamo se esiste già
+        const chatDocument =
+            await getDoc(chatReference);
+
+
+        // Se è la prima volta, creiamo la conversazione
+        if (!chatDocument.exists()) {
+
+            await setDoc(
+                chatReference,
+                {
+                    participants: [
+                        currentUser.uid,
+                        currentChatUserUid
+                    ],
+                    lastMessage: message,
+                    lastMessageAt: serverTimestamp()
+                }
+            );
+
+        } else {
+
+            // Aggiorniamo l'ultimo messaggio
+            await setDoc(
+                chatReference,
+                {
+                    lastMessage: message,
+                    lastMessageAt: serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+
+        }
+
+
+        // Salviamo il messaggio
+        await addDoc(
+            collection(
+                db,
+                "chats",
+                chatId,
+                "messages"
+            ),
+            {
+                text: message,
+                senderId: currentUser.uid,
+                createdAt: serverTimestamp()
+            }
+        );
+
+
+        // Rimuoviamo "Nessun messaggio"
+        const emptyMessage =
+            chatMessages.querySelector(
+                ".chat-empty-messages"
+            );
+
+        if (emptyMessage) {
+            emptyMessage.remove();
+        }
+
+
+        // Mostriamo subito il messaggio
+        const messageElement =
+            document.createElement("div");
+
+        messageElement.className =
+            "message message-own";
+
+        messageElement.innerHTML = `
+
+            <div class="message-bubble">
+
+                <span class="message-text">
+                    ${message}
+                </span>
+
+                <span class="message-time">
+                    ${new Date().toLocaleTimeString(
+                        "it-IT",
+                        {
+                            hour: "2-digit",
+                            minute: "2-digit"
+                        }
+                    )}
+                </span>
+
+            </div>
+
+        `;
+
+        chatMessages.appendChild(
+            messageElement
+        );
+
+
+        // Svuotiamo l'input
+        messageInput.value = "";
+
+
+        // Scroll in fondo
+        chatMessages.scrollTop =
+            chatMessages.scrollHeight;
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore invio messaggio:",
+            error
+        );
+
+    }
 
 }
 
 
-// CLICK SUL PULSANTE
+// CLICK INVIO
+
 sendMessageButton.addEventListener(
     "click",
     sendMessage
@@ -641,6 +768,7 @@ sendMessageButton.addEventListener(
 
 
 // INVIO CON ENTER
+
 messageInput.addEventListener(
     "keydown",
     (event) => {
