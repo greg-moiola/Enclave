@@ -79,6 +79,12 @@ const chatUserId =
 const homeMain =
     document.querySelector(".home-main");
 
+const chatArea =
+    document.querySelector(".chat-area");
+
+const chatSidebar =
+    document.querySelector(".chat-sidebar");
+
 
 function showRegister() {
 
@@ -494,6 +500,7 @@ chatSearch.addEventListener("input", async () => {
 
         searchResults.appendChild(result);
 
+        
         result.addEventListener("click", () => {
 
     // Chiudiamo la schermata iniziale
@@ -512,9 +519,27 @@ chatSearch.addEventListener("input", async () => {
     chatUserAvatar.textContent =
         nickname.charAt(0).toUpperCase();
 
+
+    // =========================
+    // APERTURA CHAT
+    // =========================
+
     homeMain.classList.add("chat-open");
 
+
+    // Su mobile mostriamo la chat
+    // e nascondiamo la sidebar
+    if (window.innerWidth <= 700) {
+
+        chatSidebar.style.display = "none";
+
+        chatArea.style.display = "flex";
+
+        chatArea.style.width = "100%";
+    }
+
 });
+
 
     } catch (error) {
 
