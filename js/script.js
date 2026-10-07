@@ -129,6 +129,13 @@ let conversationsRenderVersion = 0;
 
 
 // =========================
+// RISPOSTA A UN MESSAGGIO
+// =========================
+
+let replyTarget = null;
+
+
+// =========================
 // CAMBIO SCHERMATE
 // =========================
 
@@ -488,6 +495,8 @@ document
 
             currentChatId = null;
 
+            clearReply();
+
 
             showRegister();
 
@@ -563,6 +572,230 @@ function closeMessageMenus() {
             menu.remove();
 
         });
+
+}
+
+
+// =========================
+// BARRA RISPOSTA
+// =========================
+
+function createReplyBar() {
+
+    let replyBar =
+        document.getElementById(
+            "messageReplyBar"
+        );
+
+
+    if (replyBar) {
+        return replyBar;
+    }
+
+
+    const chatInputArea =
+        document.querySelector(
+            ".chat-input-area"
+        );
+
+
+    if (!chatInputArea) {
+        return null;
+    }
+
+
+    replyBar =
+        document.createElement(
+            "div"
+        );
+
+
+    replyBar.id =
+        "messageReplyBar";
+
+
+    replyBar.className =
+        "message-reply-bar";
+
+
+    const replyInfo =
+        document.createElement(
+            "div"
+        );
+
+
+    replyInfo.className =
+        "message-reply-info";
+
+
+    const replyTitle =
+        document.createElement(
+            "div"
+        );
+
+
+    replyTitle.className =
+        "message-reply-title";
+
+
+    replyTitle.textContent =
+        "Rispondi a";
+
+
+    const replyText =
+        document.createElement(
+            "div"
+        );
+
+
+    replyText.className =
+        "message-reply-text";
+
+
+    replyInfo.appendChild(
+        replyTitle
+    );
+
+
+    replyInfo.appendChild(
+        replyText
+    );
+
+
+    const cancelButton =
+        document.createElement(
+            "button"
+        );
+
+
+    cancelButton.type =
+        "button";
+
+
+    cancelButton.className =
+        "message-reply-cancel";
+
+
+    cancelButton.textContent =
+        "×";
+
+
+    cancelButton.addEventListener(
+        "click",
+        (event) => {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            clearReply();
+
+        }
+    );
+
+
+    replyBar.appendChild(
+        replyInfo
+    );
+
+
+    replyBar.appendChild(
+        cancelButton
+    );
+
+
+    chatInputArea.insertBefore(
+        replyBar,
+        chatInputArea.firstChild
+    );
+
+
+    return replyBar;
+
+}
+
+
+// =========================
+// INIZIA RISPOSTA
+// =========================
+
+function startReply(message) {
+
+    if (!message) {
+        return;
+    }
+
+
+    replyTarget = {
+
+        messageId:
+            message.id,
+
+        text:
+            message.text || "",
+
+        senderId:
+            message.senderId || ""
+
+    };
+
+
+    const replyBar =
+        createReplyBar();
+
+
+    if (!replyBar) {
+        return;
+    }
+
+
+    const replyText =
+        replyBar.querySelector(
+            ".message-reply-text"
+        );
+
+
+    if (replyText) {
+
+        replyText.textContent =
+            message.text || "";
+
+    }
+
+
+    replyBar.style.display =
+        "flex";
+
+
+    messageInput.focus();
+
+
+    closeMessageMenus();
+
+}
+
+
+// =========================
+// CANCELLA RISPOSTA
+// =========================
+
+function clearReply() {
+
+    replyTarget = null;
+
+
+    const replyBar =
+        document.getElementById(
+            "messageReplyBar"
+        );
+
+
+    if (replyBar) {
+
+        replyBar.style.display =
+            "none";
+
+    }
 
 }
 
@@ -820,52 +1053,69 @@ function openMessageMenu(
             "div"
         );
 
+
     menu.className =
         "message-menu";
 
+
+    // =========================
+    // RISPONDI
+    // =========================
+
+    const replyButton =
+        document.createElement(
+            "button"
+        );
+
+
+    replyButton.className =
+        "message-menu-button";
+
+
+    replyButton.type =
+        "button";
+
+
+    replyButton.textContent =
+        "↩ Rispondi";
+
+
+    replyButton.addEventListener(
+        "click",
+        (event) => {
+
+            event.preventDefault();
+
+            event.stopPropagation();
+
+            startReply(
+                message
+            );
+
+        }
+    );
+
+
+    // =========================
+    // MODIFICA
+    // =========================
 
     const editButton =
         document.createElement(
             "button"
         );
 
+
     editButton.className =
         "message-menu-button";
+
 
     editButton.type =
         "button";
 
+
     editButton.textContent =
         "Modifica";
-
-
-    const deleteButton =
-        document.createElement(
-            "button"
-        );
-
-    deleteButton.className =
-        "message-menu-button";
-
-    deleteButton.type =
-        "button";
-
-    deleteButton.textContent =
-        "Elimina";
-
-
-    menu.appendChild(
-        editButton
-    );
-
-    menu.appendChild(
-        deleteButton
-    );
-
-
-    messageElement.appendChild(
-        menu
-    );
 
 
     editButton.addEventListener(
@@ -888,6 +1138,28 @@ function openMessageMenu(
     );
 
 
+    // =========================
+    // ELIMINA
+    // =========================
+
+    const deleteButton =
+        document.createElement(
+            "button"
+        );
+
+
+    deleteButton.className =
+        "message-menu-button";
+
+
+    deleteButton.type =
+        "button";
+
+
+    deleteButton.textContent =
+        "Elimina";
+
+
     deleteButton.addEventListener(
         "click",
         async (event) => {
@@ -906,6 +1178,26 @@ function openMessageMenu(
         }
     );
 
+
+    menu.appendChild(
+        replyButton
+    );
+
+
+    menu.appendChild(
+        editButton
+    );
+
+
+    menu.appendChild(
+        deleteButton
+    );
+
+
+    messageElement.appendChild(
+        menu
+    );
+
 }
 
 
@@ -922,6 +1214,9 @@ function loadMessages(chatId) {
         unsubscribeMessages = null;
 
     }
+
+
+    clearReply();
 
 
     const messagesReference =
@@ -957,17 +1252,22 @@ function loadMessages(chatId) {
                             "div"
                         );
 
+
                     emptyMessage.className =
                         "chat-empty-messages";
 
+
                     emptyMessage.textContent =
                         "Nessun messaggio";
+
 
                     chatMessages.appendChild(
                         emptyMessage
                     );
 
+
                     return;
+
                 }
 
 
@@ -1037,31 +1337,122 @@ function loadMessages(chatId) {
                         }
 
 
+                        // =========================
+                        // BUBBLE
+                        // =========================
+
                         const bubble =
                             document.createElement(
                                 "div"
                             );
 
+
                         bubble.className =
                             "message-bubble";
 
+
+                        // =========================
+                        // RISPOSTA QUOTATA
+                        // =========================
+
+                        if (
+                            message.replyTo
+                        ) {
+
+                            const replyQuote =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            replyQuote.className =
+                                "message-reply-quote";
+
+
+                            const replyQuoteTitle =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            replyQuoteTitle.className =
+                                "message-reply-quote-title";
+
+
+                            if (
+                                message.replyTo.senderId ===
+                                currentUser?.uid
+                            ) {
+
+                                replyQuoteTitle.textContent =
+                                    "Tu";
+
+                            } else {
+
+                                replyQuoteTitle.textContent =
+                                    chatUserNickname.textContent;
+
+                            }
+
+
+                            const replyQuoteText =
+                                document.createElement(
+                                    "div"
+                                );
+
+
+                            replyQuoteText.className =
+                                "message-reply-quote-text";
+
+
+                            replyQuoteText.textContent =
+                                message.replyTo.text || "";
+
+
+                            replyQuote.appendChild(
+                                replyQuoteTitle
+                            );
+
+
+                            replyQuote.appendChild(
+                                replyQuoteText
+                            );
+
+
+                            bubble.appendChild(
+                                replyQuote
+                            );
+
+                        }
+
+
+                        // =========================
+                        // TESTO
+                        // =========================
 
                         const textElement =
                             document.createElement(
                                 "span"
                             );
 
+
                         textElement.className =
                             "message-text";
+
 
                         textElement.textContent =
                             message.text;
 
 
+                        // =========================
+                        // ORARIO
+                        // =========================
+
                         const timeElement =
                             document.createElement(
                                 "span"
                             );
+
 
                         timeElement.className =
                             "message-time";
@@ -1096,6 +1487,10 @@ function loadMessages(chatId) {
                         );
 
 
+                        // =========================
+                        // MODIFICATO
+                        // =========================
+
                         if (message.edited) {
 
                             const editedElement =
@@ -1103,11 +1498,14 @@ function loadMessages(chatId) {
                                     "span"
                                 );
 
+
                             editedElement.className =
                                 "message-edited";
 
+
                             editedElement.textContent =
                                 "modificato";
+
 
                             bubble.appendChild(
                                 editedElement
@@ -1137,11 +1535,14 @@ function loadMessages(chatId) {
                                     "button"
                                 );
 
+
                             actionButton.className =
                                 "message-actions";
 
+
                             actionButton.type =
                                 "button";
+
 
                             actionButton.textContent =
                                 "⌄";
@@ -1151,71 +1552,49 @@ function loadMessages(chatId) {
                                 actionButton
                             );
 
-
-                            // =========================
-                            // CLICK / TAP
-                            // =========================
-
-                            actionButton.addEventListener(
-                                 "click",
-                                  (event) => {
-
-                                        event.preventDefault();
-
-                                        event.stopPropagation();
-
-                                       openMessageMenu(
-                                    messageElement,
-                                 message
-                            );
-
-                           }
-                       );
-
-
-                        
-                            // =========================
-                            // EVITA SELEZIONE TESTO
-                            // =========================
-
-                            messageElement.addEventListener(
-                                "selectstart",
-                                (event) => {
-
-                                    if (
-                                        window.innerWidth <=
-                                        700
-                                    ) {
-
-                                        event.preventDefault();
-
-                                    }
-
-                                }
-                            );
-
-
-                            // =========================
-                            // EVITA MENU BROWSER
-                            // =========================
-
-                            messageElement.addEventListener(
-                                "contextmenu",
-                                (event) => {
-
-                                    if (
-                                        window.innerWidth <=
-                                        700
-                                    ) {
-
-                                        event.preventDefault();
-
-                                    }
-
-                                }
-                            );
-
                         }
+
+
+                        // =========================
+                        // EVITA SELEZIONE TESTO
+                        // =========================
+
+                        messageElement.addEventListener(
+                            "selectstart",
+                            (event) => {
+
+                                if (
+                                    window.innerWidth <=
+                                    700
+                                ) {
+
+                                    event.preventDefault();
+
+                                }
+
+                            }
+                        );
+
+
+                        // =========================
+                        // EVITA MENU BROWSER
+                        // =========================
+
+                        messageElement.addEventListener(
+                            "contextmenu",
+                            (event) => {
+
+                                if (
+                                    window.innerWidth <=
+                                    700
+                                ) {
+
+                                    event.preventDefault();
+
+                                }
+
+                            }
+                        );
 
 
                         chatMessages.appendChild(
@@ -1241,6 +1620,112 @@ function loadMessages(chatId) {
         );
 
 }
+
+
+// =========================
+// CLICK SULLA FRECCETTA
+// =========================
+//
+// Usiamo un solo listener sul contenitore
+// invece di tanti listener sui singoli bottoni.
+// È molto più affidabile anche su telefono.
+//
+
+chatMessages.addEventListener(
+    "click",
+    (event) => {
+
+        const actionButton =
+            event.target.closest(
+                ".message-actions"
+            );
+
+
+        if (!actionButton) {
+            return;
+        }
+
+
+        event.preventDefault();
+
+        event.stopPropagation();
+
+
+        const messageElement =
+            actionButton.closest(
+                ".message"
+            );
+
+
+        if (!messageElement) {
+            return;
+        }
+
+
+        const messageIndex =
+            Array.from(
+                chatMessages.children
+            ).indexOf(
+                messageElement
+            );
+
+
+        if (
+            messageIndex < 0
+        ) {
+            return;
+        }
+
+
+        const messages =
+            Array.from(
+                chatMessages.querySelectorAll(
+                    ".message"
+                )
+            );
+
+
+        const message =
+            messages[messageIndex];
+
+
+        if (!message) {
+            return;
+        }
+
+
+        // Ricostruisce i dati del messaggio
+        // direttamente dal DOM usando gli attributi
+        // salvati sotto.
+
+        const messageId =
+            messageElement.dataset.messageId;
+
+
+        const messageText =
+            messageElement.dataset.messageText;
+
+
+        const messageSenderId =
+            messageElement.dataset.messageSenderId;
+
+
+        openMessageMenu(
+            messageElement,
+            {
+                id:
+                    messageId,
+
+                text:
+                    messageText,
+
+                senderId:
+                    messageSenderId
+            }
+        );
+
+    }
+);
 
 
 // =========================
@@ -1327,17 +1812,22 @@ chatSearch.addEventListener(
                         "div"
                     );
 
+
                 noResult.className =
                     "search-no-result";
 
+
                 noResult.textContent =
                     "Nessun utente trovato.";
+
 
                 searchResults.appendChild(
                     noResult
                 );
 
+
                 return;
+
             }
 
 
@@ -1367,6 +1857,7 @@ chatSearch.addEventListener(
             const nickname =
                 userData.nickname;
 
+
             const enclaveId =
                 userData.enclaveId;
 
@@ -1375,6 +1866,7 @@ chatSearch.addEventListener(
                 document.createElement(
                     "div"
                 );
+
 
             result.className =
                 "search-result";
@@ -1385,8 +1877,10 @@ chatSearch.addEventListener(
                     "div"
                 );
 
+
             avatar.className =
                 "search-result-avatar";
+
 
             avatar.textContent =
                 nickname
@@ -1399,6 +1893,7 @@ chatSearch.addEventListener(
                     "div"
                 );
 
+
             resultInfo.className =
                 "search-result-info";
 
@@ -1408,8 +1903,10 @@ chatSearch.addEventListener(
                     "span"
                 );
 
+
             resultNickname.className =
                 "search-result-nickname";
+
 
             resultNickname.textContent =
                 nickname;
@@ -1420,8 +1917,10 @@ chatSearch.addEventListener(
                     "span"
                 );
 
+
             resultId.className =
                 "search-result-id";
+
 
             resultId.textContent =
                 enclaveId;
@@ -1431,6 +1930,7 @@ chatSearch.addEventListener(
                 resultNickname
             );
 
+
             resultInfo.appendChild(
                 resultId
             );
@@ -1439,6 +1939,7 @@ chatSearch.addEventListener(
             result.appendChild(
                 avatar
             );
+
 
             result.appendChild(
                 resultInfo
@@ -1458,6 +1959,7 @@ chatSearch.addEventListener(
                         "hidden"
                     );
 
+
                     activeChat.classList.remove(
                         "hidden"
                     );
@@ -1466,8 +1968,10 @@ chatSearch.addEventListener(
                     chatUserNickname.textContent =
                         nickname;
 
+
                     chatUserId.textContent =
                         enclaveId;
+
 
                     chatUserAvatar.textContent =
                         nickname
@@ -1503,8 +2007,10 @@ chatSearch.addEventListener(
                         chatSidebar.style.display =
                             "none";
 
+
                         chatArea.style.display =
                             "flex";
+
 
                         chatArea.style.width =
                             "100%";
@@ -1538,14 +2044,18 @@ chatBackButton.addEventListener(
 
         closeMessageMenus();
 
+        clearReply();
+
 
         chatEmptyState.classList.remove(
             "hidden"
         );
 
+
         activeChat.classList.add(
             "hidden"
         );
+
 
         homeMain.classList.remove(
             "chat-open"
@@ -1570,6 +2080,7 @@ chatBackButton.addEventListener(
 
             chatSidebar.style.display =
                 "flex";
+
 
             chatArea.style.display =
                 "none";
@@ -1673,6 +2184,45 @@ async function sendMessage() {
         );
 
 
+        const messageData = {
+
+            text:
+                message,
+
+            senderId:
+                currentUser.uid,
+
+            createdAt:
+                serverTimestamp(),
+
+            edited:
+                false
+
+        };
+
+
+        // =========================
+        // SALVA RISPOSTA
+        // =========================
+
+        if (replyTarget) {
+
+            messageData.replyTo = {
+
+                messageId:
+                    replyTarget.messageId,
+
+                text:
+                    replyTarget.text,
+
+                senderId:
+                    replyTarget.senderId
+
+            };
+
+        }
+
+
         await addDoc(
             collection(
                 db,
@@ -1680,19 +2230,7 @@ async function sendMessage() {
                 chatId,
                 "messages"
             ),
-            {
-                text:
-                    message,
-
-                senderId:
-                    currentUser.uid,
-
-                createdAt:
-                    serverTimestamp(),
-
-                edited:
-                    false
-            }
+            messageData
         );
 
 
@@ -1703,6 +2241,9 @@ async function sendMessage() {
 
         messageInput.value =
             "";
+
+
+        clearReply();
 
 
         console.log(
@@ -1791,9 +2332,6 @@ function loadConversations() {
             chatsQuery,
             async (snapshot) => {
 
-                // Ogni nuovo snapshot rende obsolete
-                // tutte le elaborazioni precedenti.
-
                 const renderVersion =
                     ++conversationsRenderVersion;
 
@@ -1808,10 +2346,6 @@ function loadConversations() {
                     return;
                 }
 
-
-                // ==========================================
-                // COSTRUISCE LE CONVERSAZIONI
-                // ==========================================
 
                 const conversationResults =
                     await Promise.all(
@@ -1889,10 +2423,6 @@ function loadConversations() {
                     );
 
 
-                // ==========================================
-                // CONTROLLO SNAPSHOT OBSOLETO
-                // ==========================================
-
                 if (
                     renderVersion !==
                     conversationsRenderVersion
@@ -1903,20 +2433,12 @@ function loadConversations() {
                 }
 
 
-                // ==========================================
-                // RIMUOVE RISULTATI NULL
-                // ==========================================
-
                 const conversations =
                     conversationResults.filter(
                         (conversation) =>
                             conversation !== null
                     );
 
-
-                // ==========================================
-                // ELIMINA DUPLICATI
-                // ==========================================
 
                 const uniqueConversations =
                     new Map();
@@ -1975,10 +2497,6 @@ function loadConversations() {
                     );
 
 
-                // ==========================================
-                // ORDINA PER ULTIMO MESSAGGIO
-                // ==========================================
-
                 finalConversations.sort(
                     (a, b) => {
 
@@ -1998,10 +2516,6 @@ function loadConversations() {
                 );
 
 
-                // ==========================================
-                // CONTROLLO FINALE
-                // ==========================================
-
                 if (
                     renderVersion !==
                     conversationsRenderVersion
@@ -2012,17 +2526,9 @@ function loadConversations() {
                 }
 
 
-                // ==========================================
-                // ORA PULISCE LA LISTA
-                // ==========================================
-
                 conversationList.innerHTML =
                     "";
 
-
-                // ==========================================
-                // NESSUNA CONVERSAZIONE
-                // ==========================================
 
                 if (
                     finalConversations.length === 0
@@ -2051,10 +2557,6 @@ function loadConversations() {
 
                 }
 
-
-                // ==========================================
-                // CREA LA LISTA
-                // ==========================================
 
                 finalConversations.forEach(
                     (conversation) => {
@@ -2198,10 +2700,6 @@ function loadConversations() {
                             conversationElement
                         );
 
-
-                        // ==========================================
-                        // APRI CONVERSAZIONE
-                        // ==========================================
 
                         conversationElement.addEventListener(
                             "click",
