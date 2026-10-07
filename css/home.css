@@ -759,6 +759,16 @@
     align-items: flex-start;
 }
 
+.message-own .message-reply-quote,
+.message-own .message-bubble {
+    margin-left: auto;
+}
+
+.message-other .message-reply-quote,
+.message-other .message-bubble {
+    margin-right: auto;
+}
+
 .message-bubble {
     max-width: min(65%, 520px);
 
