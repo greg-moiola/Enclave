@@ -440,6 +440,7 @@ const searchResults =
     document.getElementById("searchResults");
 
 chatSearch.addEventListener("input", async () => {
+    console.log("RICERCA ATTIVATA");
 
     const search =
         chatSearch.value.trim().toUpperCase();
