@@ -1194,7 +1194,11 @@
 
         right: 12px;
 
+        bottom: 78px;
+
         min-width: 130px;
+
+        max-width: calc(100vw - 24px);
     }
 
 
