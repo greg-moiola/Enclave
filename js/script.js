@@ -15,7 +15,6 @@ import {
     collection,
     query,
     where,
-    getDocs,
     onSnapshot,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -99,6 +98,22 @@ const chatArea =
 const chatSidebar =
     document.querySelector(".chat-sidebar");
 
+const chatMessages =
+    document.getElementById("chatMessages");
+
+const messageInput =
+    document.getElementById("messageInput");
+
+const sendMessageButton =
+    document.getElementById("sendMessageButton");
+
+const chatSearch =
+    document.getElementById("chatSearch");
+
+const searchResults =
+    document.getElementById("searchResults");
+
+
 let currentChatUserUid = null;
 
 let currentChatId = null;
@@ -107,6 +122,10 @@ let unsubscribeMessages = null;
 
 let unsubscribeChats = null;
 
+
+// =========================
+// CAMBIO SCHERMATE
+// =========================
 
 function showRegister() {
 
@@ -141,6 +160,10 @@ function showHome() {
 }
 
 
+// =========================
+// PROFILO UTENTE
+// =========================
+
 async function loadUserProfile(user) {
 
     const userDocument =
@@ -151,7 +174,9 @@ async function loadUserProfile(user) {
 
     if (!userDocument.exists()) {
 
-        console.error("Profilo utente non trovato.");
+        console.error(
+            "Profilo utente non trovato."
+        );
 
         return;
     }
@@ -190,9 +215,13 @@ async function loadUserProfile(user) {
 
     profileInitial.textContent =
         nickname.charAt(0).toUpperCase();
+
 }
 
-    
+
+// =========================
+// VERIFICA EMAIL
+// =========================
 
 function showVerification(user) {
 
@@ -205,7 +234,9 @@ function showVerification(user) {
     verificationSpinner.style.display =
         "none";
 
-    verificationOverlay.classList.remove("hidden");
+    verificationOverlay.classList.remove(
+        "hidden"
+    );
 
 }
 
@@ -221,15 +252,17 @@ async function checkEmailVerification(user) {
 
     if (user.emailVerified) {
 
-    verificationSpinner.style.display =
-        "none";
+        verificationSpinner.style.display =
+            "none";
 
-    verificationOverlay.classList.add("hidden");
+        verificationOverlay.classList.add(
+            "hidden"
+        );
 
-    showRegister();
+        showRegister();
 
-    return;
-}
+        return;
+    }
 
 
     setTimeout(() => {
@@ -247,52 +280,72 @@ async function checkEmailVerification(user) {
 
 document
     .getElementById("registerButton")
-    .addEventListener("click", async () => {
+    .addEventListener(
+        "click",
+        async () => {
 
-        const email =
-            document.getElementById("registerEmail").value.trim();
+            const email =
+                document
+                    .getElementById("registerEmail")
+                    .value
+                    .trim();
 
-        const password =
-            document.getElementById("registerPassword").value;
+            const password =
+                document
+                    .getElementById("registerPassword")
+                    .value;
 
-        const nickname =
-            document.getElementById("registerNickname").value.trim();
+            const nickname =
+                document
+                    .getElementById("registerNickname")
+                    .value
+                    .trim();
 
-        const message =
-            document.getElementById("message");
+            const message =
+                document.getElementById("message");
 
 
-        if (!email || !password || !nickname) {
+            if (!email || !password || !nickname) {
+
+                message.textContent =
+                    "Compila tutti i campi.";
+
+                return;
+            }
+
 
             message.textContent =
-                "Compila tutti i campi.";
+                "Creazione account...";
 
-            return;
+
+            const result =
+                await registerUser(
+                    email,
+                    password,
+                    nickname
+                );
+
+
+            if (result.success) {
+
+                showVerification(
+                    result.user
+                );
+
+                checkEmailVerification(
+                    result.user
+                );
+
+            } else {
+
+                message.textContent =
+                    "Errore: " +
+                    result.error.message;
+
+            }
+
         }
-
-
-        message.textContent =
-            "Creazione account...";
-
-
-        const result =
-            await registerUser(email, password, nickname);
-
-
-        if (result.success) {
-
-    showVerification(result.user);
-
-    checkEmailVerification(result.user);
-
-} else {
-
-    message.textContent =
-        "Errore: " + result.error.message;
-
-}
-
-    });
+    );
 
 
 // =========================
@@ -301,11 +354,14 @@ document
 
 document
     .getElementById("loginLink")
-    .addEventListener("click", () => {
+    .addEventListener(
+        "click",
+        () => {
 
-        showLogin();
+            showLogin();
 
-    });
+        }
+    );
 
 
 // =========================
@@ -314,60 +370,75 @@ document
 
 document
     .getElementById("loginButton")
-    .addEventListener("click", async () => {
+    .addEventListener(
+        "click",
+        async () => {
 
-        const email =
-            document.getElementById("loginEmail").value.trim();
+            const email =
+                document
+                    .getElementById("loginEmail")
+                    .value
+                    .trim();
 
-        const password =
-            document.getElementById("loginPassword").value;
+            const password =
+                document
+                    .getElementById("loginPassword")
+                    .value;
 
-        const message =
-            document.getElementById("loginMessage");
+            const message =
+                document.getElementById(
+                    "loginMessage"
+                );
 
 
-        if (!email || !password) {
+            if (!email || !password) {
+
+                message.textContent =
+                    "Inserisci email e password.";
+
+                return;
+            }
+
 
             message.textContent =
-                "Inserisci email e password.";
+                "Accesso in corso...";
 
-            return;
+
+            const result =
+                await loginUser(
+                    email,
+                    password
+                );
+
+
+            if (result.success) {
+
+                showHome();
+
+                await loadUserProfile(
+                    result.user
+                );
+
+                loadConversations();
+
+            } else if (result.emailNotVerified) {
+
+                message.textContent =
+                    "Devi prima verificare la tua email.";
+
+            } else {
+
+                message.textContent =
+                    "Email o password non corretti.";
+
+                console.error(
+                    result.error
+                );
+
+            }
+
         }
-
-
-        message.textContent =
-            "Accesso in corso...";
-
-
-        const result =
-            await loginUser(email, password);
-
-
-        if (result.success) {
-
-    showHome();
-
-    await loadUserProfile(result.user);
-
-    loadConversations();
-
-}
-
-} else if (result.emailNotVerified) {
-
-    message.textContent =
-        "Devi prima verificare la tua email.";
-
-} else {
-
-    message.textContent =
-        "Email o password non corretti.";
-
-    console.error(result.error);
-
-}
-
-    });
+    );
 
 
 // =========================
@@ -376,11 +447,14 @@ document
 
 document
     .getElementById("registerLink")
-    .addEventListener("click", () => {
+    .addEventListener(
+        "click",
+        () => {
 
-        showRegister();
+            showRegister();
 
-    });
+        }
+    );
 
 
 // =========================
@@ -389,43 +463,79 @@ document
 
 document
     .getElementById("logoutButton")
-    .addEventListener("click", () => {
+    .addEventListener(
+        "click",
+        () => {
 
-        showRegister();
+            if (unsubscribeMessages) {
 
-    });
+                unsubscribeMessages();
+
+                unsubscribeMessages = null;
+
+            }
 
 
+            if (unsubscribeChats) {
+
+                unsubscribeChats();
+
+                unsubscribeChats = null;
+
+            }
+
+
+            currentChatUserUid = null;
+
+            currentChatId = null;
+
+
+            showRegister();
+
+        }
+    );
+
+
+// =========================
+// REINVIO EMAIL
+// =========================
 
 resendVerificationButton
-    .addEventListener("click", async () => {
+    .addEventListener(
+        "click",
+        async () => {
 
-        const user =
-            (await import("./firebase.js")).auth.currentUser;
+            const user =
+                (
+                    await import("./firebase.js")
+                ).auth.currentUser;
 
 
-        if (!user) {
-            return;
+            if (!user) {
+                return;
+            }
+
+
+            try {
+
+                await sendEmailVerification(
+                    user
+                );
+
+                verificationMessage.textContent =
+                    "Email inviata nuovamente.";
+
+            } catch (error) {
+
+                console.error(error);
+
+                verificationMessage.textContent =
+                    "Non è stato possibile inviare l'email.";
+
+            }
+
         }
-
-
-        try {
-
-            await sendEmailVerification(user);
-
-            verificationMessage.textContent =
-                "Email inviata nuovamente.";
-
-        } catch (error) {
-
-            console.error(error);
-
-            verificationMessage.textContent =
-                "Non è stato possibile inviare l'email.";
-
-        }
-
-    });
+    );
 
 
 // =========================
@@ -447,13 +557,12 @@ function createChatId(uid1, uid2) {
 
 function loadMessages(chatId) {
 
-    // Se stavamo già ascoltando un'altra chat,
-    // interrompiamo quel listener
     if (unsubscribeMessages) {
 
         unsubscribeMessages();
 
         unsubscribeMessages = null;
+
     }
 
 
@@ -483,7 +592,9 @@ function loadMessages(chatId) {
                 if (snapshot.empty) {
 
                     const emptyMessage =
-                        document.createElement("div");
+                        document.createElement(
+                            "div"
+                        );
 
                     emptyMessage.className =
                         "chat-empty-messages";
@@ -499,15 +610,16 @@ function loadMessages(chatId) {
                 }
 
 
-                const messages =
-                    [];
+                const messages = [];
 
 
                 snapshot.forEach(
                     (messageDocument) => {
 
                         messages.push({
-                            id: messageDocument.id,
+                            id:
+                                messageDocument.id,
+
                             ...messageDocument.data()
                         });
 
@@ -515,16 +627,18 @@ function loadMessages(chatId) {
                 );
 
 
-                // Ordina i messaggi dal più vecchio
-                // al più recente
+                // ORDINA I MESSAGGI
+
                 messages.sort(
                     (a, b) => {
 
                         const timeA =
-                            a.createdAt?.toMillis?.() || 0;
+                            a.createdAt
+                                ?.toMillis?.() || 0;
 
                         const timeB =
-                            b.createdAt?.toMillis?.() || 0;
+                            b.createdAt
+                                ?.toMillis?.() || 0;
 
                         return timeA - timeB;
 
@@ -540,13 +654,15 @@ function loadMessages(chatId) {
                     (message) => {
 
                         const messageElement =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
 
                         if (
                             currentUser &&
                             message.senderId ===
-                            currentUser.uid
+                                currentUser.uid
                         ) {
 
                             messageElement.className =
@@ -561,14 +677,18 @@ function loadMessages(chatId) {
 
 
                         const bubble =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
                         bubble.className =
                             "message-bubble";
 
 
                         const textElement =
-                            document.createElement("span");
+                            document.createElement(
+                                "span"
+                            );
 
                         textElement.className =
                             "message-text";
@@ -578,7 +698,9 @@ function loadMessages(chatId) {
 
 
                         const timeElement =
-                            document.createElement("span");
+                            document.createElement(
+                                "span"
+                            );
 
                         timeElement.className =
                             "message-time";
@@ -592,8 +714,11 @@ function loadMessages(chatId) {
                                     .toLocaleTimeString(
                                         "it-IT",
                                         {
-                                            hour: "2-digit",
-                                            minute: "2-digit"
+                                            hour:
+                                                "2-digit",
+
+                                            minute:
+                                                "2-digit"
                                         }
                                     );
 
@@ -613,9 +738,11 @@ function loadMessages(chatId) {
                             timeElement
                         );
 
+
                         messageElement.appendChild(
                             bubble
                         );
+
 
                         chatMessages.appendChild(
                             messageElement
@@ -625,8 +752,6 @@ function loadMessages(chatId) {
                 );
 
 
-                // Porta automaticamente
-                // alla fine della conversazione
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
 
@@ -640,6 +765,7 @@ function loadMessages(chatId) {
 
             }
         );
+
 }
 
 
@@ -647,198 +773,322 @@ function loadMessages(chatId) {
 // RICERCA UTENTI
 // =========================
 
-const chatSearch =
-    document.getElementById("chatSearch");
-
-const searchResults =
-    document.getElementById("searchResults");
-
-chatSearch.addEventListener("input", async () => {
-    console.log("RICERCA ATTIVATA");
-
-    const search =
-        chatSearch.value.trim().toUpperCase();
-
-    searchResults.innerHTML = "";
-
-    if (!search) {
-        return;
-    }
-
-    // Cerchiamo l'Enclave ID
-    try {
-
-        console.log("RICERCA ID:", search);
-
-        const idDocument =
-            await getDoc(
-                doc(db, "enclaveIds", search)
-            );
+chatSearch.addEventListener(
+    "input",
+    async () => {
 
         console.log(
-    "DOCUMENTO ID ESISTE:",
-    idDocument.exists()
-);
-
-if (idDocument.exists()) {
-    console.log(
-        "DATI ID:",
-        idDocument.data()
-    );
-}
-
-        if (!idDocument.exists()) {
-
-            const noResult =
-                document.createElement("div");
-
-            noResult.className =
-                "search-no-result";
-
-            noResult.textContent =
-                "Nessun utente trovato.";
-
-            searchResults.appendChild(noResult);
-
-            return;
-        }
-
-
-        // Recuperiamo il UID dell'utente
-        const userUid =
-            idDocument.data().uid;
-
-        // Recuperiamo il profilo
-        const userDocument =
-    await getDoc(
-        doc(db, "publicUsers", userUid)
-    );
-
-        if (!userDocument.exists()) {
-            return;
-        }
-
-        const userData =
-            userDocument.data();
-
-        const nickname =
-            userData.nickname;
-
-        const enclaveId =
-            userData.enclaveId;
-
-        // Creiamo il risultato
-        const result =
-            document.createElement("div");
-
-        result.className =
-            "search-result";
-
-        result.innerHTML = `
-
-            <div class="search-result-avatar">
-                ${nickname.charAt(0).toUpperCase()}
-            </div>
-
-            <div class="search-result-info">
-
-                <span class="search-result-nickname">
-                    ${nickname}
-                </span>
-
-                <span class="search-result-id">
-                    ${enclaveId}
-                </span>
-
-            </div>
-
-        `;
-
-        searchResults.appendChild(result);
-
-        
-        result.addEventListener("click", () => {
-
-    // Chiudiamo la schermata iniziale
-    chatEmptyState.classList.add("hidden");
-
-    // Apriamo la chat
-    activeChat.classList.remove("hidden");
-
-    // Inseriamo i dati dell'utente
-    chatUserNickname.textContent =
-        nickname;
-
-    chatUserId.textContent =
-        enclaveId;
-
-    chatUserAvatar.textContent =
-        nickname.charAt(0).toUpperCase();
-            
-    currentChatUserUid = userUid;
-
-            currentChatId =
-    createChatId(
-        auth.currentUser.uid,
-        userUid
-    );
-
-loadMessages(
-    currentChatId
-);
-
-
-    // =========================
-    // APERTURA CHAT
-    // =========================
-
-    homeMain.classList.add("chat-open");
-
-
-    // Su mobile mostriamo la chat
-    // e nascondiamo la sidebar
-    if (window.innerWidth <= 700) {
-
-        chatSidebar.style.display = "none";
-
-        chatArea.style.display = "flex";
-
-        chatArea.style.width = "100%";
-    }
-
-});
-
-
-    } catch (error) {
-
-        console.error(
-            "Errore ricerca utente:",
-            error
+            "RICERCA ATTIVATA"
         );
 
+
+        const search =
+            chatSearch.value
+                .trim()
+                .toUpperCase();
+
+
+        searchResults.innerHTML =
+            "";
+
+
+        if (!search) {
+            return;
+        }
+
+
+        try {
+
+            console.log(
+                "RICERCA ID:",
+                search
+            );
+
+
+            const idDocument =
+                await getDoc(
+                    doc(
+                        db,
+                        "enclaveIds",
+                        search
+                    )
+                );
+
+
+            console.log(
+                "DOCUMENTO ID ESISTE:",
+                idDocument.exists()
+            );
+
+
+            if (idDocument.exists()) {
+
+                console.log(
+                    "DATI ID:",
+                    idDocument.data()
+                );
+
+            }
+
+
+            if (!idDocument.exists()) {
+
+                const noResult =
+                    document.createElement(
+                        "div"
+                    );
+
+                noResult.className =
+                    "search-no-result";
+
+                noResult.textContent =
+                    "Nessun utente trovato.";
+
+                searchResults.appendChild(
+                    noResult
+                );
+
+                return;
+            }
+
+
+            // UID DELL'UTENTE
+
+            const userUid =
+                idDocument.data().uid;
+
+
+            // PROFILO PUBBLICO
+
+            const userDocument =
+                await getDoc(
+                    doc(
+                        db,
+                        "publicUsers",
+                        userUid
+                    )
+                );
+
+
+            if (!userDocument.exists()) {
+                return;
+            }
+
+
+            const userData =
+                userDocument.data();
+
+
+            const nickname =
+                userData.nickname;
+
+            const enclaveId =
+                userData.enclaveId;
+
+
+            // RISULTATO RICERCA
+
+            const result =
+                document.createElement(
+                    "div"
+                );
+
+            result.className =
+                "search-result";
+
+
+            const avatar =
+                document.createElement(
+                    "div"
+                );
+
+            avatar.className =
+                "search-result-avatar";
+
+            avatar.textContent =
+                nickname
+                    .charAt(0)
+                    .toUpperCase();
+
+
+            const resultInfo =
+                document.createElement(
+                    "div"
+                );
+
+            resultInfo.className =
+                "search-result-info";
+
+
+            const resultNickname =
+                document.createElement(
+                    "span"
+                );
+
+            resultNickname.className =
+                "search-result-nickname";
+
+            resultNickname.textContent =
+                nickname;
+
+
+            const resultId =
+                document.createElement(
+                    "span"
+                );
+
+            resultId.className =
+                "search-result-id";
+
+            resultId.textContent =
+                enclaveId;
+
+
+            resultInfo.appendChild(
+                resultNickname
+            );
+
+            resultInfo.appendChild(
+                resultId
+            );
+
+
+            result.appendChild(
+                avatar
+            );
+
+            result.appendChild(
+                resultInfo
+            );
+
+
+            searchResults.appendChild(
+                result
+            );
+
+
+            // APERTURA CHAT
+
+            result.addEventListener(
+                "click",
+                () => {
+
+                    chatEmptyState.classList.add(
+                        "hidden"
+                    );
+
+                    activeChat.classList.remove(
+                        "hidden"
+                    );
+
+
+                    chatUserNickname.textContent =
+                        nickname;
+
+                    chatUserId.textContent =
+                        enclaveId;
+
+                    chatUserAvatar.textContent =
+                        nickname
+                            .charAt(0)
+                            .toUpperCase();
+
+
+                    currentChatUserUid =
+                        userUid;
+
+
+                    currentChatId =
+                        createChatId(
+                            auth.currentUser.uid,
+                            userUid
+                        );
+
+
+                    loadMessages(
+                        currentChatId
+                    );
+
+
+                    homeMain.classList.add(
+                        "chat-open"
+                    );
+
+
+                    if (
+                        window.innerWidth <= 700
+                    ) {
+
+                        chatSidebar.style.display =
+                            "none";
+
+                        chatArea.style.display =
+                            "flex";
+
+                        chatArea.style.width =
+                            "100%";
+
+                    }
+
+                }
+            );
+
+
+        } catch (error) {
+
+            console.error(
+                "Errore ricerca utente:",
+                error
+            );
+
+        }
+
     }
+);
 
-});
 
+// =========================
+// TORNA ALLA LISTA CHAT
+// =========================
 
 chatBackButton.addEventListener(
     "click",
     () => {
 
-        chatEmptyState.classList.remove("hidden");
+        chatEmptyState.classList.remove(
+            "hidden"
+        );
 
-        activeChat.classList.add("hidden");
+        activeChat.classList.add(
+            "hidden"
+        );
 
-        homeMain.classList.remove("chat-open");
+        homeMain.classList.remove(
+            "chat-open"
+        );
+
+
+        if (unsubscribeMessages) {
+
+            unsubscribeMessages();
+
+            unsubscribeMessages = null;
+
+        }
+
 
         currentChatUserUid = null;
+
         currentChatId = null;
+
 
         if (window.innerWidth <= 700) {
 
-            chatSidebar.style.display = "flex";
+            chatSidebar.style.display =
+                "flex";
 
-            chatArea.style.display = "none";
+            chatArea.style.display =
+                "none";
 
         }
 
@@ -850,52 +1100,56 @@ chatBackButton.addEventListener(
 // INVIO MESSAGGI
 // =========================
 
-const messageInput =
-    document.getElementById("messageInput");
-
-const sendMessageButton =
-    document.getElementById("sendMessageButton");
-
-const chatMessages =
-    document.getElementById("chatMessages");
-
-
 async function sendMessage() {
 
     const message =
         messageInput.value.trim();
 
+
     if (!message) {
         return;
     }
 
+
     const currentUser =
         auth.currentUser;
+
 
     if (!currentUser) {
         return;
     }
 
+
     if (!currentChatUserUid) {
         return;
     }
 
-    // Evita di scrivere a se stessi
-    if (currentUser.uid === currentChatUserUid) {
+
+    // EVITA DI SCRIVERE A SE STESSI
+
+    if (
+        currentUser.uid ===
+        currentChatUserUid
+    ) {
+
         return;
     }
 
+
     try {
 
-        // Crea sempre lo stesso ID per questa coppia di utenti
+        // CREA ID CHAT
+
         const chatId =
             createChatId(
                 currentUser.uid,
                 currentChatUserUid
             );
 
+
         currentChatId =
             chatId;
+
 
         console.log(
             "CHAT ID:",
@@ -914,6 +1168,7 @@ async function sendMessage() {
                 chatId
             );
 
+
         await setDoc(
             chatReference,
             {
@@ -922,7 +1177,8 @@ async function sendMessage() {
                     currentChatUserUid
                 ],
 
-                lastMessage: message,
+                lastMessage:
+                    message,
 
                 lastMessageAt:
                     serverTimestamp(),
@@ -934,6 +1190,7 @@ async function sendMessage() {
                 merge: true
             }
         );
+
 
         console.log(
             "CHAT CREATA / AGGIORNATA"
@@ -952,7 +1209,8 @@ async function sendMessage() {
                 "messages"
             ),
             {
-                text: message,
+                text:
+                    message,
 
                 senderId:
                     currentUser.uid,
@@ -962,15 +1220,20 @@ async function sendMessage() {
             }
         );
 
+
         console.log(
             "MESSAGGIO SALVATO"
         );
 
-            messageInput.value = "";
+
+        messageInput.value =
+            "";
+
 
         console.log(
             "INVIO COMPLETATO ✅"
         );
+
 
     } catch (error) {
 
@@ -1024,6 +1287,7 @@ function loadConversations() {
     const currentUser =
         auth.currentUser;
 
+
     if (!currentUser) {
         return;
     }
@@ -1063,13 +1327,16 @@ function loadConversations() {
                 }
 
 
-                conversationList.innerHTML = "";
+                conversationList.innerHTML =
+                    "";
 
 
                 if (snapshot.empty) {
 
                     const empty =
-                        document.createElement("div");
+                        document.createElement(
+                            "div"
+                        );
 
                     empty.className =
                         "no-conversations";
@@ -1099,8 +1366,9 @@ function loadConversations() {
 
                     const otherUserUid =
                         chatData.participants.find(
-                            uid =>
-                                uid !== currentUser.uid
+                            (uid) =>
+                                uid !==
+                                currentUser.uid
                         );
 
 
@@ -1143,27 +1411,31 @@ function loadConversations() {
                             userData.enclaveId,
 
                         lastMessage:
-                            chatData.lastMessage || "",
+                            chatData.lastMessage ||
+                            "",
 
                         lastMessageAt:
-                            chatData.lastMessageAt || null
+                            chatData.lastMessageAt ||
+                            null
 
                     });
 
                 }
 
 
-                // Ordina dalla conversazione
-                // più recente alla più vecchia
+                // ORDINA LE CHAT
+                // DALLA PIÙ RECENTE
 
                 conversations.sort(
                     (a, b) => {
 
                         const timeA =
-                            a.lastMessageAt?.toMillis?.() || 0;
+                            a.lastMessageAt
+                                ?.toMillis?.() || 0;
 
                         const timeB =
-                            b.lastMessageAt?.toMillis?.() || 0;
+                            b.lastMessageAt
+                                ?.toMillis?.() || 0;
 
                         return timeB - timeA;
 
@@ -1171,19 +1443,26 @@ function loadConversations() {
                 );
 
 
+                // CREA LE CHAT NELLA SIDEBAR
+
                 conversations.forEach(
                     (conversation) => {
 
                         const conversationElement =
-                            document.createElement("div");
-
+                            document.createElement(
+                                "div"
+                            );
 
                         conversationElement.className =
                             "conversation-item";
 
 
+                        // AVATAR
+
                         const avatar =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
                         avatar.className =
                             "conversation-avatar";
@@ -1194,22 +1473,34 @@ function loadConversations() {
                                 .toUpperCase();
 
 
+                        // INFO
+
                         const info =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
                         info.className =
                             "conversation-info";
 
 
+                        // PARTE SUPERIORE
+
                         const top =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
                         top.className =
                             "conversation-top";
 
 
+                        // NICKNAME
+
                         const nickname =
-                            document.createElement("span");
+                            document.createElement(
+                                "span"
+                            );
 
                         nickname.className =
                             "conversation-nickname";
@@ -1218,8 +1509,12 @@ function loadConversations() {
                             conversation.nickname;
 
 
+                        // ORARIO
+
                         const time =
-                            document.createElement("span");
+                            document.createElement(
+                                "span"
+                            );
 
                         time.className =
                             "conversation-time";
@@ -1235,16 +1530,23 @@ function loadConversations() {
                                     .toLocaleTimeString(
                                         "it-IT",
                                         {
-                                            hour: "2-digit",
-                                            minute: "2-digit"
+                                            hour:
+                                                "2-digit",
+
+                                            minute:
+                                                "2-digit"
                                         }
                                     );
 
                         }
 
 
+                        // ANTEPRIMA
+
                         const preview =
-                            document.createElement("div");
+                            document.createElement(
+                                "div"
+                            );
 
                         preview.className =
                             "conversation-preview";
@@ -1252,6 +1554,8 @@ function loadConversations() {
                         preview.textContent =
                             conversation.lastMessage;
 
+
+                        // ASSEMBLA INFO
 
                         top.appendChild(
                             nickname
@@ -1271,6 +1575,8 @@ function loadConversations() {
                         );
 
 
+                        // ASSEMBLA CHAT
+
                         conversationElement.appendChild(
                             avatar
                         );
@@ -1284,6 +1590,8 @@ function loadConversations() {
                             conversationElement
                         );
 
+
+                        // APERTURA CHAT
 
                         conversationElement.addEventListener(
                             "click",
@@ -1358,4 +1666,5 @@ function loadConversations() {
 
             }
         );
+
 }
