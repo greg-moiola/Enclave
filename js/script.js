@@ -16,6 +16,7 @@ import {
     query,
     where,
     getDocs,
+    onSnapshot,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
@@ -101,6 +102,8 @@ const chatSidebar =
 let currentChatUserUid = null;
 
 let currentChatId = null;
+
+let unsubscribeMessages = null;
 
 
 function showRegister() {
@@ -433,6 +436,208 @@ function createChatId(uid1, uid2) {
 
 
 // =========================
+// CARICAMENTO MESSAGGI
+// =========================
+
+function loadMessages(chatId) {
+
+    // Se stavamo già ascoltando un'altra chat,
+    // interrompiamo quel listener
+    if (unsubscribeMessages) {
+
+        unsubscribeMessages();
+
+        unsubscribeMessages = null;
+    }
+
+
+    const messagesReference =
+        collection(
+            db,
+            "chats",
+            chatId,
+            "messages"
+        );
+
+
+    const messagesQuery =
+        query(
+            messagesReference
+        );
+
+
+    unsubscribeMessages =
+        onSnapshot(
+            messagesQuery,
+            (snapshot) => {
+
+                chatMessages.innerHTML = "";
+
+
+                if (snapshot.empty) {
+
+                    const emptyMessage =
+                        document.createElement("div");
+
+                    emptyMessage.className =
+                        "chat-empty-messages";
+
+                    emptyMessage.textContent =
+                        "Nessun messaggio";
+
+                    chatMessages.appendChild(
+                        emptyMessage
+                    );
+
+                    return;
+                }
+
+
+                const messages =
+                    [];
+
+
+                snapshot.forEach(
+                    (messageDocument) => {
+
+                        messages.push({
+                            id: messageDocument.id,
+                            ...messageDocument.data()
+                        });
+
+                    }
+                );
+
+
+                // Ordina i messaggi dal più vecchio
+                // al più recente
+                messages.sort(
+                    (a, b) => {
+
+                        const timeA =
+                            a.createdAt?.toMillis?.() || 0;
+
+                        const timeB =
+                            b.createdAt?.toMillis?.() || 0;
+
+                        return timeA - timeB;
+
+                    }
+                );
+
+
+                const currentUser =
+                    auth.currentUser;
+
+
+                messages.forEach(
+                    (message) => {
+
+                        const messageElement =
+                            document.createElement("div");
+
+
+                        if (
+                            currentUser &&
+                            message.senderId ===
+                            currentUser.uid
+                        ) {
+
+                            messageElement.className =
+                                "message message-own";
+
+                        } else {
+
+                            messageElement.className =
+                                "message message-other";
+
+                        }
+
+
+                        const bubble =
+                            document.createElement("div");
+
+                        bubble.className =
+                            "message-bubble";
+
+
+                        const textElement =
+                            document.createElement("span");
+
+                        textElement.className =
+                            "message-text";
+
+                        textElement.textContent =
+                            message.text;
+
+
+                        const timeElement =
+                            document.createElement("span");
+
+                        timeElement.className =
+                            "message-time";
+
+
+                        if (message.createdAt) {
+
+                            timeElement.textContent =
+                                message.createdAt
+                                    .toDate()
+                                    .toLocaleTimeString(
+                                        "it-IT",
+                                        {
+                                            hour: "2-digit",
+                                            minute: "2-digit"
+                                        }
+                                    );
+
+                        } else {
+
+                            timeElement.textContent =
+                                "";
+
+                        }
+
+
+                        bubble.appendChild(
+                            textElement
+                        );
+
+                        bubble.appendChild(
+                            timeElement
+                        );
+
+                        messageElement.appendChild(
+                            bubble
+                        );
+
+                        chatMessages.appendChild(
+                            messageElement
+                        );
+
+                    }
+                );
+
+
+                // Porta automaticamente
+                // alla fine della conversazione
+                chatMessages.scrollTop =
+                    chatMessages.scrollHeight;
+
+            },
+            (error) => {
+
+                console.error(
+                    "Errore caricamento messaggi:",
+                    error
+                );
+
+            }
+        );
+}
+
+
+// =========================
 // RICERCA UTENTI
 // =========================
 
@@ -565,6 +770,16 @@ if (idDocument.exists()) {
         nickname.charAt(0).toUpperCase();
             
     currentChatUserUid = userUid;
+
+            currentChatId =
+    createChatId(
+        auth.currentUser.uid,
+        userUid
+    );
+
+loadMessages(
+    currentChatId
+);
 
 
     // =========================
@@ -744,122 +959,3 @@ async function sendMessage() {
         console.log(
             "MESSAGGIO SALVATO"
         );
-
-
-        // =========================
-        // MOSTRA MESSAGGIO
-        // =========================
-
-        const emptyMessage =
-            chatMessages.querySelector(
-                ".chat-empty-messages"
-            );
-
-        if (emptyMessage) {
-            emptyMessage.remove();
-        }
-
-
-        const messageElement =
-            document.createElement("div");
-
-        messageElement.className =
-            "message message-own";
-
-
-        const bubble =
-            document.createElement("div");
-
-        bubble.className =
-            "message-bubble";
-
-
-        const textElement =
-            document.createElement("span");
-
-        textElement.className =
-            "message-text";
-
-        textElement.textContent =
-            message;
-
-
-        const timeElement =
-            document.createElement("span");
-
-        timeElement.className =
-            "message-time";
-
-        timeElement.textContent =
-            new Date().toLocaleTimeString(
-                "it-IT",
-                {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                }
-            );
-
-
-        bubble.appendChild(
-            textElement
-        );
-
-        bubble.appendChild(
-            timeElement
-        );
-
-        messageElement.appendChild(
-            bubble
-        );
-
-        chatMessages.appendChild(
-            messageElement
-        );
-
-
-        // =========================
-        // PULISCI INPUT
-        // =========================
-
-        messageInput.value = "";
-
-        chatMessages.scrollTop =
-            chatMessages.scrollHeight;
-
-
-        console.log(
-            "INVIO COMPLETATO ✅"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "ERRORE INVIO MESSAGGIO:",
-            error
-        );
-
-    }
-
-}
-
-
-sendMessageButton.addEventListener(
-    "click",
-    sendMessage
-);
-
-
-messageInput.addEventListener(
-    "keydown",
-    (event) => {
-
-        if (event.key === "Enter") {
-
-            event.preventDefault();
-
-            sendMessage();
-
-        }
-
-    }
-);
