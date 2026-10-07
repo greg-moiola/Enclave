@@ -125,6 +125,8 @@ let unsubscribeMessages = null;
 
 let unsubscribeChats = null;
 
+let conversationsRenderVersion = 0;
+
 
 // =========================
 // CAMBIO SCHERMATE
@@ -1876,6 +1878,13 @@ function loadConversations() {
             chatsQuery,
             async (snapshot) => {
 
+                // Ogni nuovo snapshot rende obsolete
+                // tutte le elaborazioni precedenti.
+
+                const renderVersion =
+                    ++conversationsRenderVersion;
+
+
                 const conversationList =
                     document.querySelector(
                         ".conversation-list"
@@ -1887,108 +1896,113 @@ function loadConversations() {
                 }
 
 
-                conversationList.innerHTML =
-                    "";
-
-
-                if (snapshot.empty) {
-
-                    const empty =
-                        document.createElement(
-                            "div"
-                        );
-
-                    empty.className =
-                        "no-conversations";
-
-                    empty.textContent =
-                        "Nessuna conversazione";
-
-                    conversationList.appendChild(
-                        empty
-                    );
-
-                    return;
-                }
-
-
                 // ==========================================
                 // COSTRUISCE LE CONVERSAZIONI
                 // ==========================================
 
-                const conversations = [];
+                const conversationResults =
+                    await Promise.all(
+
+                        snapshot.docs.map(
+                            async (chatDocument) => {
+
+                                const chatData =
+                                    chatDocument.data();
 
 
-                for (
-                    const chatDocument
-                    of snapshot.docs
+                                const otherUserUid =
+                                    chatData.participants.find(
+                                        (uid) =>
+                                            uid !==
+                                            currentUser.uid
+                                    );
+
+
+                                if (!otherUserUid) {
+                                    return null;
+                                }
+
+
+                                const userDocument =
+                                    await getDoc(
+                                        doc(
+                                            db,
+                                            "publicUsers",
+                                            otherUserUid
+                                        )
+                                    );
+
+
+                                if (
+                                    !userDocument.exists()
+                                ) {
+
+                                    return null;
+
+                                }
+
+
+                                const userData =
+                                    userDocument.data();
+
+
+                                return {
+
+                                    chatId:
+                                        chatDocument.id,
+
+                                    uid:
+                                        otherUserUid,
+
+                                    nickname:
+                                        userData.nickname,
+
+                                    enclaveId:
+                                        userData.enclaveId,
+
+                                    lastMessage:
+                                        chatData.lastMessage ||
+                                        "",
+
+                                    lastMessageAt:
+                                        chatData.lastMessageAt ||
+                                        null
+
+                                };
+
+                            }
+                        )
+
+                    );
+
+
+                // ==========================================
+                // CONTROLLO SNAPSHOT OBSOLETO
+                // ==========================================
+
+                if (
+                    renderVersion !==
+                    conversationsRenderVersion
                 ) {
 
-                    const chatData =
-                        chatDocument.data();
-
-
-                    const otherUserUid =
-                        chatData.participants.find(
-                            (uid) =>
-                                uid !==
-                                currentUser.uid
-                        );
-
-
-                    if (!otherUserUid) {
-                        continue;
-                    }
-
-
-                    const userDocument =
-                        await getDoc(
-                            doc(
-                                db,
-                                "publicUsers",
-                                otherUserUid
-                            )
-                        );
-
-
-                    if (!userDocument.exists()) {
-                        continue;
-                    }
-
-
-                    const userData =
-                        userDocument.data();
-
-
-                    conversations.push({
-
-                        chatId:
-                            chatDocument.id,
-
-                        uid:
-                            otherUserUid,
-
-                        nickname:
-                            userData.nickname,
-
-                        enclaveId:
-                            userData.enclaveId,
-
-                        lastMessage:
-                            chatData.lastMessage ||
-                            "",
-
-                        lastMessageAt:
-                            chatData.lastMessageAt ||
-                            null
-
-                    });
+                    return;
 
                 }
 
 
                 // ==========================================
-                // ELIMINA I DUPLICATI VISIVI
+                // RIMUOVE RISULTATI NULL
+                // ==========================================
+
+                const conversations =
+                    conversationResults.filter(
+                        (conversation) =>
+                            conversation !== null
+                    );
+
+
+                // ==========================================
+                // ELIMINA DUPLICATI
                 // ==========================================
 
                 const uniqueConversations =
@@ -2012,12 +2026,14 @@ function loadConversations() {
                             );
 
                             return;
+
                         }
 
 
                         const existingTime =
                             existing.lastMessageAt
                                 ?.toMillis?.() || 0;
+
 
                         const currentTime =
                             conversation.lastMessageAt
@@ -2057,14 +2073,38 @@ function loadConversations() {
                             a.lastMessageAt
                                 ?.toMillis?.() || 0;
 
+
                         const timeB =
                             b.lastMessageAt
                                 ?.toMillis?.() || 0;
+
 
                         return timeB - timeA;
 
                     }
                 );
+
+
+                // ==========================================
+                // CONTROLLO FINALE
+                // ==========================================
+
+                if (
+                    renderVersion !==
+                    conversationsRenderVersion
+                ) {
+
+                    return;
+
+                }
+
+
+                // ==========================================
+                // ORA PULISCE LA LISTA
+                // ==========================================
+
+                conversationList.innerHTML =
+                    "";
 
 
                 // ==========================================
@@ -2080,15 +2120,19 @@ function loadConversations() {
                             "div"
                         );
 
+
                     empty.className =
                         "no-conversations";
+
 
                     empty.textContent =
                         "Nessuna conversazione";
 
+
                     conversationList.appendChild(
                         empty
                     );
+
 
                     return;
 
@@ -2107,6 +2151,7 @@ function loadConversations() {
                                 "div"
                             );
 
+
                         conversationElement.className =
                             "conversation-item";
 
@@ -2116,8 +2161,10 @@ function loadConversations() {
                                 "div"
                             );
 
+
                         avatar.className =
                             "conversation-avatar";
+
 
                         avatar.textContent =
                             conversation.nickname
@@ -2130,6 +2177,7 @@ function loadConversations() {
                                 "div"
                             );
 
+
                         info.className =
                             "conversation-info";
 
@@ -2138,6 +2186,7 @@ function loadConversations() {
                             document.createElement(
                                 "div"
                             );
+
 
                         top.className =
                             "conversation-top";
@@ -2148,8 +2197,10 @@ function loadConversations() {
                                 "span"
                             );
 
+
                         nickname.className =
                             "conversation-nickname";
+
 
                         nickname.textContent =
                             conversation.nickname;
@@ -2159,6 +2210,7 @@ function loadConversations() {
                             document.createElement(
                                 "span"
                             );
+
 
                         time.className =
                             "conversation-time";
@@ -2190,8 +2242,10 @@ function loadConversations() {
                                 "div"
                             );
 
+
                         preview.className =
                             "conversation-preview";
+
 
                         preview.textContent =
                             conversation.lastMessage;
@@ -2200,6 +2254,7 @@ function loadConversations() {
                         top.appendChild(
                             nickname
                         );
+
 
                         top.appendChild(
                             time
@@ -2210,6 +2265,7 @@ function loadConversations() {
                             top
                         );
 
+
                         info.appendChild(
                             preview
                         );
@@ -2218,6 +2274,7 @@ function loadConversations() {
                         conversationElement.appendChild(
                             avatar
                         );
+
 
                         conversationElement.appendChild(
                             info
@@ -2241,6 +2298,7 @@ function loadConversations() {
                                     "hidden"
                                 );
 
+
                                 activeChat.classList.remove(
                                     "hidden"
                                 );
@@ -2249,8 +2307,10 @@ function loadConversations() {
                                 chatUserNickname.textContent =
                                     conversation.nickname;
 
+
                                 chatUserId.textContent =
                                     conversation.enclaveId;
+
 
                                 chatUserAvatar.textContent =
                                     conversation.nickname
@@ -2261,10 +2321,6 @@ function loadConversations() {
                                 currentChatUserUid =
                                     conversation.uid;
 
-
-                                // IMPORTANTE:
-                                // usiamo SEMPRE il chatId
-                                // deterministico
 
                                 currentChatId =
                                     createChatId(
@@ -2291,8 +2347,10 @@ function loadConversations() {
                                     chatSidebar.style.display =
                                         "none";
 
+
                                     chatArea.style.display =
                                         "flex";
+
 
                                     chatArea.style.width =
                                         "100%";
