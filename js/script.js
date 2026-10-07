@@ -1338,6 +1338,24 @@ function loadMessages(chatId) {
 
 
                         // =========================
+                        // DATI DEL MESSAGGIO
+                        // =========================
+
+                        // Salviamo direttamente il messaggio
+                        // sull'elemento DOM.
+                        //
+                        // Questo evita il problema precedente
+                        // in cui la freccetta trovava dataset vuoti.
+
+                        messageElement._enclaveMessage =
+                            message;
+
+
+                        messageElement.dataset.messageId =
+                            message.id;
+
+
+                        // =========================
                         // BUBBLE
                         // =========================
 
@@ -1416,6 +1434,65 @@ function loadMessages(chatId) {
 
                             replyQuote.appendChild(
                                 replyQuoteText
+                            );
+
+
+                            // =========================
+                            // CLICK SULLA RISPOSTA
+                            // =========================
+
+                            replyQuote.addEventListener(
+                                "click",
+                                (event) => {
+
+                                    event.preventDefault();
+
+                                    event.stopPropagation();
+
+
+                                    const targetMessage =
+                                        Array.from(
+                                            chatMessages.querySelectorAll(
+                                                ".message"
+                                            )
+                                        ).find(
+                                            (element) =>
+                                                element.dataset.messageId ===
+                                                message.replyTo.messageId
+                                        );
+
+
+                                    if (!targetMessage) {
+                                        return;
+                                    }
+
+
+                                    targetMessage.scrollIntoView({
+                                        behavior:
+                                            "smooth",
+
+                                        block:
+                                            "center"
+                                    });
+
+
+                                    targetMessage.classList.add(
+                                        "reply-highlight"
+                                    );
+
+
+                                    setTimeout(
+                                        () => {
+
+                                            targetMessage.classList.remove(
+                                                "reply-highlight"
+                                            );
+
+                                        },
+                                        1200
+                                    );
+
+                                }
                             );
 
 
@@ -1548,6 +1625,13 @@ function loadMessages(chatId) {
                                 "⌄";
 
 
+                            // IMPORTANTE:
+                            // non mettiamo più un listener
+                            // individuale qui.
+                            //
+                            // Il click viene gestito dal
+                            // listener delegato sotto.
+
                             messageElement.appendChild(
                                 actionButton
                             );
@@ -1626,9 +1710,8 @@ function loadMessages(chatId) {
 // CLICK SULLA FRECCETTA
 // =========================
 //
-// Usiamo un solo listener sul contenitore
-// invece di tanti listener sui singoli bottoni.
-// È molto più affidabile anche su telefono.
+// Un solo listener sul contenitore.
+// Funziona sia desktop che mobile.
 //
 
 chatMessages.addEventListener(
@@ -1662,66 +1745,26 @@ chatMessages.addEventListener(
         }
 
 
-        const messageIndex =
-            Array.from(
-                chatMessages.children
-            ).indexOf(
-                messageElement
-            );
-
-
-        if (
-            messageIndex < 0
-        ) {
-            return;
-        }
-
-
-        const messages =
-            Array.from(
-                chatMessages.querySelectorAll(
-                    ".message"
-                )
-            );
-
+        // Recuperiamo direttamente il messaggio
+        // che avevamo salvato nell'elemento DOM.
 
         const message =
-            messages[messageIndex];
+            messageElement._enclaveMessage;
 
 
         if (!message) {
+
+            console.error(
+                "Messaggio non trovato per la freccetta."
+            );
+
             return;
         }
-
-
-        // Ricostruisce i dati del messaggio
-        // direttamente dal DOM usando gli attributi
-        // salvati sotto.
-
-        const messageId =
-            messageElement.dataset.messageId;
-
-
-        const messageText =
-            messageElement.dataset.messageText;
-
-
-        const messageSenderId =
-            messageElement.dataset.messageSenderId;
 
 
         openMessageMenu(
             messageElement,
-            {
-                id:
-                    messageId,
-
-                text:
-                    messageText,
-
-                senderId:
-                    messageSenderId
-            }
+            message
         );
 
     }
