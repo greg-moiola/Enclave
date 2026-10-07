@@ -1157,110 +1157,23 @@ function loadMessages(chatId) {
                             // =========================
 
                             actionButton.addEventListener(
-                                "pointerup",
-                                (event) => {
+                                 "click",
+                                  (event) => {
 
-                                    event.preventDefault();
+                                        event.preventDefault();
 
-                                    event.stopPropagation();
+                                        event.stopPropagation();
 
-                                    openMessageMenu(
-                                        messageElement,
-                                        message
-                                    );
-
-                                }
+                                       openMessageMenu(
+                                    messageElement,
+                                 message
                             );
 
-
-                            // =========================
-                            // LONG PRESS MOBILE
-                            // =========================
-
-                            let longPressTimer =
-                                null;
-
-                            let longPressTriggered =
-                                false;
+                           }
+                       );
 
 
-                            messageElement.addEventListener(
-                                "pointerdown",
-                                (event) => {
-
-                                    if (
-                                        event.pointerType !==
-                                        "touch"
-                                    ) {
-                                        return;
-                                    }
-
-
-                                    longPressTriggered =
-                                        false;
-
-
-                                    clearTimeout(
-                                        longPressTimer
-                                    );
-
-
-                                    longPressTimer =
-                                        setTimeout(
-                                            () => {
-
-                                                longPressTriggered =
-                                                    true;
-
-                                                openMessageMenu(
-                                                    messageElement,
-                                                    message
-                                                );
-
-                                            },
-                                            500
-                                        );
-
-                                }
-                            );
-
-
-                            messageElement.addEventListener(
-                                "pointerup",
-                                () => {
-
-                                    clearTimeout(
-                                        longPressTimer
-                                    );
-
-                                }
-                            );
-
-
-                            messageElement.addEventListener(
-                                "pointercancel",
-                                () => {
-
-                                    clearTimeout(
-                                        longPressTimer
-                                    );
-
-                                }
-                            );
-
-
-                            messageElement.addEventListener(
-                                "pointermove",
-                                () => {
-
-                                    clearTimeout(
-                                        longPressTimer
-                                    );
-
-                                }
-                            );
-
-
+                        
                             // =========================
                             // EVITA SELEZIONE TESTO
                             // =========================
