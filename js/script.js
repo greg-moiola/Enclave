@@ -830,6 +830,9 @@ function openMessageMenu(
     editButton.className =
         "message-menu-button";
 
+    editButton.type =
+        "button";
+
     editButton.textContent =
         "Modifica";
 
@@ -841,6 +844,9 @@ function openMessageMenu(
 
     deleteButton.className =
         "message-menu-button";
+
+    deleteButton.type =
+        "button";
 
     deleteButton.textContent =
         "Elimina";
@@ -1137,17 +1143,27 @@ function loadMessages(chatId) {
                                 "⌄";
 
 
+                            /*
+                             * IMPORTANTE:
+                             * la freccetta viene inserita
+                             * nello stesso elemento del messaggio
+                             * e resta cliccabile.
+                             */
+
                             messageElement.appendChild(
                                 actionButton
                             );
 
 
-                            // PC:
-                            // clic sulla freccetta
+                            // =========================
+                            // PC
+                            // =========================
 
                             actionButton.addEventListener(
                                 "click",
                                 (event) => {
+
+                                    event.preventDefault();
 
                                     event.stopPropagation();
 
@@ -1160,8 +1176,9 @@ function loadMessages(chatId) {
                             );
 
 
-                            // TELEFONO:
-                            // pressione prolungata
+                            // =========================
+                            // TELEFONO
+                            // =========================
 
                             let longPressTimer =
                                 null;
@@ -1182,6 +1199,8 @@ function loadMessages(chatId) {
                                         setTimeout(
                                             () => {
 
+                                                event.preventDefault();
+
                                                 openMessageMenu(
                                                     messageElement,
                                                     message
@@ -1191,6 +1210,9 @@ function loadMessages(chatId) {
                                             500
                                         );
 
+                                },
+                                {
+                                    passive: false
                                 }
                             );
 
@@ -1226,6 +1248,25 @@ function loadMessages(chatId) {
                                     clearTimeout(
                                         longPressTimer
                                     );
+
+                                }
+                            );
+
+
+                            // Impedisce il menu contestuale
+                            // del browser su mobile
+
+                            messageElement.addEventListener(
+                                "contextmenu",
+                                (event) => {
+
+                                    if (
+                                        window.innerWidth <= 700
+                                    ) {
+
+                                        event.preventDefault();
+
+                                    }
 
                                 }
                             );
