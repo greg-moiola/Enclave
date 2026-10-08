@@ -89,6 +89,9 @@ const chatUserNickname =
 const chatUserId =
     document.getElementById("chatUserId");
 
+const chatUserInfo =
+    document.querySelector(".chat-user-info");
+
 const chatBackButton =
     document.getElementById("chatBackButton");
 
@@ -118,6 +121,7 @@ const searchResults =
 
 const newGroupButton =
     document.getElementById("newGroupButton");
+
 
 
 let currentChatUserUid = null;
@@ -4937,6 +4941,21 @@ function loadConversations() {
                                         currentChatId =
                                             conversation.chatId;
                                     
+                                    
+                                        chatUserInfo.classList.add(
+                                            "group-chat-clickable"
+                                        );
+                                    
+                                        chatUserInfo.onclick =
+                                            () => {
+                                    
+                                                openGroupInfo(
+                                                    conversation.chatId
+                                                );
+                                    
+                                            };
+                                    
+                                    
                                         loadMessages(
                                             currentChatId
                                         );
@@ -4963,6 +4982,7 @@ function loadConversations() {
                                     
                                         }
                                     
+                                    
                                         return;
                                     
                                     }
@@ -4970,6 +4990,13 @@ function loadConversations() {
 
                                 chatUserNickname.textContent =
                                     conversation.nickname;
+
+                                chatUserInfo.classList.remove(
+                                    "group-chat-clickable"
+                                );
+                                
+                                chatUserInfo.onclick =
+                                    null;
 
 
                                 chatUserId.textContent =
