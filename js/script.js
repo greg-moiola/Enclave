@@ -2132,6 +2132,40 @@ async function renderGroupInfo() {
 
             }
 
+            if (
+                    isOwner &&
+                    userData.uid !== currentGroupData.createdBy
+                ) {
+                
+                    const removeButton =
+                        document.createElement(
+                            "button"
+                        );
+                
+                    removeButton.className =
+                        "group-remove-member-button";
+                
+                    removeButton.type =
+                        "button";
+                
+                    removeButton.textContent =
+                        "Rimuovi";
+                
+                    removeButton.addEventListener(
+                        "click",
+                        () => {
+                            removeGroupMember(
+                                userData.uid,
+                                userData.nickname
+                            );
+                        }
+                    );
+                
+                    member.appendChild(
+                        removeButton
+                    );
+                }
+
 
             member.appendChild(
                 avatar
