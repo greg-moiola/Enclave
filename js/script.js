@@ -3306,27 +3306,47 @@ async function sendMessage() {
             );
 
 
-        await setDoc(
-            chatReference,
-            {
-                participants: [
-                    currentUser.uid,
-                    currentChatUserUid
-                ],
+        if (currentChatUserUid) {
 
-                lastMessage:
-                    message,
-
-                lastMessageAt:
-                    serverTimestamp(),
-
-                lastSenderId:
-                    currentUser.uid
-            },
-            {
-                merge: true
+                await setDoc(
+                    chatReference,
+                    {
+                        participants: [
+                            currentUser.uid,
+                            currentChatUserUid
+                        ],
+            
+                        lastMessage:
+                            message,
+            
+                        lastMessageAt:
+                            serverTimestamp(),
+            
+                        lastSenderId:
+                            currentUser.uid
+                    },
+                    {
+                        merge: true
+                    }
+                );
+            
+            } else {
+            
+                await updateDoc(
+                    chatReference,
+                    {
+                        lastMessage:
+                            message,
+            
+                        lastMessageAt:
+                            serverTimestamp(),
+            
+                        lastSenderId:
+                            currentUser.uid
+                    }
+                );
+            
             }
-        );
 
 
         console.log(
