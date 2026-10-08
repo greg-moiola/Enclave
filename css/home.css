@@ -1545,6 +1545,24 @@
     cursor: pointer;
 }
 
+.group-remove-member-button {
+    margin-left: auto;
+    flex-shrink: 0;
+    padding: 5px 9px;
+    border: none;
+    border-radius: 7px;
+    background: #e9e9e9;
+    color: #555;
+    font-size: 12px;
+    cursor: pointer;
+    transition: 0.15s;
+}
+
+.group-remove-member-button:hover {
+    background: #dcdcdc;
+    color: #111;
+}
+
 .group-creation-actions {
     margin-top: 20px;
 
