@@ -1213,3 +1213,379 @@
     }
 
 }
+
+
+/* ========================= */
+/* NUOVO GRUPPO */
+/* ========================= */
+
+.conversation-header {
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    margin-bottom: 15px;
+}
+
+.conversation-header .section-title {
+    margin-bottom: 0;
+}
+
+.new-group-button {
+    width: 28px;
+    height: 28px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: none;
+
+    border-radius: 50%;
+
+    background: #111;
+
+    color: white;
+
+    font-size: 18px;
+
+    line-height: 1;
+
+    cursor: pointer;
+
+    transition: 0.15s;
+}
+
+.new-group-button:hover {
+    background: #333;
+}
+
+
+/* ========================= */
+/* PANNELLO NUOVO GRUPPO */
+/* ========================= */
+
+.new-group-menu {
+    position: absolute;
+
+    top: 58px;
+    right: 20px;
+
+    width: 180px;
+
+    padding: 6px;
+
+    background: white;
+
+    border: 1px solid #e5e5e5;
+
+    border-radius: 10px;
+
+    box-shadow:
+        0 8px 25px rgba(0, 0, 0, 0.12);
+
+    z-index: 200;
+}
+
+.new-group-menu.hidden {
+    display: none;
+}
+
+.new-group-menu button {
+    width: 100%;
+
+    padding: 10px 12px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 8px;
+
+    border: none;
+
+    border-radius: 7px;
+
+    background: transparent;
+
+    color: #111;
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    text-align: left;
+
+    cursor: pointer;
+}
+
+.new-group-menu button:hover {
+    background: #f3f3f3;
+}
+
+
+/* ========================= */
+/* CREAZIONE GRUPPO */
+/* ========================= */
+
+.group-creation-overlay {
+    position: fixed;
+
+    inset: 0;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 20px;
+
+    background: rgba(0, 0, 0, 0.35);
+
+    z-index: 1000;
+}
+
+.group-creation-overlay.hidden {
+    display: none;
+}
+
+.group-creation-panel {
+    width: min(420px, 100%);
+
+    max-height: 80vh;
+
+    padding: 24px;
+
+    overflow-y: auto;
+
+    background: white;
+
+    border-radius: 14px;
+
+    box-shadow:
+        0 15px 50px rgba(0, 0, 0, 0.25);
+}
+
+.group-creation-title {
+    margin: 0 0 20px;
+
+    font-size: 18px;
+
+    font-weight: 600;
+
+    color: #111;
+}
+
+.group-name-input,
+.group-member-search {
+    width: 100%;
+
+    height: 42px;
+
+    box-sizing: border-box;
+
+    padding: 0 12px;
+
+    border: 1px solid #ddd;
+
+    border-radius: 9px;
+
+    outline: none;
+
+    background: #f7f7f7;
+
+    font-family: inherit;
+
+    font-size: 14px;
+
+    color: #111;
+}
+
+.group-name-input:focus,
+.group-member-search:focus {
+    border-color: #bbb;
+
+    background: white;
+}
+
+.group-member-search {
+    margin-top: 12px;
+}
+
+.group-members-count {
+    margin-top: 10px;
+
+    font-size: 12px;
+
+    color: #999;
+}
+
+.group-search-results {
+    margin-top: 10px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+}
+
+.group-search-result {
+    padding: 9px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 9px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+}
+
+.group-search-result:hover {
+    background: #f5f5f5;
+}
+
+.group-search-result.selected {
+    background: #eeeeee;
+}
+
+.group-search-avatar {
+    width: 34px;
+    height: 34px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+
+    background: #111;
+
+    color: white;
+
+    font-size: 12px;
+
+    font-weight: 600;
+}
+
+.group-search-info {
+    min-width: 0;
+
+    flex: 1;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 2px;
+}
+
+.group-search-nickname {
+    font-size: 13px;
+
+    font-weight: 600;
+
+    color: #111;
+}
+
+.group-search-id {
+    font-size: 11px;
+
+    color: #999;
+}
+
+.group-selected-members {
+    margin-top: 12px;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 5px;
+}
+
+.group-selected-member {
+    padding: 7px 9px;
+
+    display: flex;
+
+    align-items: center;
+
+    justify-content: space-between;
+
+    border-radius: 8px;
+
+    background: #f5f5f5;
+
+    font-size: 12px;
+
+    color: #111;
+}
+
+.group-remove-member {
+    border: none;
+
+    background: transparent;
+
+    color: #999;
+
+    font-size: 16px;
+
+    cursor: pointer;
+}
+
+.group-creation-actions {
+    margin-top: 20px;
+
+    display: flex;
+
+    justify-content: flex-end;
+
+    gap: 8px;
+}
+
+.group-cancel-button,
+.group-create-button {
+    padding: 9px 14px;
+
+    border-radius: 8px;
+
+    font-family: inherit;
+
+    font-size: 13px;
+
+    cursor: pointer;
+}
+
+.group-cancel-button {
+    border: 1px solid #ddd;
+
+    background: white;
+
+    color: #111;
+}
+
+.group-create-button {
+    border: none;
+
+    background: #111;
+
+    color: white;
+}
+
+.group-create-button:disabled {
+    opacity: 0.4;
+
+    cursor: not-allowed;
+}
