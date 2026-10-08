@@ -116,6 +116,9 @@ const chatSearch =
 const searchResults =
     document.getElementById("searchResults");
 
+const newGroupButton =
+    document.getElementById("newGroupButton");
+
 
 let currentChatUserUid = null;
 
@@ -572,6 +575,909 @@ function closeMessageMenus() {
             menu.remove();
 
         });
+
+}
+
+
+// =========================
+// NUOVO GRUPPO
+// =========================
+
+let groupCreationOverlay = null;
+
+let selectedGroupMembers = [];
+
+function createGroupCreationPanel() {
+
+    if (groupCreationOverlay) {
+        return groupCreationOverlay;
+    }
+
+    groupCreationOverlay =
+        document.createElement("div");
+
+    groupCreationOverlay.className =
+        "group-creation-overlay hidden";
+
+
+    const panel =
+        document.createElement("div");
+
+    panel.className =
+        "group-creation-panel";
+
+
+    const title =
+        document.createElement("h2");
+
+    title.className =
+        "group-creation-title";
+
+    title.textContent =
+        "Crea gruppo";
+
+
+    const groupNameInput =
+        document.createElement("input");
+
+    groupNameInput.type =
+        "text";
+
+    groupNameInput.className =
+        "group-name-input";
+
+    groupNameInput.placeholder =
+        "Nome del gruppo";
+
+    groupNameInput.id =
+        "groupNameInput";
+
+
+    const memberSearch =
+        document.createElement("input");
+
+    memberSearch.type =
+        "text";
+
+    memberSearch.className =
+        "group-member-search";
+
+    memberSearch.placeholder =
+        "Cerca Enclave ID";
+
+    memberSearch.id =
+        "groupMemberSearch";
+
+    memberSearch.autocomplete =
+        "off";
+
+
+    const membersCount =
+        document.createElement("div");
+
+    membersCount.className =
+        "group-members-count";
+
+    membersCount.id =
+        "groupMembersCount";
+
+
+    const searchResults =
+        document.createElement("div");
+
+    searchResults.className =
+        "group-search-results";
+
+    searchResults.id =
+        "groupSearchResults";
+
+
+    const selectedMembers =
+        document.createElement("div");
+
+    selectedMembers.className =
+        "group-selected-members";
+
+    selectedMembers.id =
+        "groupSelectedMembers";
+
+
+    const actions =
+        document.createElement("div");
+
+    actions.className =
+        "group-creation-actions";
+
+
+    const cancelButton =
+        document.createElement("button");
+
+    cancelButton.type =
+        "button";
+
+    cancelButton.className =
+        "group-cancel-button";
+
+    cancelButton.textContent =
+        "Annulla";
+
+
+    const createButton =
+        document.createElement("button");
+
+    createButton.type =
+        "button";
+
+    createButton.className =
+        "group-create-button";
+
+    createButton.textContent =
+        "Crea gruppo";
+
+    createButton.disabled =
+        true;
+
+
+    actions.appendChild(
+        cancelButton
+    );
+
+    actions.appendChild(
+        createButton
+    );
+
+
+    panel.appendChild(title);
+    panel.appendChild(groupNameInput);
+    panel.appendChild(memberSearch);
+    panel.appendChild(membersCount);
+    panel.appendChild(searchResults);
+    panel.appendChild(selectedMembers);
+    panel.appendChild(actions);
+
+
+    groupCreationOverlay.appendChild(
+        panel
+    );
+
+
+    document.body.appendChild(
+        groupCreationOverlay
+    );
+
+
+    // =========================
+    // ANNULLA
+    // =========================
+
+    cancelButton.addEventListener(
+        "click",
+        () => {
+
+            closeGroupCreation();
+
+        }
+    );
+
+
+    // =========================
+    // CLICK FUORI
+    // =========================
+
+    groupCreationOverlay.addEventListener(
+        "click",
+        (event) => {
+
+            if (
+                event.target ===
+                groupCreationOverlay
+            ) {
+
+                closeGroupCreation();
+
+            }
+
+        }
+    );
+
+
+    // =========================
+    // NOME GRUPPO
+    // =========================
+
+    groupNameInput.addEventListener(
+        "input",
+        () => {
+
+            updateGroupCreateButton();
+
+        }
+    );
+
+
+    // =========================
+    // RICERCA MEMBRI
+    // =========================
+
+    memberSearch.addEventListener(
+        "input",
+        async () => {
+
+            const search =
+                memberSearch.value
+                    .trim()
+                    .toUpperCase();
+
+
+            searchResults.innerHTML =
+                "";
+
+
+            if (!search) {
+                return;
+            }
+
+
+            if (
+                selectedGroupMembers.length >=
+                20
+            ) {
+
+                return;
+
+            }
+
+
+            try {
+
+                const idDocument =
+                    await getDoc(
+                        doc(
+                            db,
+                            "enclaveIds",
+                            search
+                        )
+                    );
+
+
+                if (
+                    !idDocument.exists()
+                ) {
+
+                    return;
+
+                }
+
+
+                const userUid =
+                    idDocument.data().uid;
+
+
+                if (
+                    userUid ===
+                    auth.currentUser.uid
+                ) {
+
+                    return;
+
+                }
+
+
+                const alreadySelected =
+                    selectedGroupMembers.some(
+                        (member) =>
+                            member.uid ===
+                            userUid
+                    );
+
+
+                if (alreadySelected) {
+                    return;
+                }
+
+
+                const userDocument =
+                    await getDoc(
+                        doc(
+                            db,
+                            "publicUsers",
+                            userUid
+                        )
+                    );
+
+
+                if (
+                    !userDocument.exists()
+                ) {
+
+                    return;
+
+                }
+
+
+                const userData =
+                    userDocument.data();
+
+
+                const result =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                result.className =
+                    "group-search-result";
+
+
+                const avatar =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                avatar.className =
+                    "group-search-avatar";
+
+
+                avatar.textContent =
+                    userData.nickname
+                        .charAt(0)
+                        .toUpperCase();
+
+
+                const info =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                info.className =
+                    "group-search-info";
+
+
+                const nickname =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                nickname.className =
+                    "group-search-nickname";
+
+                nickname.textContent =
+                    userData.nickname;
+
+
+                const enclaveId =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                enclaveId.className =
+                    "group-search-id";
+
+                enclaveId.textContent =
+                    userData.enclaveId;
+
+
+                info.appendChild(
+                    nickname
+                );
+
+                info.appendChild(
+                    enclaveId
+                );
+
+
+                result.appendChild(
+                    avatar
+                );
+
+                result.appendChild(
+                    info
+                );
+
+
+                searchResults.appendChild(
+                    result
+                );
+
+
+                result.addEventListener(
+                    "click",
+                    () => {
+
+                        if (
+                            selectedGroupMembers.length >=
+                            19
+                        ) {
+
+                            return;
+
+                        }
+
+
+                        selectedGroupMembers.push({
+                            uid:
+                                userUid,
+
+                            nickname:
+                                userData.nickname,
+
+                            enclaveId:
+                                userData.enclaveId
+                        });
+
+
+                        memberSearch.value =
+                            "";
+
+                        searchResults.innerHTML =
+                            "";
+
+
+                        renderSelectedMembers();
+
+                        updateGroupCreateButton();
+
+                    }
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Errore ricerca membro gruppo:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+    // =========================
+    // CREA GRUPPO
+    // =========================
+
+    createButton.addEventListener(
+        "click",
+        async () => {
+
+            await createGroup();
+
+        }
+    );
+
+
+    updateGroupMembersCount();
+
+
+    return groupCreationOverlay;
+}
+
+
+// =========================
+// CONTATORE MEMBRI
+// =========================
+
+function updateGroupMembersCount() {
+
+    const counter =
+        document.getElementById(
+            "groupMembersCount"
+        );
+
+
+    if (!counter) {
+        return;
+    }
+
+
+    counter.textContent =
+        `${selectedGroupMembers.length + 1}/20 partecipanti`;
+}
+
+
+// =========================
+// PULSANTE CREA
+// =========================
+
+function updateGroupCreateButton() {
+
+    const button =
+        document.querySelector(
+            ".group-create-button"
+        );
+
+    const nameInput =
+        document.getElementById(
+            "groupNameInput"
+        );
+
+
+    if (!button || !nameInput) {
+        return;
+    }
+
+
+    button.disabled =
+        !nameInput.value.trim() ||
+        selectedGroupMembers.length === 0;
+}
+
+
+// =========================
+// MEMBRI SELEZIONATI
+// =========================
+
+function renderSelectedMembers() {
+
+    const container =
+        document.getElementById(
+            "groupSelectedMembers"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML =
+        "";
+
+
+    selectedGroupMembers.forEach(
+        (member, index) => {
+
+            const element =
+                document.createElement(
+                    "div"
+                );
+
+
+            element.className =
+                "group-selected-member";
+
+
+            const text =
+                document.createElement(
+                    "span"
+                );
+
+
+            text.textContent =
+                `${member.nickname} · ${member.enclaveId}`;
+
+
+            const removeButton =
+                document.createElement(
+                    "button"
+                );
+
+
+            removeButton.type =
+                "button";
+
+            removeButton.className =
+                "group-remove-member";
+
+            removeButton.textContent =
+                "×";
+
+
+            removeButton.addEventListener(
+                "click",
+                () => {
+
+                    selectedGroupMembers.splice(
+                        index,
+                        1
+                    );
+
+
+                    renderSelectedMembers();
+
+                    updateGroupMembersCount();
+
+                    updateGroupCreateButton();
+
+                }
+            );
+
+
+            element.appendChild(
+                text
+            );
+
+            element.appendChild(
+                removeButton
+            );
+
+
+            container.appendChild(
+                element
+            );
+
+        }
+    );
+
+
+    updateGroupMembersCount();
+}
+
+
+// =========================
+// APRI CREAZIONE GRUPPO
+// =========================
+
+function openGroupCreation() {
+
+    const overlay =
+        createGroupCreationPanel();
+
+
+    selectedGroupMembers =
+        [];
+
+
+    const nameInput =
+        document.getElementById(
+            "groupNameInput"
+        );
+
+    const memberSearch =
+        document.getElementById(
+            "groupMemberSearch"
+        );
+
+    const results =
+        document.getElementById(
+            "groupSearchResults"
+        );
+
+
+    if (nameInput) {
+        nameInput.value = "";
+    }
+
+
+    if (memberSearch) {
+        memberSearch.value = "";
+    }
+
+
+    if (results) {
+        results.innerHTML = "";
+    }
+
+
+    renderSelectedMembers();
+
+    updateGroupMembersCount();
+
+    updateGroupCreateButton();
+
+
+    overlay.classList.remove(
+        "hidden"
+    );
+
+
+    nameInput?.focus();
+
+}
+
+
+// =========================
+// CHIUDI CREAZIONE GRUPPO
+// =========================
+
+function closeGroupCreation() {
+
+    if (!groupCreationOverlay) {
+        return;
+    }
+
+
+    groupCreationOverlay.classList.add(
+        "hidden"
+    );
+
+
+    selectedGroupMembers =
+        [];
+
+}
+
+
+// =========================
+// CLICK SUL +
+// =========================
+
+newGroupButton.addEventListener(
+    "click",
+    () => {
+
+        let menu =
+            document.getElementById(
+                "newGroupMenu"
+            );
+
+
+        if (!menu) {
+
+            menu =
+                document.createElement(
+                    "div"
+                );
+
+            menu.id =
+                "newGroupMenu";
+
+            menu.className =
+                "new-group-menu hidden";
+
+
+            const groupButton =
+                document.createElement(
+                    "button"
+                );
+
+
+            groupButton.type =
+                "button";
+
+            groupButton.textContent =
+                "👥  Nuovo gruppo";
+
+
+            groupButton.addEventListener(
+                "click",
+                () => {
+
+                    menu.classList.add(
+                        "hidden"
+                    );
+
+                    openGroupCreation();
+
+                }
+            );
+
+
+            menu.appendChild(
+                groupButton
+            );
+
+
+            chatSidebar.appendChild(
+                menu
+            );
+
+        }
+
+
+        menu.classList.toggle(
+            "hidden"
+        );
+
+    }
+);
+
+
+// =========================
+// CREA GRUPPO FIRESTORE
+// =========================
+
+async function createGroup() {
+
+    const currentUser =
+        auth.currentUser;
+
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    const nameInput =
+        document.getElementById(
+            "groupNameInput"
+        );
+
+
+    if (!nameInput) {
+        return;
+    }
+
+
+    const groupName =
+        nameInput.value.trim();
+
+
+    if (!groupName) {
+        return;
+    }
+
+
+    if (
+        selectedGroupMembers.length >
+        19
+    ) {
+
+        return;
+
+    }
+
+
+    const participants = [
+        currentUser.uid,
+        ...selectedGroupMembers.map(
+            (member) =>
+                member.uid
+        )
+    ];
+
+
+    try {
+
+        const chatReference =
+            await addDoc(
+                collection(
+                    db,
+                    "chats"
+                ),
+                {
+
+                    type:
+                        "group",
+
+                    name:
+                        groupName,
+
+                    participants:
+                        participants,
+
+                    createdBy:
+                        currentUser.uid,
+
+                    lastMessage:
+                        "",
+
+                    lastMessageAt:
+                        null,
+
+                    lastSenderId:
+                        null,
+
+                    createdAt:
+                        serverTimestamp()
+
+                }
+            );
+
+
+        closeGroupCreation();
+
+
+        console.log(
+            "GRUPPO CREATO:",
+            chatReference.id
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore creazione gruppo:",
+            error
+        );
+
+    }
 
 }
 
