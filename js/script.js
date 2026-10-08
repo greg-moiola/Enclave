@@ -1449,7 +1449,6 @@ function createGroupInfoPanel() {
     addSection.appendChild(addButton);
     addSection.appendChild(addArea);
 
-    
 
     // =========================
     // ABBANDONA
@@ -1495,93 +1494,6 @@ function createGroupInfoPanel() {
     document.body.appendChild(
         groupInfoOverlay
     );
-
-
-    // =========================
-    // RIMUOVI MEMBRO
-    // =========================
-
-    async function removeGroupMember(
-        userUid,
-        userNickname
-    ) {
-    
-        if (!currentGroupData) {
-            return;
-        }
-    
-        const currentUser =
-            auth.currentUser;
-    
-        if (!currentUser) {
-            return;
-        }
-    
-        // Solo il proprietario può rimuovere membri
-        if (
-            currentGroupData.createdBy !==
-            currentUser.uid
-        ) {
-            return;
-        }
-    
-        // Il proprietario non può rimuovere sé stesso
-        if (
-            userUid ===
-            currentGroupData.createdBy
-        ) {
-            return;
-        }
-    
-        const confirmed =
-            confirm(
-                `Vuoi rimuovere ${userNickname} dal gruppo?`
-            );
-    
-        if (!confirmed) {
-            return;
-        }
-    
-        try {
-    
-            const remainingParticipants =
-                currentGroupData.participants.filter(
-                    uid =>
-                        uid !== userUid
-                );
-    
-            await updateDoc(
-                doc(
-                    db,
-                    "chats",
-                    currentGroupData.chatId
-                ),
-                {
-                    participants:
-                        remainingParticipants
-                }
-            );
-    
-            currentGroupData.participants =
-                remainingParticipants;
-    
-            await renderGroupInfo();
-    
-            await loadConversations();
-    
-        } catch (error) {
-    
-            console.error(
-                "Errore rimozione membro:",
-                error
-            );
-    
-            alert(
-                "Impossibile rimuovere il membro."
-            );
-        }
-    }
-
 
 
     // =========================
@@ -1867,6 +1779,92 @@ function createGroupInfoPanel() {
 
 
     return groupInfoOverlay;
+}
+
+
+// =========================
+// RIMUOVI MEMBRO
+// =========================
+
+async function removeGroupMember(
+    userUid,
+    userNickname
+) {
+
+    if (!currentGroupData) {
+        return;
+    }
+
+    const currentUser =
+        auth.currentUser;
+
+    if (!currentUser) {
+        return;
+    }
+
+    // Solo il proprietario può rimuovere membri
+    if (
+        currentGroupData.createdBy !==
+        currentUser.uid
+    ) {
+        return;
+    }
+
+    // Il proprietario non può rimuovere sé stesso
+    if (
+        userUid ===
+        currentGroupData.createdBy
+    ) {
+        return;
+    }
+
+    const confirmed =
+        confirm(
+            `Vuoi rimuovere ${userNickname} dal gruppo?`
+        );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const remainingParticipants =
+            currentGroupData.participants.filter(
+                uid =>
+                    uid !== userUid
+            );
+
+        await updateDoc(
+            doc(
+                db,
+                "chats",
+                currentGroupData.chatId
+            ),
+            {
+                participants:
+                    remainingParticipants
+            }
+        );
+
+        currentGroupData.participants =
+            remainingParticipants;
+
+        await renderGroupInfo();
+
+        await loadConversations();
+
+    } catch (error) {
+
+        console.error(
+            "Errore rimozione membro:",
+            error
+        );
+
+        alert(
+            "Impossibile rimuovere il membro."
+        );
+    }
 }
 
 
@@ -2220,65 +2218,66 @@ async function renderGroupInfo() {
 
             }
 
+
             if (
                 isOwner &&
                 userData.uid !== currentGroupData.createdBy
             ) {
-            
+
                 const removeButton =
                     document.createElement(
                         "button"
                     );
-            
+
                 removeButton.className =
                     "group-remove-member-button";
-            
+
                 removeButton.type =
                     "button";
-            
+
                 removeButton.textContent =
                     "Rimuovi";
-            
+
                 removeButton.addEventListener(
                     "click",
                     async (event) => {
-            
+
                         event.preventDefault();
                         event.stopPropagation();
-            
+
                         await removeGroupMember(
                             userData.uid,
                             userData.nickname
                         );
-            
+
                     }
                 );
-            
+
                 member.appendChild(
                     avatar
                 );
-            
+
                 member.appendChild(
                     info
                 );
-            
+
                 member.appendChild(
                     removeButton
                 );
-            
+
             } else {
-            
+
                 member.appendChild(
                     avatar
                 );
-            
+
                 member.appendChild(
                     info
                 );
-            
+
             }
-            
-            
+
+
             membersList.appendChild(
                 member
             );
@@ -5295,4 +5294,3 @@ function loadConversations() {
         );
 
 }
-
