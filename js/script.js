@@ -2219,50 +2219,64 @@ async function renderGroupInfo() {
             }
 
             if (
-                    isOwner &&
-                    userData.uid !== currentGroupData.createdBy
-                ) {
-                
-                    const removeButton =
-                        document.createElement(
-                            "button"
+                isOwner &&
+                userData.uid !== currentGroupData.createdBy
+            ) {
+            
+                const removeButton =
+                    document.createElement(
+                        "button"
+                    );
+            
+                removeButton.className =
+                    "group-remove-member-button";
+            
+                removeButton.type =
+                    "button";
+            
+                removeButton.textContent =
+                    "Rimuovi";
+            
+                removeButton.addEventListener(
+                    "click",
+                    async (event) => {
+            
+                        event.preventDefault();
+                        event.stopPropagation();
+            
+                        await removeGroupMember(
+                            userData.uid,
+                            userData.nickname
                         );
-                
-                    removeButton.className =
-                        "group-remove-member-button";
-                
-                    removeButton.type =
-                        "button";
-                
-                    removeButton.textContent =
-                        "Rimuovi";
-                
-                    removeButton.addEventListener(
-                        "click",
-                        () => {
-                            removeGroupMember(
-                                userData.uid,
-                                userData.nickname
-                            );
-                        }
-                    );
-                
-                    member.appendChild(
-                        removeButton
-                    );
-                }
-
-
-            member.appendChild(
-                avatar
-            );
-
-
-            member.appendChild(
-                info
-            );
-
-
+            
+                    }
+                );
+            
+                member.appendChild(
+                    avatar
+                );
+            
+                member.appendChild(
+                    info
+                );
+            
+                member.appendChild(
+                    removeButton
+                );
+            
+            } else {
+            
+                member.appendChild(
+                    avatar
+                );
+            
+                member.appendChild(
+                    info
+                );
+            
+            }
+            
+            
             membersList.appendChild(
                 member
             );
