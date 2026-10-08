@@ -1295,6 +1295,1000 @@ function closeGroupCreation() {
 
 
 // =========================
+// SCHEDA GRUPPO
+// =========================
+
+let groupInfoOverlay = null;
+
+let currentGroupData = null;
+
+
+// =========================
+// CREA SCHEDA GRUPPO
+// =========================
+
+function createGroupInfoPanel() {
+
+    if (groupInfoOverlay) {
+        return groupInfoOverlay;
+    }
+
+
+    groupInfoOverlay =
+        document.createElement("div");
+
+    groupInfoOverlay.className =
+        "group-info-overlay hidden";
+
+
+    const panel =
+        document.createElement("div");
+
+    panel.className =
+        "group-info-panel";
+
+
+    // =========================
+    // HEADER
+    // =========================
+
+    const header =
+        document.createElement("div");
+
+    header.className =
+        "group-info-header";
+
+
+    const title =
+        document.createElement("h2");
+
+    title.className =
+        "group-info-title";
+
+
+    const closeButton =
+        document.createElement("button");
+
+    closeButton.type =
+        "button";
+
+    closeButton.className =
+        "group-info-close";
+
+    closeButton.textContent =
+        "×";
+
+
+    header.appendChild(title);
+    header.appendChild(closeButton);
+
+
+    // =========================
+    // CONTATORE
+    // =========================
+
+    const count =
+        document.createElement("div");
+
+    count.className =
+        "group-info-count";
+
+
+    // =========================
+    // MEMBRI
+    // =========================
+
+    const membersList =
+        document.createElement("div");
+
+    membersList.className =
+        "group-info-members";
+
+
+    // =========================
+    // AGGIUNGI MEMBRO
+    // =========================
+
+    const addSection =
+        document.createElement("div");
+
+    addSection.className =
+        "group-add-section";
+
+
+    const addButton =
+        document.createElement("button");
+
+    addButton.type =
+        "button";
+
+    addButton.className =
+        "group-add-button";
+
+    addButton.textContent =
+        "+ Aggiungi membro";
+
+
+    const addArea =
+        document.createElement("div");
+
+    addArea.className =
+        "group-add-area hidden";
+
+
+    const addInput =
+        document.createElement("input");
+
+    addInput.type =
+        "text";
+
+    addInput.className =
+        "group-add-input";
+
+    addInput.placeholder =
+        "Cerca Enclave ID";
+
+    addInput.autocomplete =
+        "off";
+
+
+    const addResults =
+        document.createElement("div");
+
+    addResults.className =
+        "group-add-results";
+
+
+    addArea.appendChild(addInput);
+    addArea.appendChild(addResults);
+
+    addSection.appendChild(addButton);
+    addSection.appendChild(addArea);
+
+
+    // =========================
+    // ABBANDONA
+    // =========================
+
+    const leaveSection =
+        document.createElement("div");
+
+    leaveSection.className =
+        "group-leave-section";
+
+
+    const leaveButton =
+        document.createElement("button");
+
+    leaveButton.type =
+        "button";
+
+    leaveButton.className =
+        "group-leave-button";
+
+    leaveButton.textContent =
+        "🚪 Abbandona gruppo";
+
+
+    leaveSection.appendChild(
+        leaveButton
+    );
+
+
+    // =========================
+    // ASSEMBLA
+    // =========================
+
+    panel.appendChild(header);
+    panel.appendChild(count);
+    panel.appendChild(membersList);
+    panel.appendChild(addSection);
+    panel.appendChild(leaveSection);
+
+    groupInfoOverlay.appendChild(panel);
+
+    document.body.appendChild(
+        groupInfoOverlay
+    );
+
+
+    // =========================
+    // CHIUDI
+    // =========================
+
+    closeButton.addEventListener(
+        "click",
+        () => {
+
+            closeGroupInfo();
+
+        }
+    );
+
+
+    groupInfoOverlay.addEventListener(
+        "click",
+        (event) => {
+
+            if (
+                event.target ===
+                groupInfoOverlay
+            ) {
+
+                closeGroupInfo();
+
+            }
+
+        }
+    );
+
+
+    // =========================
+    // APRI AGGIUNTA
+    // =========================
+
+    addButton.addEventListener(
+        "click",
+        () => {
+
+            addArea.classList.toggle(
+                "hidden"
+            );
+
+            if (
+                !addArea.classList.contains(
+                    "hidden"
+                )
+            ) {
+
+                addInput.focus();
+
+            }
+
+        }
+    );
+
+
+    // =========================
+    // RICERCA MEMBRO
+    // =========================
+
+    addInput.addEventListener(
+        "input",
+        async () => {
+
+            const search =
+                addInput.value
+                    .trim()
+                    .toUpperCase();
+
+
+            addResults.innerHTML =
+                "";
+
+
+            if (!search) {
+                return;
+            }
+
+
+            if (
+                !currentGroupData ||
+                currentGroupData.participants.length >= 20
+            ) {
+
+                return;
+
+            }
+
+
+            const currentUser =
+                auth.currentUser;
+
+
+            if (!currentUser) {
+                return;
+            }
+
+
+            try {
+
+                const idDocument =
+                    await getDoc(
+                        doc(
+                            db,
+                            "enclaveIds",
+                            search
+                        )
+                    );
+
+
+                if (
+                    !idDocument.exists()
+                ) {
+
+                    return;
+
+                }
+
+
+                const userUid =
+                    idDocument.data().uid;
+
+
+                if (
+                    currentGroupData.participants.includes(
+                        userUid
+                    )
+                ) {
+
+                    return;
+
+                }
+
+
+                const userDocument =
+                    await getDoc(
+                        doc(
+                            db,
+                            "publicUsers",
+                            userUid
+                        )
+                    );
+
+
+                if (
+                    !userDocument.exists()
+                ) {
+
+                    return;
+
+                }
+
+
+                const userData =
+                    userDocument.data();
+
+
+                const result =
+                    document.createElement(
+                        "div"
+                    );
+
+                result.className =
+                    "group-add-result";
+
+
+                const avatar =
+                    document.createElement(
+                        "div"
+                    );
+
+                avatar.className =
+                    "group-add-avatar";
+
+                avatar.textContent =
+                    userData.nickname
+                        .charAt(0)
+                        .toUpperCase();
+
+
+                const info =
+                    document.createElement(
+                        "div"
+                    );
+
+                info.className =
+                    "group-add-info";
+
+
+                const nickname =
+                    document.createElement(
+                        "span"
+                    );
+
+                nickname.className =
+                    "group-add-nickname";
+
+                nickname.textContent =
+                    userData.nickname;
+
+
+                const enclaveId =
+                    document.createElement(
+                        "span"
+                    );
+
+                enclaveId.className =
+                    "group-add-id";
+
+                enclaveId.textContent =
+                    userData.enclaveId;
+
+
+                info.appendChild(
+                    nickname
+                );
+
+                info.appendChild(
+                    enclaveId
+                );
+
+
+                result.appendChild(
+                    avatar
+                );
+
+                result.appendChild(
+                    info
+                );
+
+
+                addResults.appendChild(
+                    result
+                );
+
+
+                result.addEventListener(
+                    "click",
+                    async () => {
+
+                        await addGroupMember(
+                            userUid
+                        );
+
+                        addInput.value =
+                            "";
+
+                        addResults.innerHTML =
+                            "";
+
+                    }
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "Errore ricerca membro:",
+                    error
+                );
+
+            }
+
+        }
+    );
+
+
+    // =========================
+    // ABBANDONA
+    // =========================
+
+    leaveButton.addEventListener(
+        "click",
+        async () => {
+
+            await leaveGroup();
+
+        }
+    );
+
+
+    return groupInfoOverlay;
+}
+
+
+// =========================
+// APRI SCHEDA GRUPPO
+// =========================
+
+async function openGroupInfo(chatId) {
+
+    try {
+
+        const chatDocument =
+            await getDoc(
+                doc(
+                    db,
+                    "chats",
+                    chatId
+                )
+            );
+
+
+        if (
+            !chatDocument.exists()
+        ) {
+
+            return;
+
+        }
+
+
+        const chatData =
+            chatDocument.data();
+
+
+        if (
+            chatData.type !== "group"
+        ) {
+
+            return;
+
+        }
+
+
+        currentGroupData = {
+
+            chatId:
+                chatId,
+
+            ...chatData
+
+        };
+
+
+        const overlay =
+            createGroupInfoPanel();
+
+
+        renderGroupInfo();
+
+
+        overlay.classList.remove(
+            "hidden"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore apertura gruppo:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// RENDER SCHEDA GRUPPO
+// =========================
+
+async function renderGroupInfo() {
+
+    if (!currentGroupData) {
+        return;
+    }
+
+
+    const panel =
+        groupInfoOverlay.querySelector(
+            ".group-info-panel"
+        );
+
+
+    const title =
+        panel.querySelector(
+            ".group-info-title"
+        );
+
+
+    const count =
+        panel.querySelector(
+            ".group-info-count"
+        );
+
+
+    const membersList =
+        panel.querySelector(
+            ".group-info-members"
+        );
+
+
+    const addSection =
+        panel.querySelector(
+            ".group-add-section"
+        );
+
+
+    title.textContent =
+        currentGroupData.name;
+
+
+    count.textContent =
+        `${currentGroupData.participants.length}/20 partecipanti`;
+
+
+    membersList.innerHTML =
+        "";
+
+
+    const currentUser =
+        auth.currentUser;
+
+
+    const isOwner =
+        currentUser &&
+        currentGroupData.createdBy ===
+            currentUser.uid;
+
+
+    addSection.style.display =
+        isOwner &&
+        currentGroupData.participants.length < 20
+            ? "block"
+            : "none";
+
+
+    for (
+        const uid of
+        currentGroupData.participants
+    ) {
+
+        const userDocument =
+            await getDoc(
+                doc(
+                    db,
+                    "publicUsers",
+                    uid
+                )
+            );
+
+
+        if (
+            !userDocument.exists()
+        ) {
+
+            continue;
+
+        }
+
+
+        const userData =
+            userDocument.data();
+
+
+        const member =
+            document.createElement(
+                "div"
+            );
+
+        member.className =
+            "group-info-member";
+
+
+        const avatar =
+            document.createElement(
+                "div"
+            );
+
+        avatar.className =
+            "group-info-avatar";
+
+        avatar.textContent =
+            userData.nickname
+                .charAt(0)
+                .toUpperCase();
+
+
+        const info =
+            document.createElement(
+                "div"
+            );
+
+        info.className =
+            "group-info-member-data";
+
+
+        const nickname =
+            document.createElement(
+                "div"
+            );
+
+        nickname.className =
+            "group-info-member-name";
+
+        nickname.textContent =
+            userData.nickname;
+
+
+        const enclaveId =
+            document.createElement(
+                "div"
+            );
+
+        enclaveId.className =
+            "group-info-member-id";
+
+        enclaveId.textContent =
+            userData.enclaveId;
+
+
+        info.appendChild(
+            nickname
+        );
+
+        info.appendChild(
+            enclaveId
+        );
+
+
+        if (
+            uid ===
+            currentGroupData.createdBy
+        ) {
+
+            const owner =
+                document.createElement(
+                    "span"
+                );
+
+            owner.className =
+                "group-owner-label";
+
+            owner.textContent =
+                "Proprietario";
+
+            nickname.appendChild(
+                owner
+            );
+
+        }
+
+
+        member.appendChild(
+            avatar
+        );
+
+        member.appendChild(
+            info
+        );
+
+
+        membersList.appendChild(
+            member
+        );
+
+    }
+
+}
+
+
+// =========================
+// CHIUDI SCHEDA GRUPPO
+// =========================
+
+function closeGroupInfo() {
+
+    if (!groupInfoOverlay) {
+        return;
+    }
+
+
+    groupInfoOverlay.classList.add(
+        "hidden"
+    );
+
+
+    currentGroupData =
+        null;
+
+}
+
+
+// =========================
+// AGGIUNGI MEMBRO
+// =========================
+
+async function addGroupMember(userUid) {
+
+    const currentUser =
+        auth.currentUser;
+
+
+    if (
+        !currentUser ||
+        !currentGroupData
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        currentGroupData.createdBy !==
+        currentUser.uid
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        currentGroupData.participants.length >=
+        20
+    ) {
+
+        return;
+
+    }
+
+
+    if (
+        currentGroupData.participants.includes(
+            userUid
+        )
+    ) {
+
+        return;
+
+    }
+
+
+    try {
+
+        await updateDoc(
+            doc(
+                db,
+                "chats",
+                currentGroupData.chatId
+            ),
+            {
+
+                participants: [
+                    ...currentGroupData.participants,
+                    userUid
+                ]
+
+            }
+        );
+
+
+        currentGroupData.participants.push(
+            userUid
+        );
+
+
+        await renderGroupInfo();
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore aggiunta membro:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
+// ABBANDONA GRUPPO
+// =========================
+
+async function leaveGroup() {
+
+    const currentUser =
+        auth.currentUser;
+
+
+    if (
+        !currentUser ||
+        !currentGroupData
+    ) {
+
+        return;
+
+    }
+
+
+    const confirmed =
+        confirm(
+            "Sei sicuro di voler abbandonare questo gruppo?"
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    try {
+
+        const remainingParticipants =
+            currentGroupData.participants.filter(
+                (uid) =>
+                    uid !==
+                    currentUser.uid
+            );
+
+
+        if (
+            remainingParticipants.length ===
+            0
+        ) {
+
+            await deleteDoc(
+                doc(
+                    db,
+                    "chats",
+                    currentGroupData.chatId
+                )
+            );
+
+
+        } else {
+
+            let newOwner =
+                currentGroupData.createdBy;
+
+
+            if (
+                currentGroupData.createdBy ===
+                currentUser.uid
+            ) {
+
+                newOwner =
+                    remainingParticipants[0];
+
+            }
+
+
+            await updateDoc(
+                doc(
+                    db,
+                    "chats",
+                    currentGroupData.chatId
+                ),
+                {
+
+                    participants:
+                        remainingParticipants,
+
+                    createdBy:
+                        newOwner
+
+                }
+            );
+
+        }
+
+
+        closeGroupInfo();
+
+
+        if (
+            currentChatId ===
+            currentGroupData?.chatId
+        ) {
+
+            chatBackButton.click();
+
+        }
+
+
+        loadConversations();
+
+
+    } catch (error) {
+
+        console.error(
+            "Errore abbandono gruppo:",
+            error
+        );
+
+    }
+
+}
+
+
+// =========================
 // CLICK SUL +
 // =========================
 
