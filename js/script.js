@@ -1449,6 +1449,53 @@ function createGroupInfoPanel() {
     addSection.appendChild(addButton);
     addSection.appendChild(addArea);
 
+    
+
+    // =========================
+    // ABBANDONA
+    // =========================
+
+    const leaveSection =
+        document.createElement("div");
+
+    leaveSection.className =
+        "group-leave-section";
+
+
+    const leaveButton =
+        document.createElement("button");
+
+    leaveButton.type =
+        "button";
+
+    leaveButton.className =
+        "group-leave-button";
+
+    leaveButton.textContent =
+        "🚪 Abbandona gruppo";
+
+
+    leaveSection.appendChild(
+        leaveButton
+    );
+
+
+    // =========================
+    // ASSEMBLA
+    // =========================
+
+    panel.appendChild(header);
+    panel.appendChild(count);
+    panel.appendChild(membersList);
+    panel.appendChild(addSection);
+    panel.appendChild(leaveSection);
+
+    groupInfoOverlay.appendChild(panel);
+
+    document.body.appendChild(
+        groupInfoOverlay
+    );
+
 
     // =========================
     // RIMUOVI MEMBRO
@@ -1535,51 +1582,6 @@ function createGroupInfoPanel() {
         }
     }
 
-
-    // =========================
-    // ABBANDONA
-    // =========================
-
-    const leaveSection =
-        document.createElement("div");
-
-    leaveSection.className =
-        "group-leave-section";
-
-
-    const leaveButton =
-        document.createElement("button");
-
-    leaveButton.type =
-        "button";
-
-    leaveButton.className =
-        "group-leave-button";
-
-    leaveButton.textContent =
-        "🚪 Abbandona gruppo";
-
-
-    leaveSection.appendChild(
-        leaveButton
-    );
-
-
-    // =========================
-    // ASSEMBLA
-    // =========================
-
-    panel.appendChild(header);
-    panel.appendChild(count);
-    panel.appendChild(membersList);
-    panel.appendChild(addSection);
-    panel.appendChild(leaveSection);
-
-    groupInfoOverlay.appendChild(panel);
-
-    document.body.appendChild(
-        groupInfoOverlay
-    );
 
 
     // =========================
