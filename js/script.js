@@ -3254,31 +3254,42 @@ async function sendMessage() {
     }
 
 
-    if (!currentChatUserUid) {
+    if (
+        !currentChatUserUid &&
+        !currentChatId
+    ) {
         return;
     }
 
 
     if (
+        currentChatUserUid &&
         currentUser.uid ===
         currentChatUserUid
     ) {
-
+    
         return;
     }
 
 
     try {
 
-        const chatId =
-            createChatId(
-                currentUser.uid,
-                currentChatUserUid
-            );
+        let chatId;
 
-
-        currentChatId =
-            chatId;
+            if (currentChatUserUid) {
+            
+                chatId =
+                    createChatId(
+                        currentUser.uid,
+                        currentChatUserUid
+                    );
+            
+            } else {
+            
+                chatId =
+                    currentChatId;
+            
+            }
 
 
         console.log(
@@ -3495,6 +3506,40 @@ function loadConversations() {
                                 const chatData =
                                     chatDocument.data();
 
+                                if (chatData.type === "group") {
+
+                                    return {
+                                
+                                        chatId:
+                                            chatDocument.id,
+                                
+                                        type:
+                                            "group",
+                                
+                                        uid:
+                                            null,
+                                
+                                        nickname:
+                                            chatData.name,
+                                
+                                        enclaveId:
+                                            `${chatData.participants.length} partecipanti`,
+                                
+                                        lastMessage:
+                                            chatData.lastMessage ||
+                                            "",
+                                
+                                        lastMessageAt:
+                                            chatData.lastMessageAt ||
+                                            null,
+                                
+                                        participants:
+                                            chatData.participants
+                                
+                                    };
+                                
+                                }
+
 
                                 const otherUserUid =
                                     chatData.participants.find(
@@ -3584,21 +3629,27 @@ function loadConversations() {
 
 
                 conversations.forEach(
+                    
                     (conversation) => {
-
+                
+                        const conversationKey =
+                            conversation.type === "group"
+                                ? conversation.chatId
+                                : conversation.uid;
+                
                         const existing =
                             uniqueConversations.get(
-                                conversation.uid
+                                conversationKey
                             );
-
-
-                        if (!existing) {
-
-                            uniqueConversations.set(
-                                conversation.uid,
-                                conversation
-                            );
-
+                        
+                               if (!existing) { 
+                                   
+                                   uniqueConversations.set(
+                                        conversationKey,
+                                        conversation
+                                    );
+                            
+                                   
                             return;
 
                         }
@@ -3721,9 +3772,11 @@ function loadConversations() {
 
 
                         avatar.textContent =
-                            conversation.nickname
-                                .charAt(0)
-                                .toUpperCase();
+                            conversation.type === "group"
+                                ? "👥"
+                                : conversation.nickname
+                                    .charAt(0)
+                                    .toUpperCase();
 
 
                         const info =
@@ -3852,6 +3905,53 @@ function loadConversations() {
                                 activeChat.classList.remove(
                                     "hidden"
                                 );
+
+                                if (conversation.type === "group") {
+
+                                        chatUserNickname.textContent =
+                                            conversation.nickname;
+                                    
+                                        chatUserId.textContent =
+                                            conversation.enclaveId;
+                                    
+                                        chatUserAvatar.textContent =
+                                            "👥";
+                                    
+                                        currentChatUserUid =
+                                            null;
+                                    
+                                        currentChatId =
+                                            conversation.chatId;
+                                    
+                                        loadMessages(
+                                            currentChatId
+                                        );
+                                    
+                                    
+                                        homeMain.classList.add(
+                                            "chat-open"
+                                        );
+                                    
+                                    
+                                        if (
+                                            window.innerWidth <=
+                                            700
+                                        ) {
+                                    
+                                            chatSidebar.style.display =
+                                                "none";
+                                    
+                                            chatArea.style.display =
+                                                "flex";
+                                    
+                                            chatArea.style.width =
+                                                "100%";
+                                    
+                                        }
+                                    
+                                        return;
+                                    
+                                    }
 
 
                                 chatUserNickname.textContent =
