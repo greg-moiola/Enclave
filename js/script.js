@@ -1901,8 +1901,17 @@ async function renderGroupInfo() {
         currentGroupData.name;
 
 
+    // =========================================
+    // PARTECIPANTI TOTALI
+    // Il proprietario è incluso
+    // =========================================
+
+    const participants =
+        currentGroupData.participants || [];
+
+
     count.textContent =
-        `${currentGroupData.participants.length}/20 partecipanti`;
+        `${participants.length} partecipanti`;
 
 
     membersList.innerHTML =
@@ -1921,141 +1930,225 @@ async function renderGroupInfo() {
 
     addSection.style.display =
         isOwner &&
-        currentGroupData.participants.length < 20
+        participants.length < 20
             ? "block"
             : "none";
 
 
-    for (
-        const uid of
-        currentGroupData.participants
-    ) {
+    // =========================================
+    // CARICA TUTTI I PARTECIPANTI
+    // =========================================
 
-        const userDocument =
-            await getDoc(
-                doc(
-                    db,
-                    "publicUsers",
-                    uid
-                )
-            );
+    const memberResults =
+        await Promise.all(
 
+            participants.map(
+                async (uid) => {
 
-        if (
-            !userDocument.exists()
-        ) {
+                    try {
 
-            continue;
-
-        }
+                        const userDocument =
+                            await getDoc(
+                                doc(
+                                    db,
+                                    "publicUsers",
+                                    uid
+                                )
+                            );
 
 
-        const userData =
-            userDocument.data();
+                        if (
+                            userDocument.exists()
+                        ) {
+
+                            return {
+                                uid:
+                                    uid,
+
+                                ...userDocument.data()
+                            };
+
+                        }
 
 
-        const member =
-            document.createElement(
-                "div"
-            );
+                        // Fallback nel caso in cui
+                        // il profilo pubblico non esista
 
-        member.className =
-            "group-info-member";
+                        return {
+                            uid:
+                                uid,
 
+                            nickname:
+                                uid ===
+                                currentGroupData.createdBy
+                                    ? "Proprietario"
+                                    : "Utente",
 
-        const avatar =
-            document.createElement(
-                "div"
-            );
-
-        avatar.className =
-            "group-info-avatar";
-
-        avatar.textContent =
-            userData.nickname
-                .charAt(0)
-                .toUpperCase();
+                            enclaveId:
+                                ""
+                        };
 
 
-        const info =
-            document.createElement(
-                "div"
-            );
+                    } catch (error) {
 
-        info.className =
-            "group-info-member-data";
-
-
-        const nickname =
-            document.createElement(
-                "div"
-            );
-
-        nickname.className =
-            "group-info-member-name";
-
-        nickname.textContent =
-            userData.nickname;
+                        console.error(
+                            "Errore caricamento partecipante:",
+                            uid,
+                            error
+                        );
 
 
-        const enclaveId =
-            document.createElement(
-                "div"
-            );
+                        return {
+                            uid:
+                                uid,
 
-        enclaveId.className =
-            "group-info-member-id";
+                            nickname:
+                                "Utente",
 
-        enclaveId.textContent =
-            userData.enclaveId;
+                            enclaveId:
+                                ""
+                        };
 
+                    }
 
-        info.appendChild(
-            nickname
-        );
+                }
+            )
 
-        info.appendChild(
-            enclaveId
         );
 
 
-        if (
-            uid ===
-            currentGroupData.createdBy
-        ) {
+    // =========================================
+    // CREA ELEMENTI PARTECIPANTI
+    // =========================================
 
-            const owner =
+    memberResults.forEach(
+        (userData) => {
+
+            const member =
                 document.createElement(
-                    "span"
+                    "div"
                 );
 
-            owner.className =
-                "group-owner-label";
 
-            owner.textContent =
-                "Proprietario";
+            member.className =
+                "group-info-member";
 
-            nickname.appendChild(
-                owner
+
+            const avatar =
+                document.createElement(
+                    "div"
+                );
+
+
+            avatar.className =
+                "group-info-avatar";
+
+
+            avatar.textContent =
+                (
+                    userData.nickname ||
+                    "?"
+                )
+                    .charAt(0)
+                    .toUpperCase();
+
+
+            const info =
+                document.createElement(
+                    "div"
+                );
+
+
+            info.className =
+                "group-info-member-data";
+
+
+            const nickname =
+                document.createElement(
+                    "div"
+                );
+
+
+            nickname.className =
+                "group-info-member-name";
+
+
+            nickname.textContent =
+                userData.nickname ||
+                "Utente";
+
+
+            const enclaveId =
+                document.createElement(
+                    "div"
+                );
+
+
+            enclaveId.className =
+                "group-info-member-id";
+
+
+            enclaveId.textContent =
+                userData.enclaveId ||
+                "";
+
+
+            info.appendChild(
+                nickname
+            );
+
+
+            info.appendChild(
+                enclaveId
+            );
+
+
+            // =================================
+            // PROPRIETARIO
+            // =================================
+
+            if (
+                userData.uid ===
+                currentGroupData.createdBy
+            ) {
+
+                const owner =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                owner.className =
+                    "group-owner-label";
+
+
+                owner.textContent =
+                    "Proprietario";
+
+
+                nickname.appendChild(
+                    owner
+                );
+
+            }
+
+
+            member.appendChild(
+                avatar
+            );
+
+
+            member.appendChild(
+                info
+            );
+
+
+            membersList.appendChild(
+                member
             );
 
         }
-
-
-        member.appendChild(
-            avatar
-        );
-
-        member.appendChild(
-            info
-        );
-
-
-        membersList.appendChild(
-            member
-        );
-
-    }
+    );
 
 }
 
