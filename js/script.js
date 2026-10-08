@@ -1451,6 +1451,92 @@ function createGroupInfoPanel() {
 
 
     // =========================
+    // RIMUOVI MEMBRO
+    // =========================
+
+    async function removeGroupMember(
+        userUid,
+        userNickname
+    ) {
+    
+        if (!currentGroupData) {
+            return;
+        }
+    
+        const currentUser =
+            auth.currentUser;
+    
+        if (!currentUser) {
+            return;
+        }
+    
+        // Solo il proprietario può rimuovere membri
+        if (
+            currentGroupData.createdBy !==
+            currentUser.uid
+        ) {
+            return;
+        }
+    
+        // Il proprietario non può rimuovere sé stesso
+        if (
+            userUid ===
+            currentGroupData.createdBy
+        ) {
+            return;
+        }
+    
+        const confirmed =
+            confirm(
+                `Vuoi rimuovere ${userNickname} dal gruppo?`
+            );
+    
+        if (!confirmed) {
+            return;
+        }
+    
+        try {
+    
+            const remainingParticipants =
+                currentGroupData.participants.filter(
+                    uid =>
+                        uid !== userUid
+                );
+    
+            await updateDoc(
+                doc(
+                    db,
+                    "chats",
+                    currentGroupData.chatId
+                ),
+                {
+                    participants:
+                        remainingParticipants
+                }
+            );
+    
+            currentGroupData.participants =
+                remainingParticipants;
+    
+            await renderGroupInfo();
+    
+            await loadConversations();
+    
+        } catch (error) {
+    
+            console.error(
+                "Errore rimozione membro:",
+                error
+            );
+    
+            alert(
+                "Impossibile rimuovere il membro."
+            );
+        }
+    }
+
+
+    // =========================
     // ABBANDONA
     // =========================
 
