@@ -4456,29 +4456,26 @@ chatBackButton.addEventListener(
 );
 
 
-// =========================
-// INVIO MESSAGGI
-// =========================
+
+ // =========================
+ // INVIO MESSAGGI
+ // =========================
 
 async function sendMessage() {
 
     const message =
         messageInput.value.trim();
 
-
     if (!message) {
         return;
     }
 
-
     const currentUser =
         auth.currentUser;
-
 
     if (!currentUser) {
         return;
     }
-
 
     if (
         !currentChatUserUid &&
@@ -4487,42 +4484,37 @@ async function sendMessage() {
         return;
     }
 
-
     if (
         currentChatUserUid &&
         currentUser.uid ===
         currentChatUserUid
     ) {
-    
         return;
     }
-
 
     try {
 
         let chatId;
 
-            if (currentChatUserUid) {
-            
-                chatId =
-                    createChatId(
-                        currentUser.uid,
-                        currentChatUserUid
-                    );
-            
-            } else {
-            
-                chatId =
-                    currentChatId;
-            
-            }
+        if (currentChatUserUid) {
 
+            chatId =
+                createChatId(
+                    currentUser.uid,
+                    currentChatUserUid
+                );
+
+        } else {
+
+            chatId =
+                currentChatId;
+
+        }
 
         console.log(
             "CHAT ID:",
             chatId
         );
-
 
         const chatReference =
             doc(
@@ -4531,9 +4523,18 @@ async function sendMessage() {
                 chatId
             );
 
+        // =========================
+        // CREA O AGGIORNA CHAT
+        // =========================
 
         if (currentChatUserUid) {
 
+            const chatSnapshot =
+                await getDoc(chatReference);
+
+            if (!chatSnapshot.exists()) {
+
+                // Crea una nuova chat privata
                 await setDoc(
                     chatReference,
                     {
@@ -4541,44 +4542,63 @@ async function sendMessage() {
                             currentUser.uid,
                             currentChatUserUid
                         ],
-            
+
                         lastMessage:
                             message,
-            
+
                         lastMessageAt:
                             serverTimestamp(),
-            
+
                         lastSenderId:
                             currentUser.uid
-                    },
-                    {
-                        merge: true
                     }
                 );
-            
+
             } else {
-            
+
+                // Aggiorna una chat privata esistente
                 await updateDoc(
                     chatReference,
                     {
                         lastMessage:
                             message,
-            
+
                         lastMessageAt:
                             serverTimestamp(),
-            
+
                         lastSenderId:
                             currentUser.uid
                     }
                 );
-            
+
             }
 
+        } else {
+
+            // Aggiornamento di un gruppo
+            await updateDoc(
+                chatReference,
+                {
+                    lastMessage:
+                        message,
+
+                    lastMessageAt:
+                        serverTimestamp(),
+
+                    lastSenderId:
+                        currentUser.uid
+                }
+            );
+
+        }
 
         console.log(
             "CHAT CREATA / AGGIORNATA"
         );
 
+        // =========================
+        // CREA MESSAGGIO
+        // =========================
 
         const messageData = {
 
@@ -4595,7 +4615,6 @@ async function sendMessage() {
                 false
 
         };
-
 
         // =========================
         // SALVA RISPOSTA
@@ -4618,7 +4637,6 @@ async function sendMessage() {
 
         }
 
-
         await addDoc(
             collection(
                 db,
@@ -4629,23 +4647,18 @@ async function sendMessage() {
             messageData
         );
 
-
         console.log(
             "MESSAGGIO SALVATO"
         );
 
-
         messageInput.value =
             "";
 
-
         clearReply();
-
 
         console.log(
             "INVIO COMPLETATO ✅"
         );
-
 
     } catch (error) {
 
