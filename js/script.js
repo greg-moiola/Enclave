@@ -3466,7 +3466,15 @@ function openMessageMenu(
 // CARICAMENTO MESSAGGI
 // =========================
 
-function loadMessages(chatId) {
+async function loadMessages(chatId) {
+
+        const chatDocument = await getDoc(
+        doc(db, "chats", chatId)
+    );
+
+    const isGroupChat =
+        chatDocument.exists() &&
+        chatDocument.data().type === "group";
 
     if (unsubscribeMessages) {
 
@@ -3498,7 +3506,7 @@ function loadMessages(chatId) {
     unsubscribeMessages =
         onSnapshot(
             messagesQuery,
-            (snapshot) => {
+            async (snapshot) => {
 
                 closeMessageMenus();
 
@@ -3565,6 +3573,40 @@ function loadMessages(chatId) {
                     }
                 );
 
+                                const senderNicknames = {};
+
+                if (isGroupChat) {
+                    const senderIds = [
+                        ...new Set(
+                            messages
+                                .map(message => message.senderId)
+                                .filter(Boolean)
+                        )
+                    ];
+
+                    await Promise.all(
+                        senderIds.map(async (senderId) => {
+                            try {
+                                const userDocument = await getDoc(
+                                    doc(db, "publicUsers", senderId)
+                                );
+
+                                senderNicknames[senderId] =
+                                    userDocument.exists()
+                                        ? userDocument.data().nickname || "Utente"
+                                        : "Utente";
+                            } catch (error) {
+                                console.error(
+                                    "Errore recupero nickname:",
+                                    error
+                                );
+
+                                senderNicknames[senderId] = "Utente";
+                            }
+                        })
+                    );
+                }
+
 
                 const currentUser =
                     auth.currentUser;
@@ -3608,6 +3650,27 @@ function loadMessages(chatId) {
 
                         messageElement.dataset.messageId =
                             message.id;
+
+                        if (isGroupChat) {
+                            
+                            const senderName =
+                                document.createElement("div");
+
+                            senderName.className =
+                                "message-sender-name";
+
+                            senderName.textContent =
+                                message.senderId === currentUser?.uid
+                                    ? senderNicknames[message.senderId] || "Tu"
+                                    : senderNicknames[message.senderId] || "Utente";
+
+                            senderName.style.fontSize = "12px";
+                            senderName.style.fontWeight = "600";
+                            senderName.style.marginBottom = "4px";
+                            senderName.style.opacity = "0.8";
+
+                            messageElement.appendChild(senderName);
+                        }
 
 
                         // =========================
