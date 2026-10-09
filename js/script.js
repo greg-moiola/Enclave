@@ -4816,39 +4816,68 @@ function loadConversations() {
                                 const chatData =
                                     chatDocument.data();
 
-                                if (chatData.type === "group") {
+                                
+                                  if (chatData.type === "group") {
 
-                                    return {
-                                
-                                        chatId:
-                                            chatDocument.id,
-                                
-                                        type:
-                                            "group",
-                                
-                                        uid:
-                                            null,
-                                
-                                        nickname:
-                                            chatData.name,
-                                
-                                        enclaveId:
-                                            `${chatData.participants.length} partecipanti`,
-                                
-                                        lastMessage:
-                                            chatData.lastMessage ||
-                                            "",
-                                
-                                        lastMessageAt:
-                                            chatData.lastMessageAt ||
-                                            null,
-                                
-                                        participants:
-                                            chatData.participants
-                                
-                                    };
-                                
-                                }
+                                            let lastMessage = chatData.lastMessage || "";
+                                        
+                                            if (lastMessage && chatData.lastSenderId) {
+                                        
+                                                try {
+                                        
+                                                    const senderDocument = await getDoc(
+                                                        doc(
+                                                            db,
+                                                            "publicUsers",
+                                                            chatData.lastSenderId
+                                                        )
+                                                    );
+                                        
+                                                    if (senderDocument.exists()) {
+                                        
+                                                        const senderNickname =
+                                                            senderDocument.data().nickname || "Utente";
+                                        
+                                                        lastMessage =
+                                                            `${senderNickname}: ${lastMessage}`;
+                                        
+                                                    }
+                                        
+                                                } catch (error) {
+                                        
+                                                    console.error(
+                                                        "Errore recupero nickname ultimo mittente:",
+                                                        error
+                                                    );
+                                        
+                                                }
+                                        
+                                            }
+                                        
+                                            return {
+                                        
+                                                chatId: chatDocument.id,
+                                        
+                                                type: "group",
+                                        
+                                                uid: null,
+                                        
+                                                nickname: chatData.name,
+                                        
+                                                enclaveId:
+                                                    `${chatData.participants.length} partecipanti`,
+                                        
+                                                lastMessage: lastMessage,
+                                        
+                                                lastMessageAt:
+                                                    chatData.lastMessageAt || null,
+                                        
+                                                participants:
+                                                    chatData.participants
+                                        
+                                            };
+                                        
+                                        }
 
 
                                 const otherUserUid =
