@@ -4534,20 +4534,27 @@ async function sendMessage() {
 
             if (!chatSnapshot.exists()) {
 
-                    await setDoc(
-                        chatReference,
-                        {
-                            participants: [
-                                currentUser.uid,
-                                currentChatUserUid
-                            ],
-                            lastMessage: message,
-                            lastMessageAt: serverTimestamp(),
-                            lastSenderId: currentUser.uid
-                        }
-                    );
-                
-                } else {
+                // Crea una nuova chat privata
+                await setDoc(
+                    chatReference,
+                    {
+                        participants: [
+                            currentUser.uid,
+                            currentChatUserUid
+                        ],
+
+                        lastMessage:
+                            message,
+
+                        lastMessageAt:
+                            serverTimestamp(),
+
+                        lastSenderId:
+                            currentUser.uid
+                    }
+                );
+
+            } else {
 
                 // Aggiorna una chat privata esistente
                 await updateDoc(
@@ -4685,7 +4692,6 @@ messageInput.addEventListener(
 
     }
 );
-
 
 // =========================
 // CARICAMENTO CONVERSAZIONI
