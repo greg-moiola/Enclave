@@ -5392,8 +5392,13 @@ function loadConversations() {
                                     );
                                 },
                                 error => {
-                                    console.error("Errore aggiornamento badge:", error);
-                                }
+                                        console.error("ERRORE BADGE - DETTAGLI:", {
+                                            chatId: conversationIdForBadge,
+                                            userUid: currentUser.uid,
+                                            code: error.code,
+                                            message: error.message
+                                        });
+                                    }
                             );
                             
                             unreadMessageListeners.set(
