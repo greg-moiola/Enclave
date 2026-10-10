@@ -671,9 +671,16 @@ async function updateUnreadBadge(chatId, badge, userUid) {
 
         // Se la conversazione è aperta, non mostrare messaggi non letti.
         if (currentChatId === chatId) {
-            badge.classList.remove("visible");
-            return;
-        }
+                badge.classList.remove("visible");
+            
+                try {
+                    await markChatAsRead(chatId);
+                } catch (error) {
+                    console.error("Errore azzeramento badge:", error);
+                }
+            
+                return;
+            }
 
         const unreadQuery = query(
             collection(db, "chats", chatId, "messages"),
