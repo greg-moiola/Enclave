@@ -706,6 +706,19 @@ async function updateUnreadBadge(chatId, badge, userUid) {
 }
 
 
+function clearUnreadBadge(chatId) {
+    const badges = document.querySelectorAll(".unread-badge");
+
+    badges.forEach(badge => {
+        if (badge.dataset.chatId === chatId) {
+            badge.classList.remove("visible");
+            badge.textContent = "";
+        }
+    });
+}
+
+
+
 // =========================
 // CHIUDI MENU MESSAGGI
 // =========================
@@ -5376,6 +5389,8 @@ function loadConversations() {
                             
                                 const unreadBadge = document.createElement("span");
                                 unreadBadge.className = "unread-badge";
+
+                                unreadBadge.dataset.chatId = conversation.chatId;
                                 
                                 meta.appendChild(time);
                                 meta.appendChild(unreadBadge);
@@ -5448,6 +5463,10 @@ function loadConversations() {
                         conversationElement.addEventListener(
                             "click",
                             () => {
+
+                                clearUnreadBadge(conversation.chatId);
+
+                                markChatAsRead(conversation.chatId);
 
                                 chatEmptyState.classList.add(
                                     "hidden"
