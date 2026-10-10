@@ -604,6 +604,101 @@ async function markChatAsRead(chatId, lastReadAt = serverTimestamp()) {
 }
 
 
+async function getUnreadTrackingStart(userUid) {
+    if (unreadTrackingStartUid !== userUid) {
+        unreadTrackingStartUid = userUid;
+        unreadTrackingStartPromise = null;
+    }
+
+    if (!unreadTrackingStartPromise) {
+        unreadTrackingStartPromise = (async () => {
+            const userRef = doc(db, "users", userUid);
+
+            let userSnapshot = await getDoc(userRef);
+            let startAt =
+                userSnapshot.exists()
+                    ? userSnapshot.data().unreadTrackingStartedAt
+                    : null;
+
+            if (!startAt) {
+                await setDoc(
+                    userRef,
+                    { unreadTrackingStartedAt: serverTimestamp() },
+                    { merge: true }
+                );
+
+                userSnapshot = await getDoc(userRef);
+                startAt = userSnapshot.data()?.unreadTrackingStartedAt;
+            }
+
+            return startAt;
+        })();
+    }
+
+    return unreadTrackingStartPromise;
+}
+
+
+async function updateUnreadBadge(chatId, badge, userUid) {
+    try {
+        const readStateRef = doc(
+            db,
+            "users",
+            userUid,
+            "chatReadState",
+            chatId
+        );
+
+        let readStateSnapshot = await getDoc(readStateRef);
+        let lastReadAt = readStateSnapshot.exists()
+            ? readStateSnapshot.data().lastReadAt
+            : null;
+
+        if (!lastReadAt) {
+            lastReadAt = await getUnreadTrackingStart(userUid);
+
+            if (!lastReadAt) {
+                badge.classList.remove("visible");
+                return;
+            }
+
+            await setDoc(
+                readStateRef,
+                { lastReadAt },
+                { merge: true }
+            );
+        }
+
+        // Se la conversazione è aperta, non mostrare messaggi non letti.
+        if (currentChatId === chatId) {
+            badge.classList.remove("visible");
+            return;
+        }
+
+        const unreadQuery = query(
+            collection(db, "chats", chatId, "messages"),
+            where("createdAt", ">", lastReadAt)
+        );
+
+        const unreadSnapshot = await getDocs(unreadQuery);
+
+        const unreadCount = unreadSnapshot.docs.filter(
+            messageDocument =>
+                messageDocument.data().senderId !== userUid
+        ).length;
+
+        if (unreadCount > 0) {
+            badge.textContent = unreadCount > 99 ? "99+" : unreadCount;
+            badge.classList.add("visible");
+        } else {
+            badge.classList.remove("visible");
+        }
+    } catch (error) {
+        console.error("Errore conteggio messaggi non letti:", error);
+    }
+}
+
+
 // =========================
 // CHIUDI MENU MESSAGGI
 // =========================
@@ -5271,8 +5366,41 @@ function loadConversations() {
                             const meta = document.createElement("div");
                             meta.className = "conversation-meta";
                             
-                            const unreadBadge = document.createElement("span");
-                            unreadBadge.className = "unread-badge";
+                            
+                                const unreadBadge = document.createElement("span");
+                                unreadBadge.className = "unread-badge";
+                                
+                                meta.appendChild(time);
+                                meta.appendChild(unreadBadge);
+                                
+                                // Aggiornamento del contatore dei messaggi non letti
+                                const conversationIdForBadge = conversation.chatId;
+                                
+                                if (unreadMessageListeners.has(conversationIdForBadge)) {
+                                    unreadMessageListeners.get(conversationIdForBadge)();
+                                }
+                            
+                            const unreadMessagesUnsubscribe = onSnapshot(
+                                query(
+                                    collection(db, "chats", conversationIdForBadge, "messages")
+                                ),
+                                () => {
+                                    updateUnreadBadge(
+                                        conversationIdForBadge,
+                                        unreadBadge,
+                                        currentUser.uid
+                                    );
+                                },
+                                error => {
+                                    console.error("Errore aggiornamento badge:", error);
+                                }
+                            );
+                            
+                            unreadMessageListeners.set(
+                                conversationIdForBadge,
+                                unreadMessagesUnsubscribe
+                            );
+
                             
                             meta.appendChild(time);
                             meta.appendChild(unreadBadge);
