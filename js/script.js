@@ -4640,15 +4640,6 @@ async function sendMessage() {
                     }
                 
                 } else {
-                
-                    // Invio nei gruppi: comportamento invariato
-                    await updateDoc(chatReference, {
-                        lastMessage: message,
-                        lastMessageAt: serverTimestamp(),
-                        lastSenderId: currentUser.uid
-                    });
-                
-                }  else {
             
                 await updateDoc(
                     chatReference,
