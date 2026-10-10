@@ -4595,32 +4595,60 @@ async function sendMessage() {
                 chatId
             );
 
+                if (currentChatUserUid) {
 
-        if (currentChatUserUid) {
-
-                await setDoc(
-                    chatReference,
-                    {
-                        participants: [
-                            currentUser.uid,
-                            currentChatUserUid
-                        ],
-            
-                        lastMessage:
-                            message,
-            
-                        lastMessageAt:
-                            serverTimestamp(),
-            
-                        lastSenderId:
-                            currentUser.uid
-                    },
-                    {
-                        merge: true
+                    // Controlla se la chat privata esiste già
+                    const existingChat = await getDoc(chatReference);
+                
+                    if (existingChat.exists()) {
+                
+                        const chatData = existingChat.data();
+                
+                        // Verifica che il documento sia una chat privata
+                        // e che entrambi gli utenti ne facciano parte
+                        if (
+                            "type" in chatData ||
+                            !Array.isArray(chatData.participants) ||
+                            !chatData.participants.includes(currentUser.uid) ||
+                            !chatData.participants.includes(currentChatUserUid)
+                        ) {
+                            throw new Error(
+                                "La chat privata non ha una struttura valida."
+                            );
+                        }
+                
+                        // Aggiorna SOLO i dati dell'ultimo messaggio
+                        await updateDoc(chatReference, {
+                            lastMessage: message,
+                            lastMessageAt: serverTimestamp(),
+                            lastSenderId: currentUser.uid
+                        });
+                
+                    } else {
+                
+                        // Crea la chat soltanto se non esiste
+                        await setDoc(chatReference, {
+                            participants: [
+                                currentUser.uid,
+                                currentChatUserUid
+                            ],
+                            lastMessage: message,
+                            lastMessageAt: serverTimestamp(),
+                            lastSenderId: currentUser.uid
+                        });
+                
                     }
-                );
-            
-            } else {
+                
+                } else {
+                
+                    // Invio nei gruppi: comportamento invariato
+                    await updateDoc(chatReference, {
+                        lastMessage: message,
+                        lastMessageAt: serverTimestamp(),
+                        lastSenderId: currentUser.uid
+                    });
+                
+                }  else {
             
                 await updateDoc(
                     chatReference,
