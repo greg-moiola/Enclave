@@ -568,6 +568,36 @@ function createChatId(uid1, uid2) {
 }
 
 
+async function markChatAsRead(chatId, lastReadAt = serverTimestamp()) {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser || !chatId) {
+        return;
+    }
+
+    try {
+        await setDoc(
+            doc(
+                db,
+                "users",
+                currentUser.uid,
+                "chatReadState",
+                chatId
+            ),
+            {
+                lastReadAt: lastReadAt
+            },
+            { merge: true }
+        );
+    } catch (error) {
+        console.error(
+            "Errore aggiornamento lettura chat:",
+            error
+        );
+    }
+}
+
+
 // =========================
 // CHIUDI MENU MESSAGGI
 // =========================
@@ -3518,6 +3548,8 @@ async function loadMessages(chatId) {
 
                 if (snapshot.empty) {
 
+                    await markChatAsRead(chatId);
+
                     const emptyMessage =
                         document.createElement(
                             "div"
@@ -3575,39 +3607,49 @@ async function loadMessages(chatId) {
                     }
                 );
 
-                                const senderNicknames = {};
+                const latestMessage =
+                        messages[messages.length - 1];
+                    
+                    if (latestMessage?.createdAt) {
+                        await markChatAsRead(
+                            chatId,
+                            latestMessage.createdAt
+                        );
+                    }
 
-                if (isGroupChat) {
-                    const senderIds = [
-                        ...new Set(
-                            messages
-                                .map(message => message.senderId)
-                                .filter(Boolean)
-                        )
-                    ];
+                const senderNicknames = {};
 
-                    await Promise.all(
-                        senderIds.map(async (senderId) => {
-                            try {
-                                const userDocument = await getDoc(
-                                    doc(db, "publicUsers", senderId)
-                                );
-
-                                senderNicknames[senderId] =
-                                    userDocument.exists()
-                                        ? userDocument.data().nickname || "Utente"
-                                        : "Utente";
-                            } catch (error) {
-                                console.error(
-                                    "Errore recupero nickname:",
-                                    error
-                                );
-
-                                senderNicknames[senderId] = "Utente";
-                            }
-                        })
-                    );
-                }
+                    if (isGroupChat) {
+                        const senderIds = [
+                            ...new Set(
+                                messages
+                                    .map(message => message.senderId)
+                                    .filter(Boolean)
+                            )
+                        ];
+    
+                        await Promise.all(
+                            senderIds.map(async (senderId) => {
+                                try {
+                                    const userDocument = await getDoc(
+                                        doc(db, "publicUsers", senderId)
+                                    );
+    
+                                    senderNicknames[senderId] =
+                                        userDocument.exists()
+                                            ? userDocument.data().nickname || "Utente"
+                                            : "Utente";
+                                } catch (error) {
+                                    console.error(
+                                        "Errore recupero nickname:",
+                                        error
+                                    );
+    
+                                    senderNicknames[senderId] = "Utente";
+                                }
+                            })
+                        );
+                    }
 
 
                 const currentUser =
@@ -5218,14 +5260,18 @@ function loadConversations() {
                             conversation.lastMessage;
 
 
-                        top.appendChild(
-                            nickname
-                        );
+                        top.appendChild(nickname);
 
-
-                        top.appendChild(
-                            time
-                        );
+                            const meta = document.createElement("div");
+                            meta.className = "conversation-meta";
+                            
+                            const unreadBadge = document.createElement("span");
+                            unreadBadge.className = "unread-badge";
+                            
+                            meta.appendChild(time);
+                            meta.appendChild(unreadBadge);
+                            
+                            top.appendChild(meta);
 
 
                         info.appendChild(
