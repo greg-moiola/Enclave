@@ -134,6 +134,8 @@ let unsubscribeChats = null;
 
 let conversationsRenderVersion = 0;
 
+let unsubscribeReadStates = [];
+
 
 // =========================
 // RISPOSTA A UN MESSAGGIO
