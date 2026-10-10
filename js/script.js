@@ -136,6 +136,12 @@ let conversationsRenderVersion = 0;
 
 let unsubscribeReadStates = [];
 
+let unreadMessageListeners = new Map();
+
+let unreadTrackingStartUid = null;
+
+let unreadTrackingStartPromise = null;
+
 
 // =========================
 // RISPOSTA A UN MESSAGGIO
