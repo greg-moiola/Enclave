@@ -19,7 +19,8 @@ import {
     query,
     where,
     onSnapshot,
-    serverTimestamp
+    serverTimestamp,
+    arrayUnion
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 import {
@@ -209,6 +210,15 @@ async function enableEnclaveNotifications() {
         }
 
         console.log("Token notifiche Enclave:", token);
+
+        await updateDoc(
+                doc(db, "users", auth.currentUser.uid),
+                {
+                    fcmTokens: arrayUnion(token)
+                }
+            );
+            
+            console.log("Token salvato in Firestore.");
 
         alert(
             "Notifiche abilitate su questo dispositivo! " +
