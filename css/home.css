@@ -2140,3 +2140,168 @@
         transform: translateY(0) scale(1);
     }
 }
+
+
+
+/* ========================= */
+/* SCHEDA INFORMAZIONI CONTATTO */
+/* ========================= */
+
+.contact-chat-clickable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.contact-chat-clickable:hover .chat-user-nickname {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* Contenitore delle informazioni */
+.contact-info-section {
+    margin-top: 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+/* Sezioni separate */
+.contact-info-card {
+    padding: 18px;
+    border: 1px solid #e8e8e8;
+    border-radius: 12px;
+    background: #fafafa;
+}
+
+/* Etichette */
+.contact-info-label {
+    display: block;
+    margin-bottom: 10px;
+    color: #777;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Nickname e matita */
+.contact-nickname-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.contact-nickname-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: #171717;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.contact-nickname-edit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #e2e2e2;
+    border-radius: 10px;
+    background: white;
+    color: #333;
+    font-size: 19px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.contact-nickname-edit:hover {
+    background: #f0f0f0;
+    border-color: #c9c9c9;
+}
+
+/* Nickname originale */
+.contact-original-nickname {
+    color: #555;
+    font-size: 15px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+/* Modifica nickname */
+.contact-nickname-editor {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.contact-nickname-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 13px;
+    border: 1px solid #d8d8d8;
+    border-radius: 9px;
+    background: white;
+    color: #171717;
+    font: inherit;
+    font-size: 15px;
+    outline: none;
+}
+
+.contact-nickname-input:focus {
+    border-color: #888;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.06);
+}
+
+.contact-nickname-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 9px;
+}
+
+.contact-nickname-actions button {
+    min-height: 38px;
+    padding: 9px 15px;
+    border: 1px solid #dedede;
+    border-radius: 9px;
+    background: white;
+    color: #333;
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.contact-nickname-actions .contact-nickname-save {
+    border-color: #222;
+    background: #222;
+    color: white;
+}
+
+.contact-nickname-actions .contact-nickname-save:hover {
+    background: #444;
+}
+
+.contact-nickname-actions button:hover {
+    filter: brightness(0.96);
+}
+
+@media (max-width: 480px) {
+    .group-info-overlay {
+        padding: 14px;
+    }
+
+    .group-info-panel {
+        padding: 21px;
+        max-height: 85vh;
+    }
+
+    .contact-info-card {
+        padding: 15px;
+    }
+
+    .contact-nickname-value {
+        font-size: 18px;
+    }
+}
