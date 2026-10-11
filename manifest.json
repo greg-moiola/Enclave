@@ -9,12 +9,12 @@
   "theme_color": "#f2f2f2",
   "icons": [
     {
-      "src": "images/enclave_icon.png",
+      "src": "images/Enclave_icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "images/enclave_icon.png",
+      "src": "images/Enclave_icon.png",
       "sizes": "512x512",
       "type": "image/png"
     }
