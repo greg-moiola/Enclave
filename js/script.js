@@ -5083,6 +5083,78 @@ messageInput.addEventListener(
 );
 
 
+// ==========================
+// NICKNAME PERSONALIZZABILE
+// ==========================
+
+async function getContactNickname(contactUid, originalNickname) {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) return originalNickname;
+
+    try {
+        const nicknameReference = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "contactNicknames",
+            contactUid
+        );
+
+        const nicknameDocument = await getDoc(nicknameReference);
+
+        if (nicknameDocument.exists()) {
+            const customNickname = nicknameDocument.data().nickname;
+
+            if (typeof customNickname === "string" && customNickname.trim()) {
+                return customNickname.trim();
+            }
+        }
+    } catch (error) {
+        console.error("Errore recupero soprannome personale:", error);
+    }
+
+    return originalNickname;
+}
+
+async function saveContactNickname(contactUid, nickname) {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser) {
+        throw new Error("Devi aver effettuato l'accesso.");
+    }
+
+    if (contactUid === currentUser.uid) {
+        throw new Error("Non puoi rinominare te stesso.");
+    }
+
+    const nicknameReference = doc(
+        db,
+        "users",
+        currentUser.uid,
+        "contactNicknames",
+        contactUid
+    );
+
+    const cleanNickname = nickname.trim();
+
+    if (!cleanNickname) {
+        await deleteDoc(nicknameReference);
+        return;
+    }
+
+    if (cleanNickname.length > 40) {
+        throw new Error("Il soprannome può contenere al massimo 40 caratteri.");
+    }
+
+    await setDoc(nicknameReference, {
+        nickname: cleanNickname,
+        updatedAt: serverTimestamp()
+    });
+}
+
+
+
 // =========================
 // CARICAMENTO CONVERSAZIONI
 // =========================
