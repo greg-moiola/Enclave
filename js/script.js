@@ -5322,33 +5322,24 @@ function loadConversations() {
                                 }
 
 
-                                const userData =
-                                    userDocument.data();
-
-
+                                
+                            const userData = userDocument.data();
+                                
+                                const displayedNickname = await getContactNickname(
+                                    otherUserUid,
+                                    userData.nickname || "Utente"
+                                );
+                                
                                 return {
-
-                                    chatId:
-                                        chatDocument.id,
-
-                                    uid:
-                                        otherUserUid,
-
-                                    nickname:
-                                        userData.nickname,
-
-                                    enclaveId:
-                                        userData.enclaveId,
-
-                                    lastMessage:
-                                        chatData.lastMessage ||
-                                        "",
-
-                                    lastMessageAt:
-                                        chatData.lastMessageAt ||
-                                        null
-
+                                    chatId: chatDocument.id,
+                                    uid: otherUserUid,
+                                    nickname: displayedNickname,
+                                    originalNickname: userData.nickname || "Utente",
+                                    enclaveId: userData.enclaveId,
+                                    lastMessage: chatData.lastMessage || "",
+                                    lastMessageAt: chatData.lastMessageAt || null
                                 };
+
 
                             }
                         )
