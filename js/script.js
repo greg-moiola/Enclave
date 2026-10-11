@@ -5667,6 +5667,11 @@ function loadConversations() {
                         conversationElement.className =
                             "conversation-item";
 
+                        if (conversation.type !== "group" && conversation.uid) {
+                            
+                                    conversationElement.dataset.contactUid = conversation.uid;
+                                }
+
 
                         const avatar =
                             document.createElement(
