@@ -230,6 +230,11 @@ const NOTIFICATIONS_PROMPT_KEY =
     "enclaveNotificationsPromptChoice";
 
 function maybeShowNotificationsPrompt() {
+            console.log("Popup notifiche chiamato");
+            console.log("Utente:", auth.currentUser?.uid);
+            console.log("Email verificata:", auth.currentUser?.emailVerified);
+            console.log("Scelta salvata:", localStorage.getItem("enclaveNotificationsPromptChoice")
+        );
     if (!auth.currentUser?.emailVerified) return;
 
     if (Notification.permission === "granted") {
@@ -328,6 +333,8 @@ function showHome() {
     loginScreen.classList.add("hidden");
 
     homeScreen.classList.remove("hidden");
+
+    maybeShowNotificationsPrompt();
 
 }
 
