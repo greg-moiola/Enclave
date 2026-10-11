@@ -2,7 +2,7 @@
   "name": "Enclave",
   "short_name": "Enclave",
   "description": "La tua area privata di messaggistica",
-  "start_url": "/Enclave/html/index.html",
+  "start_url": "/Enclave/",
   "scope": "/Enclave/",
   "display": "standalone",
   "background_color": "#f2f2f2",
