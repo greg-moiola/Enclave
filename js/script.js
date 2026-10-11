@@ -2374,40 +2374,61 @@ function createContactInfoPanel() {
         }
     });
 
-    editButton.addEventListener("click", async () => {
-        if (!currentContactData) return;
+    
+editButton.addEventListener("click", async () => {
+    if (!currentContactData) return;
 
-        const currentNickname = nicknameValue.textContent;
-        const newNickname = prompt(
-            "Inserisci il soprannome personale (lascia vuoto per ripristinare quello originale):",
-            currentNickname
+    const currentNickname = nicknameValue.textContent;
+
+    const newNickname = prompt(
+        "Inserisci il soprannome personale (lascia vuoto per ripristinare quello originale):",
+        currentNickname
+    );
+
+    if (newNickname === null) return;
+
+    try {
+        await saveContactNickname(
+            currentContactData.uid,
+            newNickname
         );
 
-        if (newNickname === null) return;
+        const cleanNickname = newNickname.trim();
+        const displayedNickname =
+            cleanNickname || currentContactData.originalNickname;
 
-        try {
-            await saveContactNickname(
-                currentContactData.uid,
-                newNickname
-            );
+        nicknameValue.textContent = displayedNickname;
+        chatUserNickname.textContent = displayedNickname;
+        chatUserAvatar.textContent =
+            displayedNickname.charAt(0).toUpperCase();
 
-            const cleanNickname = newNickname.trim();
-            const displayedNickname = cleanNickname ||
-                currentContactData.originalNickname;
+        originalNickname.textContent =
+            "Nickname originale: " +
+            currentContactData.originalNickname;
 
-            nicknameValue.textContent = displayedNickname;
-            chatUserNickname.textContent = displayedNickname;
+        // Aggiorna il nome nella lista senza ricaricare tutte le chat.
+        document.querySelectorAll(".conversation-item").forEach((item) => {
+            const nameElement = item.querySelector(".conversation-nickname");
 
-            originalNickname.textContent =
-                "Nickname originale: " +
-                currentContactData.originalNickname;
+            if (
+                nameElement &&
+                item.dataset.contactUid === currentContactData.uid
+            ) {
+                nameElement.textContent = displayedNickname;
 
-            loadConversations();
-        } catch (error) {
-            console.error("Errore modifica soprannome:", error);
-            alert(error.message || "Impossibile salvare il soprannome.");
-        }
-    });
+                const avatar = item.querySelector(".conversation-avatar");
+                if (avatar) {
+                    avatar.textContent = displayedNickname.charAt(0).toUpperCase();
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error("Errore modifica soprannome:", error);
+        alert(error.message || "Impossibile salvare il soprannome.");
+    }
+});
+
 
     return contactInfoOverlay;
 }
