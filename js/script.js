@@ -210,15 +210,23 @@ async function enableEnclaveNotifications() {
         }
 
         console.log("Token notifiche Enclave:", token);
-
-        await updateDoc(
-                doc(db, "users", auth.currentUser.uid),
-                {
-                    fcmTokens: arrayUnion(token)
+                console.log("UID utente:", auth.currentUser?.uid);
+                
+                try {
+                    await updateDoc(
+                        doc(db, "users", auth.currentUser.uid),
+                        {
+                            fcmTokens: arrayUnion(token)
+                        }
+                    );
+                
+                    console.log("TOKEN SALVATO CORRETTAMENTE");
+                } catch (error) {
+                    console.error("ERRORE SALVATAGGIO TOKEN:", error);
+                    throw error;
                 }
-            );
-            
-            console.log("Token salvato in Firestore.");
+
+           
 
         alert(
             "Notifiche abilitate su questo dispositivo! " +
