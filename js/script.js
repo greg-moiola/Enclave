@@ -27,6 +27,14 @@ import {
     auth
 } from "./firebase.js";
 
+import {
+    getMessaging,
+    getToken,
+    isSupported
+} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
+
+import { app } from "./firebase.js";
+
 
 console.log("Enclave avviato correttamente.");
 
@@ -141,6 +149,65 @@ let unreadMessageListeners = new Map();
 let unreadTrackingStartUid = null;
 
 let unreadTrackingStartPromise = null;
+
+
+// =========================
+// NOTIFICHE PUSH
+// =========================
+
+const ENCLAVE_VAPID_KEY =
+    "BGbi6huAaDx6taFFgwQ0ipz5VDpJ1r0ia1rFGXR3GZrEEb0jiNeBpikMbkwALoTIRKCoo-29nU9Dq6NwO3cPUZc";
+
+async function enableEnclaveNotifications() {
+    try {
+        if (!("Notification" in window) ||
+            !("serviceWorker" in navigator)) {
+            alert("Questo browser non supporta le notifiche push.");
+            return;
+        }
+
+        if (!(await isSupported())) {
+            alert("Le notifiche push Firebase non sono supportate su questo dispositivo o browser.");
+            return;
+        }
+
+        const permission = await Notification.requestPermission();
+
+        if (permission !== "granted") {
+            alert("Permesso per le notifiche non concesso.");
+            return;
+        }
+
+        const serviceWorkerRegistration =
+            await navigator.serviceWorker.register(
+                "/Enclave/firebase-messaging-sw.js",
+                { scope: "/Enclave/" }
+            );
+
+        const messaging = getMessaging(app);
+
+        const token = await getToken(messaging, {
+            vapidKey: ENCLAVE_VAPID_KEY,
+            serviceWorkerRegistration
+        });
+
+        if (!token) {
+            alert("Non è stato possibile registrare questo dispositivo.");
+            return;
+        }
+
+        console.log("Token notifiche Enclave:", token);
+
+        alert(
+            "Notifiche abilitate su questo dispositivo! " +
+            "Il token è stato creato. L'invio automatico dei messaggi va configurato separatamente."
+        );
+
+    } catch (error) {
+        console.error("Errore durante la configurazione delle notifiche:", error);
+        alert("Errore nell'attivazione delle notifiche. Controlla la console.");
+    }
+}
 
 
 // =========================
