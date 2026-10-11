@@ -2301,6 +2301,152 @@ async function openGroupInfo(chatId) {
 }
 
 
+let contactInfoOverlay = null;
+let currentContactData = null;
+
+
+function createContactInfoPanel() {
+    if (contactInfoOverlay) {
+        return contactInfoOverlay;
+    }
+
+    contactInfoOverlay = document.createElement("div");
+    contactInfoOverlay.className = "group-info-overlay hidden";
+
+    const panel = document.createElement("div");
+    panel.className = "group-info-panel";
+
+    const header = document.createElement("div");
+    header.className = "group-info-header";
+
+    const title = document.createElement("h2");
+    title.className = "group-info-title";
+    title.textContent = "Informazioni contatto";
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "group-info-close";
+    closeButton.textContent = "×";
+
+    header.appendChild(title);
+    header.appendChild(closeButton);
+
+    const contactSection = document.createElement("div");
+    contactSection.className = "group-info-members";
+
+    const nicknameRow = document.createElement("div");
+    nicknameRow.className = "contact-nickname-row";
+
+    const nicknameLabel = document.createElement("span");
+    nicknameLabel.textContent = "Soprannome";
+
+    const nicknameValue = document.createElement("span");
+    nicknameValue.className = "contact-nickname-value";
+
+    const editButton = document.createElement("button");
+    editButton.type = "button";
+    editButton.className = "contact-nickname-edit";
+    editButton.textContent = "✎";
+    editButton.title = "Modifica soprannome";
+    editButton.setAttribute("aria-label", "Modifica soprannome");
+
+    nicknameRow.appendChild(nicknameLabel);
+    nicknameRow.appendChild(nicknameValue);
+    nicknameRow.appendChild(editButton);
+
+    const originalNickname = document.createElement("div");
+    originalNickname.className = "contact-original-nickname";
+
+    contactSection.appendChild(nicknameRow);
+    contactSection.appendChild(originalNickname);
+
+    panel.appendChild(header);
+    panel.appendChild(contactSection);
+
+    contactInfoOverlay.appendChild(panel);
+    document.body.appendChild(contactInfoOverlay);
+
+    closeButton.addEventListener("click", closeContactInfo);
+
+    contactInfoOverlay.addEventListener("click", (event) => {
+        if (event.target === contactInfoOverlay) {
+            closeContactInfo();
+        }
+    });
+
+    editButton.addEventListener("click", async () => {
+        if (!currentContactData) return;
+
+        const currentNickname = nicknameValue.textContent;
+        const newNickname = prompt(
+            "Inserisci il soprannome personale (lascia vuoto per ripristinare quello originale):",
+            currentNickname
+        );
+
+        if (newNickname === null) return;
+
+        try {
+            await saveContactNickname(
+                currentContactData.uid,
+                newNickname
+            );
+
+            const cleanNickname = newNickname.trim();
+            const displayedNickname = cleanNickname ||
+                currentContactData.originalNickname;
+
+            nicknameValue.textContent = displayedNickname;
+            chatUserNickname.textContent = displayedNickname;
+
+            originalNickname.textContent =
+                "Nickname originale: " +
+                currentContactData.originalNickname;
+
+            loadConversations();
+        } catch (error) {
+            console.error("Errore modifica soprannome:", error);
+            alert(error.message || "Impossibile salvare il soprannome.");
+        }
+    });
+
+    return contactInfoOverlay;
+}
+
+function closeContactInfo() {
+    if (contactInfoOverlay) {
+        contactInfoOverlay.classList.add("hidden");
+    }
+}
+
+
+async function openContactInfo(contactUid, originalNickname) {
+    try {
+        const displayedNickname = await getContactNickname(
+            contactUid,
+            originalNickname
+        );
+
+        currentContactData = {
+            uid: contactUid,
+            originalNickname: originalNickname
+        };
+
+        const overlay = createContactInfoPanel();
+
+        overlay.querySelector(".contact-nickname-value")
+            .textContent = displayedNickname;
+
+        overlay.querySelector(".contact-original-nickname")
+            .textContent = "Nickname originale: " + originalNickname;
+
+        overlay.classList.remove("hidden");
+    } catch (error) {
+        console.error("Errore apertura informazioni contatto:", error);
+    }
+}
+
+
+
 // =========================
 // RENDER SCHEDA GRUPPO
 // =========================
@@ -5758,15 +5904,16 @@ function loadConversations() {
                                     }
 
 
-                                chatUserNickname.textContent =
-                                    conversation.nickname;
-
-                                chatUserInfo.classList.remove(
-                                    "group-chat-clickable"
-                                );
+                                chatUserNickname.textContent = conversation.nickname;
                                 
-                                chatUserInfo.onclick =
-                                    null;
+                                    chatUserInfo.classList.remove("group-chat-clickable");
+                                    
+                                    chatUserInfo.onclick = () => {
+                                        openContactInfo(
+                                            conversation.uid,
+                                            conversation.originalNickname || conversation.nickname
+                                        );
+                                    };
 
 
                                 chatUserId.textContent =
