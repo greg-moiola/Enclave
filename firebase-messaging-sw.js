@@ -19,7 +19,7 @@ messaging.onBackgroundMessage((payload) => {
 
     const notificationOptions = {
         body: payload.notification?.body || "Hai ricevuto un nuovo messaggio.",
-        icon: "/Enclave/favicon.ico",
+        // Nessuna icona personalizzata per ora
         data: payload.data || {}
     };
 
