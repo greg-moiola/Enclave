@@ -171,31 +171,53 @@ let unreadTrackingStartPromise = null;
 const ENCLAVE_VAPID_KEY =
     "BGbi6huAaDx6taFFgwQ0ipz5VDpJ1r0ia1rFGXR3GZrEEb0jiNeBpikMbkwALoTIRKCoo-29nU9Dq6NwO3cPUZc";
 
-async function enableEnclaveNotifications() {
+
+async function enableEnclaveNotifications(requestPermission = true) {
     try {
-        if (!("Notification" in window) ||
-            !("serviceWorker" in navigator)) {
-            alert("Questo browser non supporta le notifiche push.");
-            return;
+        const currentUser = auth.currentUser;
+
+        if (!currentUser || !currentUser.emailVerified) {
+            return false;
+        }
+
+        if (
+            !("Notification" in window) ||
+            !("serviceWorker" in navigator)
+        ) {
+            if (requestPermission) {
+                alert("Questo browser non supporta le notifiche push.");
+            }
+            return false;
         }
 
         if (!(await isSupported())) {
-            alert("Le notifiche push Firebase non sono supportate su questo dispositivo o browser.");
-            return;
+            if (requestPermission) {
+                alert("Le notifiche push non sono supportate su questo dispositivo.");
+            }
+            return false;
         }
 
-        const permission = await Notification.requestPermission();
+        let permission = Notification.permission;
+
+        if (permission === "default" && requestPermission) {
+            permission = await Notification.requestPermission();
+        }
 
         if (permission !== "granted") {
-            alert("Permesso per le notifiche non concesso.");
-            return;
+            if (requestPermission) {
+                alert("Permesso per le notifiche non concesso.");
+            }
+            return false;
         }
 
+        // Registra il Service Worker e aspetta che sia attivo.
+        await navigator.serviceWorker.register(
+            "/Enclave/firebase-messaging-sw.js",
+            { scope: "/Enclave/" }
+        );
+
         const serviceWorkerRegistration =
-            await navigator.serviceWorker.register(
-                "/Enclave/firebase-messaging-sw.js",
-                { scope: "/Enclave/" }
-            );
+            await navigator.serviceWorker.ready;
 
         const messaging = getMessaging(app);
 
@@ -205,39 +227,43 @@ async function enableEnclaveNotifications() {
         });
 
         if (!token) {
-            alert("Non è stato possibile registrare questo dispositivo.");
-            return;
+            throw new Error("Token FCM non generato.");
         }
 
-        console.log("Token notifiche Enclave:", token);
-                console.log("UID utente:", auth.currentUser?.uid);
-                
-                try {
-                    await updateDoc(
-                        doc(db, "users", auth.currentUser.uid),
-                        {
-                            fcmTokens: arrayUnion(token)
-                        }
-                    );
-                
-                    console.log("TOKEN SALVATO CORRETTAMENTE");
-                } catch (error) {
-                    console.error("ERRORE SALVATAGGIO TOKEN:", error);
-                    throw error;
-                }
-
-           
-
-        alert(
-            "Notifiche abilitate su questo dispositivo! " +
-            "Il token è stato creato. L'invio automatico dei messaggi va configurato separatamente."
+        // Salva il token nel profilo dell'utente autenticato.
+        await updateDoc(
+            doc(db, "users", currentUser.uid),
+            {
+                fcmTokens: arrayUnion(token)
+            }
         );
 
+        console.log("TOKEN FCM SALVATO CORRETTAMENTE");
+        console.log("UID:", currentUser.uid);
+
+        if (requestPermission) {
+            alert("Notifiche abilitate su questo dispositivo!");
+        }
+
+        return true;
+
     } catch (error) {
-        console.error("Errore durante la configurazione delle notifiche:", error);
-        alert("Errore nell'attivazione delle notifiche. Controlla la console.");
+        console.error(
+            "Errore durante la registrazione delle notifiche:",
+            error
+        );
+
+        if (requestPermission) {
+            alert(
+                "Non siamo riusciti ad attivare le notifiche. " +
+                "Controlla la console."
+            );
+        }
+
+        return false;
     }
 }
+
 
 
 // =========================
@@ -247,16 +273,18 @@ async function enableEnclaveNotifications() {
 const NOTIFICATIONS_PROMPT_KEY =
     "enclaveNotificationsPromptChoice";
 
+
 function maybeShowNotificationsPrompt() {
-            console.log("Popup notifiche chiamato");
-            console.log("Utente:", auth.currentUser?.uid);
-            console.log("Email verificata:", auth.currentUser?.emailVerified);
-            console.log("Scelta salvata:", localStorage.getItem("enclaveNotificationsPromptChoice")
-        );
     if (!auth.currentUser?.emailVerified) return;
 
     if (Notification.permission === "granted") {
         localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
+
+        // Il permesso esiste già: registra automaticamente il token.
+        enableEnclaveNotifications(false).catch(error => {
+            console.error("Registrazione automatica FCM fallita:", error);
+        });
+
         return;
     }
 
@@ -269,6 +297,7 @@ function maybeShowNotificationsPrompt() {
 
     notificationsOverlay?.classList.remove("hidden");
 }
+
 
 function closeNotificationsPrompt() {
     localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
@@ -289,7 +318,14 @@ activateNotificationsButton?.addEventListener("click", async () => {
         "Stiamo attivando le notifiche...";
 
     try {
-        await enableEnclaveNotifications();
+        const enabled = await enableEnclaveNotifications();
+
+                    if (!enabled) {
+                        notificationsPopupMessage.textContent =
+                            "Attivazione non riuscita. Riprova più tardi.";
+                    
+                        return;
+                    }
 
         if (Notification.permission === "granted") {
             notificationsPopupMessage.textContent =
