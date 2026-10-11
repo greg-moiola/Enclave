@@ -1,0 +1,11 @@
+{
+  "name": "Enclave",
+  "short_name": "Enclave",
+  "description": "La tua area privata di messaggistica",
+  "start_url": "/Enclave/html/index.html",
+  "scope": "/Enclave/",
+  "display": "standalone",
+  "background_color": "#f2f2f2",
+  "theme_color": "#f2f2f2",
+  "icons": []
+}
