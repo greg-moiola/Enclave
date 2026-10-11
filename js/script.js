@@ -4859,222 +4859,170 @@ chatBackButton.addEventListener(
 // INVIO MESSAGGI
 // =========================
 
+
 async function sendMessage() {
 
-    const message =
-        messageInput.value.trim();
+    const message = messageInput.value.trim();
 
+    if (!message) return;
 
-    if (!message) {
-        return;
-    }
+    const currentUser = auth.currentUser;
 
+    if (!currentUser) return;
 
-    const currentUser =
-        auth.currentUser;
-
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    if (
-        !currentChatUserUid &&
-        !currentChatId
-    ) {
-        return;
-    }
-
+    if (!currentChatUserUid && !currentChatId) return;
 
     if (
         currentChatUserUid &&
-        currentUser.uid ===
-        currentChatUserUid
+        currentUser.uid === currentChatUserUid
     ) {
-    
         return;
     }
-
 
     try {
 
         let chatId;
 
-            if (currentChatUserUid) {
-            
-                chatId =
-                    createChatId(
+        if (currentChatUserUid) {
+            chatId = createChatId(
+                currentUser.uid,
+                currentChatUserUid
+            );
+        } else {
+            chatId = currentChatId;
+        }
+
+        const chatReference = doc(db, "chats", chatId);
+
+        if (currentChatUserUid) {
+
+            const existingChat = await getDoc(chatReference);
+
+            if (existingChat.exists()) {
+
+                const chatData = existingChat.data();
+
+                if (
+                    "type" in chatData ||
+                    !Array.isArray(chatData.participants) ||
+                    !chatData.participants.includes(currentUser.uid) ||
+                    !chatData.participants.includes(currentChatUserUid)
+                ) {
+                    throw new Error(
+                        "La chat privata non ha una struttura valida."
+                    );
+                }
+
+                await updateDoc(chatReference, {
+                    lastMessage: message,
+                    lastMessageAt: serverTimestamp(),
+                    lastSenderId: currentUser.uid
+                });
+
+            } else {
+
+                await setDoc(chatReference, {
+                    participants: [
                         currentUser.uid,
                         currentChatUserUid
-                    );
-            
-            } else {
-            
-                chatId =
-                    currentChatId;
-            
+                    ],
+                    lastMessage: message,
+                    lastMessageAt: serverTimestamp(),
+                    lastSenderId: currentUser.uid
+                });
+
             }
 
+        } else {
 
-        console.log(
-            "CHAT ID:",
-            chatId
-        );
-
-
-        const chatReference =
-            doc(
-                db,
-                "chats",
-                chatId
-            );
-
-                if (currentChatUserUid) {
-
-                    // Controlla se la chat privata esiste già
-                    const existingChat = await getDoc(chatReference);
-                
-                    if (existingChat.exists()) {
-                
-                        const chatData = existingChat.data();
-                
-                        // Verifica che il documento sia una chat privata
-                        // e che entrambi gli utenti ne facciano parte
-                        if (
-                            "type" in chatData ||
-                            !Array.isArray(chatData.participants) ||
-                            !chatData.participants.includes(currentUser.uid) ||
-                            !chatData.participants.includes(currentChatUserUid)
-                        ) {
-                            throw new Error(
-                                "La chat privata non ha una struttura valida."
-                            );
-                        }
-                
-                        // Aggiorna SOLO i dati dell'ultimo messaggio
-                        await updateDoc(chatReference, {
-                            lastMessage: message,
-                            lastMessageAt: serverTimestamp(),
-                            lastSenderId: currentUser.uid
-                        });
-                
-                    } else {
-                
-                        // Crea la chat soltanto se non esiste
-                        await setDoc(chatReference, {
-                            participants: [
-                                currentUser.uid,
-                                currentChatUserUid
-                            ],
-                            lastMessage: message,
-                            lastMessageAt: serverTimestamp(),
-                            lastSenderId: currentUser.uid
-                        });
-                
-                    }
-                
-                } else {
-            
-                await updateDoc(
-                    chatReference,
-                    {
-                        lastMessage:
-                            message,
-            
-                        lastMessageAt:
-                            serverTimestamp(),
-            
-                        lastSenderId:
-                            currentUser.uid
-                    }
-                );
-            
-            }
-
-
-        console.log(
-            "CHAT CREATA / AGGIORNATA"
-        );
-
-
-        const messageData = {
-
-            text:
-                message,
-
-            senderId:
-                currentUser.uid,
-
-            createdAt:
-                serverTimestamp(),
-
-            edited:
-                false
-
-        };
-
-
-        // =========================
-        // SALVA RISPOSTA
-        // =========================
-
-        if (replyTarget) {
-
-            messageData.replyTo = {
-
-                messageId:
-                    replyTarget.messageId,
-
-                text:
-                    replyTarget.text,
-
-                senderId:
-                    replyTarget.senderId
-
-            };
+            await updateDoc(chatReference, {
+                lastMessage: message,
+                lastMessageAt: serverTimestamp(),
+                lastSenderId: currentUser.uid
+            });
 
         }
 
+        const messageData = {
+            text: message,
+            senderId: currentUser.uid,
+            createdAt: serverTimestamp(),
+            edited: false
+        };
 
-        await addDoc(
-            collection(
-                db,
-                "chats",
-                chatId,
-                "messages"
-            ),
+        if (replyTarget) {
+            messageData.replyTo = {
+                messageId: replyTarget.messageId,
+                text: replyTarget.text,
+                senderId: replyTarget.senderId
+            };
+        }
+
+        const messageReference = await addDoc(
+            collection(db, "chats", chatId, "messages"),
             messageData
         );
 
+        console.log("MESSAGGIO SALVATO:", messageReference.id);
 
-        console.log(
-            "MESSAGGIO SALVATO"
-        );
-
-
-        messageInput.value =
-            "";
-
-
+        messageInput.value = "";
         clearReply();
 
+        // Notifica al destinatario tramite il Worker.
+        // Il messaggio è già stato salvato in Firestore.
+        try {
 
-        console.log(
-            "INVIO COMPLETATO ✅"
-        );
+            const idToken = await currentUser.getIdToken();
 
+            const notificationResponse = await fetch(
+                "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        chatId: chatId,
+                        messageId: messageReference.id
+                    })
+                }
+            );
+
+            const notificationResult =
+                await notificationResponse.json();
+
+            if (!notificationResponse.ok) {
+                console.error(
+                    "Notifica non inviata:",
+                    notificationResult
+                );
+            } else {
+                console.log(
+                    "Risultato notifiche:",
+                    notificationResult
+                );
+            }
+
+        } catch (notificationError) {
+
+            console.error(
+                "Errore collegamento notifiche:",
+                notificationError
+            );
+
+        }
+
+        console.log("INVIO COMPLETATO ✅");
 
     } catch (error) {
 
-        console.error(
-            "ERRORE INVIO MESSAGGIO:",
-            error
-        );
+        console.error("ERRORE INVIO MESSAGGIO:", error);
 
     }
 
 }
+
 
 
 sendMessageButton.addEventListener(
