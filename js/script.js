@@ -130,6 +130,18 @@ const searchResults =
 const newGroupButton =
     document.getElementById("newGroupButton");
 
+const notificationsOverlay =
+    document.getElementById("notificationsOverlay");
+
+const activateNotificationsButton =
+    document.getElementById("activateNotificationsButton");
+
+const skipNotificationsButton =
+    document.getElementById("skipNotificationsButton");
+
+const notificationsPopupMessage =
+    document.getElementById("notificationsPopupMessage");
+
 
 
 let currentChatUserUid = null;
@@ -209,6 +221,72 @@ async function enableEnclaveNotifications() {
     }
 }
 
+
+// =========================
+// POPUP INIZIALE NOTIFICHE
+// =========================
+
+const NOTIFICATIONS_PROMPT_KEY =
+    "enclaveNotificationsPromptChoice";
+
+function maybeShowNotificationsPrompt() {
+    if (!auth.currentUser?.emailVerified) return;
+
+    if (Notification.permission === "granted") {
+        localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
+        return;
+    }
+
+    if (Notification.permission === "denied") {
+        localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
+        return;
+    }
+
+    if (localStorage.getItem(NOTIFICATIONS_PROMPT_KEY)) return;
+
+    notificationsOverlay?.classList.remove("hidden");
+}
+
+function closeNotificationsPrompt() {
+    localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
+    notificationsOverlay?.classList.add("hidden");
+}
+
+skipNotificationsButton?.addEventListener("click", () => {
+    closeNotificationsPrompt();
+});
+
+activateNotificationsButton?.addEventListener("click", async () => {
+    if (activateNotificationsButton.disabled) return;
+
+    activateNotificationsButton.disabled = true;
+    skipNotificationsButton.disabled = true;
+
+    notificationsPopupMessage.textContent =
+        "Stiamo attivando le notifiche...";
+
+    try {
+        await enableEnclaveNotifications();
+
+        if (Notification.permission === "granted") {
+            notificationsPopupMessage.textContent =
+                "Permesso ottenuto su questo dispositivo.";
+        } else {
+            notificationsPopupMessage.textContent =
+                "Permesso non concesso. Potrai modificarlo dalle impostazioni del dispositivo.";
+        }
+
+        closeNotificationsPrompt();
+    } catch (error) {
+        console.error("Errore notifiche:", error);
+
+        notificationsPopupMessage.textContent =
+            "Non siamo riusciti ad attivarle. Riprova più tardi.";
+    } finally {
+        activateNotificationsButton.disabled = false;
+        skipNotificationsButton.disabled = false;
+    }
+});
 
 // =========================
 // RISPOSTA A UN MESSAGGIO
