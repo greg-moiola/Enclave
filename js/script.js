@@ -5102,10 +5102,12 @@ async function sendMessage() {
         }
 
         const chatReference = doc(db, "chats", chatId);
+        console.log("DEBUG 1 - Chat ID:", chatId);
 
         if (currentChatUserUid) {
 
             const existingChat = await getDoc(chatReference);
+            console.log("DEBUG 2 - Chat esistente:", existingChat.exists());
 
             if (existingChat.exists()) {
 
@@ -5151,6 +5153,7 @@ async function sendMessage() {
             });
 
         }
+        console.log("DEBUG 3 - Chat creata/aggiornata correttamente");
 
         const messageData = {
             text: message,
@@ -5171,6 +5174,7 @@ async function sendMessage() {
             collection(db, "chats", chatId, "messages"),
             messageData
         );
+        console.log("DEBUG 4 - Messaggio salvato:", messageReference.id);
 
         console.log("MESSAGGIO SALVATO:", messageReference.id);
 
