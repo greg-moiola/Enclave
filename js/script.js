@@ -404,6 +404,12 @@ async function loadUserProfile(user) {
             doc(db, "users", user.uid)
         );
 
+    console.log("PROFILO DA CARICARE:", {
+    uidRichiesto: user.uid,
+    uidAutenticato: auth.currentUser?.uid,
+    stessoUtente: user.uid === auth.currentUser?.uid
+});
+
 
     if (!userDocument.exists()) {
 
