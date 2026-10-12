@@ -5220,10 +5220,22 @@ async function sendMessage() {
 
     } catch (error) {
 
-        console.error("ERRORE INVIO MESSAGGIO:", error);
+    console.error("ERRORE INVIO MESSAGGIO:", {
+        code: error.code,
+        message: error.message,
+        chatId: currentChatId,
+        currentUserUid: auth.currentUser?.uid,
+        contactUid: currentChatUserUid
+    });
 
-    }
+    alert(
+        "Errore: " +
+        (error.code || "sconosciuto") +
+        "\n" +
+        error.message
+    );
 
+}
 }
 
 
