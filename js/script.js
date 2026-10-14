@@ -151,6 +151,9 @@ let currentChatId = null;
 
 let unsubscribeMessages = null;
 
+// Evita che il caricamento asincrono di una vecchia chat sovrascriva quella appena aperta.
+let messagesLoadVersion = 0;
+
 let unsubscribeChats = null;
 
 let conversationsRenderVersion = 0;
@@ -4000,25 +4003,39 @@ function openMessageMenu(
 
 async function loadMessages(chatId) {
 
-        const chatDocument = await getDoc(
+    const loadVersion = ++messagesLoadVersion;
+
+    // Interrompe subito il listener precedente, senza aspettare Firestore.
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+        unsubscribeMessages = null;
+    }
+
+    clearReply();
+
+    // Non lasciare visibile lo storico della conversazione precedente.
+    chatMessages.replaceChildren();
+
+    const loadingMessage = document.createElement("div");
+    loadingMessage.className = "chat-empty-messages";
+    loadingMessage.textContent = "Caricamento messaggi…";
+    chatMessages.appendChild(loadingMessage);
+
+    const chatDocument = await getDoc(
         doc(db, "chats", chatId)
     );
+
+    // Se nel frattempo è stata aperta un'altra chat, ignora questo risultato.
+    if (
+        loadVersion !== messagesLoadVersion ||
+        currentChatId !== chatId
+    ) {
+        return;
+    }
 
     const isGroupChat =
         chatDocument.exists() &&
         chatDocument.data().type === "group";
-
-    if (unsubscribeMessages) {
-
-        unsubscribeMessages();
-
-        unsubscribeMessages = null;
-
-    }
-
-
-    clearReply();
-
 
     const messagesReference =
         collection(
@@ -4040,6 +4057,13 @@ async function loadMessages(chatId) {
             messagesQuery,
             async (snapshot) => {
 
+                if (
+                    loadVersion !== messagesLoadVersion ||
+                    currentChatId !== chatId
+                ) {
+                    return;
+                }
+
                 closeMessageMenus();
 
                 chatMessages.innerHTML =
@@ -4049,6 +4073,13 @@ async function loadMessages(chatId) {
                 if (snapshot.empty) {
 
                     await markChatAsRead(chatId);
+
+                    if (
+                        loadVersion !== messagesLoadVersion ||
+                        currentChatId !== chatId
+                    ) {
+                        return;
+                    }
 
                     const emptyMessage =
                         document.createElement(
@@ -4151,6 +4182,12 @@ async function loadMessages(chatId) {
                         );
                     }
 
+                if (
+                    loadVersion !== messagesLoadVersion ||
+                    currentChatId !== chatId
+                ) {
+                    return;
+                }
 
                 const currentUser =
                     auth.currentUser;
@@ -5034,6 +5071,9 @@ chatBackButton.addEventListener(
         );
 
 
+        // Invalida anche eventuali getDoc ancora in corso.
+        messagesLoadVersion++;
+
         if (unsubscribeMessages) {
 
             unsubscribeMessages();
@@ -5042,6 +5082,7 @@ chatBackButton.addEventListener(
 
         }
 
+        chatMessages.replaceChildren();
 
         currentChatUserUid = null;
 
