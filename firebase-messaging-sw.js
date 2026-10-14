@@ -14,18 +14,25 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
+    // FCM mostra già automaticamente i payload che contengono "notification".
+    // Chiamare showNotification anche in quel caso produce due notifiche.
+    if (payload.notification) {
+        return;
+    }
+
+    // I payload solo-data, invece, richiedono una notifica esplicita.
     const notificationTitle =
-        payload.notification?.title || "Nuovo messaggio su Enclave";
+        payload.data?.title || "Nuovo messaggio su Enclave";
 
     const notificationOptions = {
-        body: payload.notification?.body || "Hai ricevuto un nuovo messaggio.",
-        // Nessuna icona personalizzata per ora
+        body: payload.data?.body || "Hai ricevuto un nuovo messaggio.",
+        icon: "/Enclave/images/Enclave_icon_192.png",
+        badge: "/Enclave/images/Enclave_icon_192.png",
         data: payload.data || {}
     };
 
-    self.registration.showNotification(
+    return self.registration.showNotification(
         notificationTitle,
         notificationOptions
     );
 });
-
