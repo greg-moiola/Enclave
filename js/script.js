@@ -5446,6 +5446,19 @@ function loadConversations() {
                     return;
                 }
 
+                // Riusa le letture dello stesso profilo pubblico durante questo
+                // aggiornamento, evitando richieste Firestore duplicate per contatti
+                // o mittenti presenti in più conversazioni.
+                const publicUserReads = new Map();
+                const getPublicUserSnapshot = (uid) => {
+                    if (!publicUserReads.has(uid)) {
+                        publicUserReads.set(
+                            uid,
+                            getDoc(doc(db, "publicUsers", uid))
+                        );
+                    }
+                    return publicUserReads.get(uid);
+                };
 
                 const conversationResults =
                     await Promise.all(
@@ -5465,12 +5478,8 @@ function loadConversations() {
                                         
                                                 try {
                                         
-                                                    const senderDocument = await getDoc(
-                                                        doc(
-                                                            db,
-                                                            "publicUsers",
-                                                            chatData.lastSenderId
-                                                        )
+                                                    const senderDocument = await getPublicUserSnapshot(
+                                                        chatData.lastSenderId
                                                     );
                                         
                                                     if (senderDocument.exists()) {
@@ -5534,13 +5543,7 @@ function loadConversations() {
 
 
                                 const userDocument =
-                                    await getDoc(
-                                        doc(
-                                            db,
-                                            "publicUsers",
-                                            otherUserUid
-                                        )
-                                    );
+                                    await getPublicUserSnapshot(otherUserUid);
 
 
                                 if (
