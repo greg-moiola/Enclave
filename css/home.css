@@ -2543,16 +2543,34 @@
 /* =========================
    MODIFICA NICKNAME PROFILO
    ========================= */
+
 .profile-info {
     min-width: 0;
     flex: 1;
 }
 
+/* La riga ora fa da contenitore flessibile per il pulsante unico */
 .profile-nickname-row {
     display: flex;
     align-items: center;
-    gap: 7px;
     min-width: 0;
+}
+
+/* Trasformiamo il blocco del nickname in un unico pulsante interattivo */
+.profile-nickname-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    min-width: 0;
+    width: 100%;
 }
 
 .profile-nickname {
@@ -2560,6 +2578,8 @@
     overflow-wrap: anywhere;
 }
 
+/* La matita mantiene lo stile del tuo vecchio pulsante, 
+   ma ora reagisce quando passi con il mouse sull'intero blocco */
 .profile-nickname-edit {
     width: 27px;
     height: 27px;
@@ -2573,11 +2593,11 @@
     color: #555;
     font-size: 16px;
     line-height: 1;
-    cursor: pointer;
     transition: background .15s ease, border-color .15s ease;
 }
 
-.profile-nickname-edit:hover {
+/* Quando passi sul pulsante principale, la matita cambia colore/stile */
+.profile-nickname-btn:hover .profile-nickname-edit {
     background: #f2f2f2;
     border-color: #ccc;
 }
