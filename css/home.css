@@ -2538,3 +2538,109 @@
         font-size: 18px;
     }
 }
+
+
+/* =========================
+   MODIFICA NICKNAME PROFILO
+   ========================= */
+.profile-info {
+    min-width: 0;
+    flex: 1;
+}
+
+.profile-nickname-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+
+.profile-nickname {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.profile-nickname-edit {
+    width: 27px;
+    height: 27px;
+    flex: 0 0 27px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    background: #fff;
+    color: #555;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    transition: background .15s ease, border-color .15s ease;
+}
+
+.profile-nickname-edit:hover {
+    background: #f2f2f2;
+    border-color: #ccc;
+}
+
+.own-profile-nickname-content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.own-profile-nickname-content label {
+    color: #555;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.own-profile-nickname-content .contact-nickname-input {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.own-profile-nickname-note,
+.own-profile-nickname-status {
+    margin: 0;
+    color: #777;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.own-profile-nickname-status {
+    min-height: 18px;
+    color: #333;
+}
+
+.contact-nickname-actions button:disabled {
+    opacity: .6;
+    cursor: wait;
+}
+
+/* La chat occupa l'altezza realmente visibile quando compare la tastiera. */
+@media (max-width: 700px) {
+    #homeScreen {
+        min-height: 0;
+        height: var(--enclave-visible-height, 100dvh);
+    }
+
+    .enclave-app {
+        height: var(--enclave-visible-height, 100dvh);
+        min-height: 0;
+    }
+
+    .home-main,
+    .chat-area,
+    .active-chat {
+        min-height: 0;
+    }
+
+    .chat-messages {
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .chat-input-area input {
+        font-size: 16px;
+    }
+}
