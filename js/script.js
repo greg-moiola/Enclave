@@ -456,6 +456,174 @@ async function loadUserProfile(user) {
 
 
 // =========================
+// MODIFICA NICKNAME PERSONALE
+// =========================
+
+let ownProfileNicknameOverlay = null;
+
+function createOwnProfileNicknamePanel() {
+    if (ownProfileNicknameOverlay) return ownProfileNicknameOverlay;
+
+    const overlay = document.createElement("div");
+    overlay.className = "group-info-overlay hidden";
+    overlay.id = "ownProfileNicknameOverlay";
+
+    const panel = document.createElement("div");
+    panel.className = "group-info-panel";
+
+    const header = document.createElement("div");
+    header.className = "group-info-header";
+
+    const title = document.createElement("h2");
+    title.className = "group-info-title";
+    title.textContent = "Modifica nickname";
+
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "group-info-close";
+    closeButton.textContent = "×";
+    closeButton.setAttribute("aria-label", "Chiudi");
+
+    header.append(title, closeButton);
+
+    const content = document.createElement("div");
+    content.className = "own-profile-nickname-content";
+
+    const label = document.createElement("label");
+    label.htmlFor = "ownProfileNicknameInput";
+    label.textContent = "Il tuo nickname";
+
+    const input = document.createElement("input");
+    input.id = "ownProfileNicknameInput";
+    input.className = "contact-nickname-input";
+    input.type = "text";
+    input.maxLength = 40;
+    input.autocomplete = "nickname";
+    input.placeholder = "Inserisci il nickname";
+
+    const note = document.createElement("p");
+    note.className = "own-profile-nickname-note";
+    note.textContent = "Il tuo EnclaveID e i soprannomi personalizzati scelti dai tuoi contatti non cambieranno.";
+
+    const actions = document.createElement("div");
+    actions.className = "contact-nickname-actions";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.className = "contact-nickname-cancel";
+    cancelButton.textContent = "Annulla";
+
+    const saveButton = document.createElement("button");
+    saveButton.type = "button";
+    saveButton.className = "contact-nickname-save";
+    saveButton.textContent = "Salva";
+
+    const status = document.createElement("p");
+    status.className = "own-profile-nickname-status";
+    status.setAttribute("role", "status");
+
+    actions.append(cancelButton, saveButton);
+    content.append(label, input, note, actions, status);
+    panel.append(header, content);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.classList.add("hidden");
+    closeButton.addEventListener("click", close);
+    cancelButton.addEventListener("click", close);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) close();
+    });
+
+    const save = async () => {
+        const user = auth.currentUser;
+        const nickname = input.value.trim();
+
+        if (!user) {
+            status.textContent = "Devi effettuare nuovamente l'accesso.";
+            return;
+        }
+        if (!nickname) {
+            status.textContent = "Il nickname non può essere vuoto.";
+            input.focus();
+            return;
+        }
+        if (nickname.length > 40) {
+            status.textContent = "Il nickname può contenere al massimo 40 caratteri.";
+            input.focus();
+            return;
+        }
+
+        saveButton.disabled = true;
+        cancelButton.disabled = true;
+        status.textContent = "Salvataggio…";
+
+        try {
+            // Il nickname originale è conservato sia nel profilo privato
+            // sia nel profilo pubblico letto dagli altri utenti.
+            await Promise.all([
+                updateDoc(doc(db, "users", user.uid), {
+                    nickname,
+                    updatedAt: serverTimestamp()
+                }),
+                updateDoc(doc(db, "publicUsers", user.uid), {
+                    nickname,
+                    updatedAt: serverTimestamp()
+                })
+            ]);
+
+            userNickname.textContent = nickname;
+            profileNickname.textContent = nickname;
+            profileInitial.textContent = nickname.charAt(0).toUpperCase();
+
+            // Aggiorna gli eventuali riferimenti al proprio nickname nella UI.
+            const headerNickname = document.querySelector(".user-nickname");
+            if (headerNickname) headerNickname.textContent = nickname;
+
+            status.textContent = "Nickname aggiornato.";
+            window.setTimeout(() => overlay.classList.add("hidden"), 350);
+        } catch (error) {
+            console.error("Errore modifica nickname personale:", error);
+            status.textContent = error.message || "Impossibile salvare il nickname. Riprova.";
+        } finally {
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+        }
+    };
+
+    saveButton.addEventListener("click", save);
+    input.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            save();
+        }
+        if (event.key === "Escape") close();
+    });
+
+    ownProfileNicknameOverlay = overlay;
+    return overlay;
+}
+
+const editProfileNicknameButton =
+    document.getElementById("editProfileNicknameButton");
+
+if (editProfileNicknameButton) {
+    editProfileNicknameButton.addEventListener("click", () => {
+        const overlay = createOwnProfileNicknamePanel();
+        const input = overlay.querySelector("#ownProfileNicknameInput");
+        const status = overlay.querySelector(".own-profile-nickname-status");
+        input.value = profileNickname.textContent.trim() === "—" ? "" : profileNickname.textContent.trim();
+        status.textContent = "";
+        overlay.classList.remove("hidden");
+        window.setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 50);
+    });
+}
+
+
+// =========================
 // VERIFICA EMAIL
 // =========================
 
@@ -6075,3 +6243,42 @@ function loadConversations() {
         );
 
 }
+
+
+/* =========================
+   TASTIERA MOBILE: MANTIENI LA CHAT NEL VIEWPORT VISIBILE
+   ========================= */
+(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const updateVisibleChatHeight = () => {
+        if (window.innerWidth > 700) {
+            document.documentElement.style.removeProperty("--enclave-visible-height");
+            document.documentElement.style.removeProperty("--enclave-viewport-top");
+            return;
+        }
+
+        document.documentElement.style.setProperty(
+            "--enclave-visible-height",
+            `${Math.round(viewport.height)}px`
+        );
+        document.documentElement.style.setProperty(
+            "--enclave-viewport-top",
+            `${Math.max(0, Math.round(viewport.offsetTop))}px`
+        );
+    };
+
+    viewport.addEventListener("resize", updateVisibleChatHeight);
+    viewport.addEventListener("scroll", updateVisibleChatHeight);
+    window.addEventListener("resize", updateVisibleChatHeight);
+    document.addEventListener("focusin", event => {
+        if (event.target.matches(".chat-input-area input, .chat-input-area textarea")) {
+            updateVisibleChatHeight();
+        }
+    });
+    document.addEventListener("focusout", () => {
+        window.setTimeout(updateVisibleChatHeight, 120);
+    });
+    updateVisibleChatHeight();
+})();
