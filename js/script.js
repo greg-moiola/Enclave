@@ -264,10 +264,6 @@ async function enableEnclaveNotifications(requestPermission = true) {
         if (!foregroundMessageListenerRegistered) {
             onMessage(messaging, async (payload) => {
                 try {
-                    // Il listener della pagina mostra notifiche solo quando Enclave
-                    // è davvero visibile. In background/standby se ne occupa il SW.
-                    if (document.visibilityState !== "visible") return;
-
                     const title =
                         payload.notification?.title ||
                         payload.data?.title ||
@@ -282,9 +278,8 @@ async function enableEnclaveNotifications(requestPermission = true) {
                     await registration.showNotification(title, {
                         body,
                         icon: "/Enclave/images/Enclave_icon_192.png",
-                        badge: "/Enclave/images/Enclave_badge.png",
+                        badge: "/Enclave/images/Enclave_icon_192.png",
                         tag: payload.data?.messageId || undefined,
-                        renotify: false,
                         data: payload.data || {}
                     });
                 } catch (error) {
