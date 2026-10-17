@@ -1,3 +1,4 @@
+
 importScripts("https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging-compat.js");
 
@@ -12,33 +13,26 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Il Worker Cloudflare invia payload solo-data: qui mostriamo la notifica
-// quando la pagina è in background o sospesa dal sistema operativo.
 messaging.onBackgroundMessage((payload) => {
-    const data = payload.data || {};
-    const notificationTitle = data.title || "Nuovo messaggio su Enclave";
+    // FCM mostra già automaticamente i payload che contengono "notification".
+    // Chiamare showNotification anche in quel caso produce due notifiche.
+    if (payload.notification) {
+        return;
+    }
+
+    // I payload solo-data, invece, richiedono una notifica esplicita.
+    const notificationTitle =
+        payload.data?.title || "Nuovo messaggio su Enclave";
+
     const notificationOptions = {
-        body: data.body || "Hai ricevuto un nuovo messaggio.",
+        body: payload.data?.body || "Hai ricevuto un nuovo messaggio.",
         icon: "/Enclave/images/Enclave_icon_192.png",
-        badge: "/Enclave/images/Enclave_badge.png",
-        tag: data.messageId || undefined,
-        renotify: false,
-        data
+        badge: "/Enclave/images/Enclave_icon_192.png",
+        data: payload.data || {}
     };
 
-    return self.registration.showNotification(notificationTitle, notificationOptions);
-});
-
-self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    const targetUrl = new URL("/Enclave/", self.location.origin).href;
-    event.waitUntil((async () => {
-        const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
-        for (const client of clientsList) {
-            if (client.url.startsWith(targetUrl) && "focus" in client) {
-                return client.focus();
-            }
-        }
-        return self.clients.openWindow(targetUrl);
-    })());
+    return self.registration.showNotification(
+        notificationTitle,
+        notificationOptions
+    );
 });
