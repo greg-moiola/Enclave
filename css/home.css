@@ -2617,28 +2617,78 @@
     cursor: wait;
 }
 
-
-/* La chat occupa l'altezza realmente visibile quando compare la tastiera. */
+/*
+   LAYOUT MOBILE / iOS
+   L'app resta ancorata alla finestra: Safari non può trascinare tutta la
+   pagina lasciando uno spazio vuoto grande quanto la tastiera. La riduzione
+   di altezza viene applicata solo mentre l'input della chat ha il focus.
+*/
 @media (max-width: 700px) {
-    #homeScreen {
-        min-height: 0;
-        height: var(--enclave-visible-height, 100dvh);
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow: hidden;
+        overscroll-behavior: none;
     }
 
-    .enclave-app {
+    #homeScreen {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    #homeScreen .enclave-app {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: var(--enclave-viewport-top, 0px);
+        width: 100%;
         height: var(--enclave-visible-height, 100dvh);
         min-height: 0;
+        overflow: hidden;
+    }
+
+    .home-header {
+        flex: 0 0 70px;
     }
 
     .home-main,
     .chat-area,
     .active-chat {
         min-height: 0;
+        min-width: 0;
+    }
+
+    .home-main,
+    .chat-area,
+    .active-chat,
+    .chat-sidebar {
+        overflow: hidden;
+    }
+
+    .chat-header {
+        flex: 0 0 62px;
+        position: relative;
+        z-index: 2;
     }
 
     .chat-messages {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
         overscroll-behavior: contain;
         -webkit-overflow-scrolling: touch;
+    }
+
+    .chat-input-area {
+        flex: 0 0 auto;
+        position: relative;
+        z-index: 2;
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
     }
 
     .chat-input-area input {
