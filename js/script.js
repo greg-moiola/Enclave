@@ -31,6 +31,7 @@ import {
 import {
     getMessaging,
     getToken,
+    onMessage,
     isSupported
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
 
@@ -205,6 +206,8 @@ let unreadTrackingStartPromise = null;
 const ENCLAVE_VAPID_KEY =
     "BGbi6huAaDx6taFFgwQ0ipz5VDpJ1r0ia1rFGXR3GZrEEb0jiNeBpikMbkwALoTIRKCoo-29nU9Dq6NwO3cPUZc";
 
+let foregroundMessageListenerRegistered = false;
+
 
 async function enableEnclaveNotifications(requestPermission = true) {
     try {
@@ -254,6 +257,38 @@ async function enableEnclaveNotifications(requestPermission = true) {
             await navigator.serviceWorker.ready;
 
         const messaging = getMessaging(app);
+
+        // Mostra una notifica anche quando Enclave è aperto e la pagina è in primo
+        // piano. Quando la pagina è in background/chiusa, ci pensa il service worker.
+        // Il listener viene registrato una sola volta per evitare notifiche duplicate.
+        if (!foregroundMessageListenerRegistered) {
+            onMessage(messaging, async (payload) => {
+                try {
+                    const title =
+                        payload.notification?.title ||
+                        payload.data?.title ||
+                        "Nuovo messaggio su Enclave";
+
+                    const body =
+                        payload.notification?.body ||
+                        payload.data?.body ||
+                        "Hai ricevuto un nuovo messaggio.";
+
+                    const registration = await navigator.serviceWorker.ready;
+                    await registration.showNotification(title, {
+                        body,
+                        icon: "/Enclave/images/Enclave_icon_192.png",
+                        badge: "/Enclave/images/Enclave_icon_192.png",
+                        tag: payload.data?.messageId || undefined,
+                        data: payload.data || {}
+                    });
+                } catch (error) {
+                    console.error("Impossibile mostrare la notifica in primo piano:", error);
+                }
+            });
+
+            foregroundMessageListenerRegistered = true;
+        }
 
         const token = await getToken(messaging, {
             vapidKey: ENCLAVE_VAPID_KEY,
@@ -3973,6 +4008,60 @@ function openMessageMenu(
     menu.appendChild(
         replyButton
     );
+
+
+    // =========================
+    // COPIA — DISPONIBILE PER TUTTI I MESSAGGI
+    // =========================
+
+    const copyButton = document.createElement("button");
+    copyButton.className = "message-menu-button";
+    copyButton.type = "button";
+    copyButton.textContent = "Copia";
+
+    copyButton.addEventListener("click", async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const textToCopy = String(message.text ?? "");
+
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(textToCopy);
+            } else {
+                throw new Error("Clipboard API non disponibile");
+            }
+        } catch (error) {
+            // Fallback per browser/dispositivi che non espongono Clipboard API.
+            const temporaryTextarea = document.createElement("textarea");
+            temporaryTextarea.value = textToCopy;
+            temporaryTextarea.setAttribute("readonly", "");
+            temporaryTextarea.style.position = "fixed";
+            temporaryTextarea.style.opacity = "0";
+            temporaryTextarea.style.pointerEvents = "none";
+            document.body.appendChild(temporaryTextarea);
+            temporaryTextarea.select();
+            temporaryTextarea.setSelectionRange(0, temporaryTextarea.value.length);
+
+            let copied = false;
+            try {
+                copied = document.execCommand("copy");
+            } finally {
+                temporaryTextarea.remove();
+            }
+
+            if (!copied) {
+                console.error("Copia del messaggio non riuscita:", error);
+                copyButton.textContent = "Copia non riuscita";
+                return;
+            }
+        }
+
+        copyButton.textContent = "Copiato!";
+        closeMessageMenus();
+    });
+
+    menu.appendChild(copyButton);
 
 
     // =========================
