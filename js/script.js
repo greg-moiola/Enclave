@@ -6246,22 +6246,38 @@ function loadConversations() {
 
 
 /* =========================
-   TASTIERA MOBILE: MANTIENI LA CHAT NEL VIEWPORT VISIBILE
+   TASTIERA MOBILE: ADATTA SOLO L'APP ALLA VISUAL VIEWPORT
+   Su iOS la visualViewport può restare più piccola anche dopo la chiusura
+   della tastiera. Usiamo quindi la visual viewport solo mentre l'input chat
+   è davvero attivo e ripristiniamo il layout normale dopo il blur.
    ========================= */
 (() => {
     const viewport = window.visualViewport;
-    if (!viewport) return;
+    const mobileQuery = window.matchMedia("(max-width: 700px)");
+    const chatInputSelector = ".chat-input-area input, .chat-input-area textarea";
+    let restoreTimer = null;
+
+    const isChatInputFocused = () => {
+        const active = document.activeElement;
+        return !!(active && active.matches && active.matches(chatInputSelector));
+    };
+
+    const clearKeyboardViewport = () => {
+        document.documentElement.style.removeProperty("--enclave-visible-height");
+        document.documentElement.style.removeProperty("--enclave-viewport-top");
+        document.documentElement.classList.remove("enclave-keyboard-open");
+    };
 
     const updateVisibleChatHeight = () => {
-        if (window.innerWidth > 700) {
-            document.documentElement.style.removeProperty("--enclave-visible-height");
-            document.documentElement.style.removeProperty("--enclave-viewport-top");
+        if (!mobileQuery.matches || !viewport || !isChatInputFocused()) {
+            clearKeyboardViewport();
             return;
         }
 
+        document.documentElement.classList.add("enclave-keyboard-open");
         document.documentElement.style.setProperty(
             "--enclave-visible-height",
-            `${Math.round(viewport.height)}px`
+            `${Math.max(1, Math.round(viewport.height))}px`
         );
         document.documentElement.style.setProperty(
             "--enclave-viewport-top",
@@ -6269,16 +6285,38 @@ function loadConversations() {
         );
     };
 
-    viewport.addEventListener("resize", updateVisibleChatHeight);
-    viewport.addEventListener("scroll", updateVisibleChatHeight);
-    window.addEventListener("resize", updateVisibleChatHeight);
+    const scheduleRestore = () => {
+        window.clearTimeout(restoreTimer);
+        // iOS aggiorna la visualViewport con un leggero ritardo dopo aver
+        // chiuso la tastiera: non ripristinare l'altezza mentre è ancora visibile.
+        restoreTimer = window.setTimeout(() => {
+            if (!isChatInputFocused()) clearKeyboardViewport();
+            else updateVisibleChatHeight();
+        }, 350);
+    };
+
+    if (viewport) {
+        viewport.addEventListener("resize", updateVisibleChatHeight, { passive: true });
+        viewport.addEventListener("scroll", updateVisibleChatHeight, { passive: true });
+    }
+    window.addEventListener("resize", updateVisibleChatHeight, { passive: true });
+    window.addEventListener("orientationchange", scheduleRestore, { passive: true });
+
     document.addEventListener("focusin", event => {
-        if (event.target.matches(".chat-input-area input, .chat-input-area textarea")) {
-            updateVisibleChatHeight();
+        if (event.target && event.target.matches && event.target.matches(chatInputSelector)) {
+            window.clearTimeout(restoreTimer);
+            // Un frame lascia a Safari il tempo di aggiornare la visual viewport.
+            window.requestAnimationFrame(updateVisibleChatHeight);
         }
     });
-    document.addEventListener("focusout", () => {
-        window.setTimeout(updateVisibleChatHeight, 120);
+
+    document.addEventListener("focusout", event => {
+        if (event.target && event.target.matches && event.target.matches(chatInputSelector)) {
+            scheduleRestore();
+        }
     });
-    updateVisibleChatHeight();
+
+    // La pagina parte sempre con il layout normale, senza conservare una
+    // vecchia altezza ridotta da una precedente apertura della tastiera.
+    clearKeyboardViewport();
 })();
