@@ -158,6 +158,37 @@ let unsubscribeChats = null;
 
 let conversationsRenderVersion = 0;
 
+// Cache breve dei profili pubblici: evita di rileggere da Firestore gli stessi
+// nickname a ogni aggiornamento della lista chat. Scade automaticamente e viene
+// invalidata subito quando l'utente cambia il proprio nickname.
+const publicUserSnapshotCache = new Map();
+const PUBLIC_USER_CACHE_TTL_MS = 30_000;
+
+async function getCachedPublicUserSnapshot(uid) {
+    const now = Date.now();
+    const cached = publicUserSnapshotCache.get(uid);
+
+    if (cached && cached.expiresAt > now) {
+        return cached.promise;
+    }
+
+    const promise = getDoc(doc(db, "publicUsers", uid)).catch((error) => {
+        publicUserSnapshotCache.delete(uid);
+        throw error;
+    });
+
+    publicUserSnapshotCache.set(uid, {
+        promise,
+        expiresAt: now + PUBLIC_USER_CACHE_TTL_MS
+    });
+
+    return promise;
+}
+
+function invalidatePublicUserSnapshot(uid) {
+    publicUserSnapshotCache.delete(uid);
+}
+
 let unsubscribeReadStates = [];
 
 let unreadMessageListeners = new Map();
@@ -571,6 +602,8 @@ function createOwnProfileNicknamePanel() {
                     updatedAt: serverTimestamp()
                 })
             ]);
+
+            invalidatePublicUserSnapshot(user.uid);
 
             userNickname.textContent = nickname;
             profileNickname.textContent = nickname;
@@ -5614,19 +5647,9 @@ function loadConversations() {
                     return;
                 }
 
-                // Riusa le letture dello stesso profilo pubblico durante questo
-                // aggiornamento, evitando richieste Firestore duplicate per contatti
-                // o mittenti presenti in più conversazioni.
-                const publicUserReads = new Map();
-                const getPublicUserSnapshot = (uid) => {
-                    if (!publicUserReads.has(uid)) {
-                        publicUserReads.set(
-                            uid,
-                            getDoc(doc(db, "publicUsers", uid))
-                        );
-                    }
-                    return publicUserReads.get(uid);
-                };
+                // Riusa i profili pubblici anche tra aggiornamenti diversi della
+                // lista chat. Questo riduce letture Firestore e attese ripetute.
+                const getPublicUserSnapshot = getCachedPublicUserSnapshot;
 
                 const conversationResults =
                     await Promise.all(
