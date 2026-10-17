@@ -278,7 +278,7 @@ async function enableEnclaveNotifications(requestPermission = true) {
                     await registration.showNotification(title, {
                         body,
                         icon: "/Enclave/images/Enclave_icon_192.png",
-                        badge: "/Enclave/images/Enclave_icon_192.png",
+                        badge: "/Enclave/images/Enclave_badge.png",
                         tag: payload.data?.messageId || undefined,
                         data: payload.data || {}
                     });
