@@ -1055,6 +1055,37 @@ async function markChatAsRead(chatId, lastReadAt = serverTimestamp()) {
 }
 
 
+// Conferma di lettura dei singoli messaggi.
+// Viene eseguita solo mentre la conversazione corrispondente è aperta.
+async function markMessagesAsRead(chatId, messages, userUid) {
+    if (!chatId || !userUid || currentChatId !== chatId || auth.currentUser?.uid !== userUid) {
+        return;
+    }
+
+    const unreadIncomingMessages = messages.filter((message) =>
+        message.senderId !== userUid &&
+        !(Array.isArray(message.readBy) && message.readBy.includes(userUid))
+    );
+
+    await Promise.all(unreadIncomingMessages.map(async (message) => {
+        try {
+            await updateDoc(
+                doc(db, "chats", chatId, "messages", message.id),
+                { readBy: arrayUnion(userUid) }
+            );
+        } catch (error) {
+            // Un errore sulla conferma non deve mai bloccare il rendering della chat.
+            console.error("Errore conferma lettura messaggio:", {
+                code: error.code,
+                message: error.message,
+                chatId,
+                messageId: message.id
+            });
+        }
+    }));
+}
+
+
 async function getUnreadTrackingStart(userUid) {
     if (unreadTrackingStartUid !== userUid) {
         unreadTrackingStartUid = userUid;
@@ -4323,9 +4354,11 @@ async function loadMessages(chatId) {
         return;
     }
 
-    const isGroupChat =
-        chatDocument.exists() &&
-        chatDocument.data().type === "group";
+    const chatData = chatDocument.exists() ? chatDocument.data() : {};
+    const isGroupChat = chatData.type === "group";
+    const chatParticipants = Array.isArray(chatData.participants)
+        ? chatData.participants
+        : [];
 
     const messagesReference =
         collection(
@@ -4497,6 +4530,17 @@ async function loadMessages(chatId) {
                             message.senderId ===
                                 currentUser.uid;
 
+                        const messageRecipients = chatParticipants.filter(
+                            (participantUid) => participantUid !== message.senderId
+                        );
+                        const messageReadBy = Array.isArray(message.readBy)
+                            ? message.readBy
+                            : [];
+                        const isReadByAllRecipients =
+                            isOwnMessage &&
+                            messageRecipients.length > 0 &&
+                            messageRecipients.every((recipientUid) => messageReadBy.includes(recipientUid));
+
 
                         if (isOwnMessage) {
 
@@ -4556,6 +4600,11 @@ async function loadMessages(chatId) {
 
                         bubble.className =
                             "message-bubble";
+
+                        if (isReadByAllRecipients) {
+                            bubble.classList.add("message-read");
+                            bubble.title = "Letto";
+                        }
 
 
                         // =========================
@@ -5013,6 +5062,11 @@ async function loadMessages(chatId) {
 
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
+
+                // Le conferme sono asincrone e non impediscono il rendering.
+                if (currentUser && currentChatId === chatId) {
+                    void markMessagesAsRead(chatId, messages, currentUser.uid);
+                }
 
             },
             (error) => {
@@ -5490,7 +5544,8 @@ async function sendMessage() {
             text: message,
             senderId: currentUser.uid,
             createdAt: serverTimestamp(),
-            edited: false
+            edited: false,
+            readBy: [currentUser.uid]
         };
 
         if (replyTarget) {
