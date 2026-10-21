@@ -1055,6 +1055,65 @@ async function markChatAsRead(chatId, lastReadAt = serverTimestamp()) {
 }
 
 
+// =========================
+// CONFERME DI LETTURA PER SINGOLO MESSAGGIO
+// =========================
+
+// Evita di inviare più aggiornamenti contemporanei per lo stesso messaggio.
+const readReceiptUpdatesInProgress = new Set();
+
+async function markMessagesAsRead(chatId, messages, userUid) {
+    if (!chatId || !userUid || !Array.isArray(messages)) {
+        return;
+    }
+
+    const updates = messages.map(async (message) => {
+        // Un messaggio inviato dall'utente corrente non deve essere marcato
+        // come letto da lui stesso: conta la lettura da parte di un altro utente.
+        if (!message?.id || message.senderId === userUid) {
+            return;
+        }
+
+        const readBy = Array.isArray(message.readBy) ? message.readBy : [];
+        if (readBy.includes(userUid)) {
+            return;
+        }
+
+        const updateKey = `${chatId}/${message.id}/${userUid}`;
+        if (readReceiptUpdatesInProgress.has(updateKey)) {
+            return;
+        }
+
+        readReceiptUpdatesInProgress.add(updateKey);
+
+        try {
+            await updateDoc(
+                doc(db, "chats", chatId, "messages", message.id),
+                { readBy: arrayUnion(userUid) }
+            );
+        } catch (error) {
+            console.error(
+                "Errore aggiornamento conferma di lettura:",
+                message.id,
+                error
+            );
+        } finally {
+            readReceiptUpdatesInProgress.delete(updateKey);
+        }
+    });
+
+    await Promise.all(updates);
+}
+
+function wasMessageReadByAnotherUser(message) {
+    if (!message || !Array.isArray(message.readBy)) {
+        return false;
+    }
+
+    return message.readBy.some((uid) => uid && uid !== message.senderId);
+}
+
+
 async function getUnreadTrackingStart(userUid) {
     if (unreadTrackingStartUid !== userUid) {
         unreadTrackingStartUid = userUid;
@@ -4557,6 +4616,13 @@ async function loadMessages(chatId) {
                         bubble.className =
                             "message-bubble";
 
+                        // Il bordo verde è mostrato solo sui messaggi propri
+                        // che risultano letti da almeno un altro partecipante.
+                        if (isOwnMessage && wasMessageReadByAnotherUser(message)) {
+                            bubble.classList.add("message-read");
+                            bubble.title = "Letto";
+                        }
+
 
                         // =========================
                         // RISPOSTA QUOTATA
@@ -5013,6 +5079,20 @@ async function loadMessages(chatId) {
 
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
+
+                // La conferma viene registrata solo quando questa conversazione
+                // è quella effettivamente aperta e i messaggi sono stati renderizzati.
+                if (
+                    auth.currentUser?.uid &&
+                    currentChatId === chatId &&
+                    loadVersion === messagesLoadVersion
+                ) {
+                    void markMessagesAsRead(
+                        chatId,
+                        messages,
+                        auth.currentUser.uid
+                    );
+                }
 
             },
             (error) => {
@@ -5490,7 +5570,8 @@ async function sendMessage() {
             text: message,
             senderId: currentUser.uid,
             createdAt: serverTimestamp(),
-            edited: false
+            edited: false,
+            readBy: [currentUser.uid]
         };
 
         if (replyTarget) {
