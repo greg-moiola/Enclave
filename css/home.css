@@ -2695,3 +2695,8 @@
         font-size: 16px;
     }
 }
+
+/* Conferma di lettura: bordo verde quando tutti i destinatari hanno letto. */
+.message-own .message-bubble.message-read {
+    box-shadow: inset 0 0 0 2px #22c55e;
+}
