@@ -330,3 +330,37 @@ body {
     gap: 5px;
     flex-shrink: 0;
 }
+
+
+
+/* FIX DEFINITIVO SFONDO BIANCO LOGIN MOBILE */
+
+html,
+body {
+    background-color: #ffffff !important;
+}
+
+#registerScreen,
+#loginScreen,
+#registerScreen.screen,
+#loginScreen.screen,
+#registerScreen .auth-container,
+#loginScreen .auth-container {
+    background-color: #ffffff !important;
+}
+
+@media screen and (max-width: 700px) {
+    html,
+    body {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+    }
+
+    #registerScreen,
+    #loginScreen {
+        background: #ffffff !important;
+        background-color: #ffffff !important;
+        min-height: 100vh;
+        min-height: 100dvh;
+    }
+}
