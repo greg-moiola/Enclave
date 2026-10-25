@@ -123,6 +123,12 @@ const messageInput =
 const sendMessageButton =
     document.getElementById("sendMessageButton");
 
+const messageAttachButton =
+    document.getElementById("messageAttachButton");
+
+const messageAttachMenu =
+    document.getElementById("messageAttachMenu");
+
 const chatSearch =
     document.getElementById("chatSearch");
 
@@ -5699,6 +5705,39 @@ async function sendMessage() {
 }
 
 
+
+// Menu allegati: per ora mostra le opzioni, senza avviare ancora upload o registrazione.
+function setMessageAttachMenuOpen(isOpen) {
+    if (!messageAttachButton || !messageAttachMenu) return;
+
+    messageAttachMenu.classList.toggle("hidden", !isOpen);
+    messageAttachButton.setAttribute("aria-expanded", String(isOpen));
+}
+
+if (messageAttachButton && messageAttachMenu) {
+    messageAttachButton.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const isOpen = messageAttachButton.getAttribute("aria-expanded") === "true";
+        setMessageAttachMenuOpen(!isOpen);
+    });
+
+    // Le opzioni sono volutamente solo visuali in questa prima fase.
+    messageAttachMenu.addEventListener("click", (event) => {
+        event.stopPropagation();
+    });
+
+    document.addEventListener("click", (event) => {
+        if (!messageAttachMenu.contains(event.target) && event.target !== messageAttachButton) {
+            setMessageAttachMenuOpen(false);
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            setMessageAttachMenuOpen(false);
+        }
+    });
+}
 
 sendMessageButton.addEventListener(
     "click",
