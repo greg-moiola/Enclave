@@ -4381,6 +4381,9 @@ async function loadMessages(chatId) {
         );
 
 
+    // Evita che callback asincrone più vecchie sovrascrivano uno snapshot più recente.
+    let latestMessagesSnapshotVersion = 0;
+
     unsubscribeMessages =
         onSnapshot(
             messagesQuery,
@@ -4392,6 +4395,8 @@ async function loadMessages(chatId) {
                 ) {
                     return;
                 }
+
+                const snapshotVersion = ++latestMessagesSnapshotVersion;
 
                 if (snapshot.empty) {
                     closeMessageMenus();
@@ -4540,17 +4545,18 @@ async function loadMessages(chatId) {
 
                 if (
                     loadVersion !== messagesLoadVersion ||
-                    currentChatId !== chatId
+                    currentChatId !== chatId ||
+                    snapshotVersion !== latestMessagesSnapshotVersion
                 ) {
                     return;
                 }
 
                 const currentUser = auth.currentUser;
 
-                // Il DOM resta visibile mentre eventuali dati ausiliari vengono caricati.
-                // La sostituzione avviene in un unico passaggio, evitando il frame bianco.
+                // Costruisce il nuovo DOM fuori dallo schermo e lo applica in un unico passaggio.
+                // Così il mobile non mostra per un frame la chat vuota durante il rendering.
                 closeMessageMenus();
-                chatMessages.replaceChildren();
+                const renderedMessagesFragment = document.createDocumentFragment();
 
                 messages.forEach(
                     (message) => {
@@ -5088,13 +5094,15 @@ async function loadMessages(chatId) {
                         );
 
 
-                        chatMessages.appendChild(
+                        renderedMessagesFragment.appendChild(
                             messageElement
                         );
 
                     }
                 );
 
+                // Sostituzione atomica: la conversazione resta visibile fino al completamento.
+                chatMessages.replaceChildren(renderedMessagesFragment);
 
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
