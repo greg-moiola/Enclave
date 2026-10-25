@@ -426,9 +426,23 @@
             class="message-attach-button"
             id="messageAttachButton"
             type="button"
+            aria-label="Allega un file"
+            aria-expanded="false"
+            aria-controls="messageAttachMenu"
         >
             +
         </button>
+
+        <div class="message-attach-menu hidden" id="messageAttachMenu" role="menu" aria-label="Allegati">
+            <button class="message-attach-option" type="button" role="menuitem" data-attach-option="image">
+                <span class="message-attach-option-icon" aria-hidden="true">▧</span>
+                <span>Immagine</span>
+            </button>
+            <button class="message-attach-option" type="button" role="menuitem" data-attach-option="voice">
+                <span class="message-attach-option-icon" aria-hidden="true">🎙</span>
+                <span>Messaggio vocale</span>
+            </button>
+        </div>
 
         <input
             type="text"
