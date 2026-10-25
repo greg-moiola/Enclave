@@ -5745,14 +5745,19 @@ function loadConversations() {
     }
 
 
-    const currentUser =
-        auth.currentUser;
+    const currentUser = auth.currentUser;
 
+    // Rilascia i listener dei badge se la sessione è terminata o cambia account.
+    for (const [chatId, listenerEntry] of unreadMessageListeners) {
+        if (!currentUser || listenerEntry.userUid !== currentUser.uid) {
+            listenerEntry.unsubscribe();
+            unreadMessageListeners.delete(chatId);
+        }
+    }
 
     if (!currentUser) {
         return;
     }
-
 
     const chatsReference =
         collection(
@@ -5979,7 +5984,7 @@ function loadConversations() {
                         ) {
 
                             uniqueConversations.set(
-                                conversation.uid,
+                                conversationKey,
                                 conversation
                             );
 
@@ -5997,35 +6002,33 @@ function loadConversations() {
 
                 finalConversations.sort(
                     (a, b) => {
-
-                        const timeA =
-                            a.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
-                        const timeB =
-                            b.lastMessageAt
-                                ?.toMillis?.() || 0;
-
-
+                        const timeA = a.lastMessageAt?.toMillis?.() || 0;
+                        const timeB = b.lastMessageAt?.toMillis?.() || 0;
                         return timeB - timeA;
-
                     }
                 );
 
-
-                if (
-                    renderVersion !==
-                    conversationsRenderVersion
-                ) {
-
+                if (renderVersion !== conversationsRenderVersion) {
                     return;
-
                 }
 
+                // Mantiene attivi soltanto i listener delle conversazioni presenti.
+                // Evita sottoscrizioni orfane quando una chat viene rimossa o cambia account.
+                const activeConversationIds = new Set(
+                    finalConversations.map(conversation => conversation.chatId).filter(Boolean)
+                );
 
-                conversationList.innerHTML =
-                    "";
+                for (const [chatId, listenerEntry] of unreadMessageListeners) {
+                    if (
+                        !activeConversationIds.has(chatId) ||
+                        listenerEntry.userUid !== currentUser.uid
+                    ) {
+                        listenerEntry.unsubscribe();
+                        unreadMessageListeners.delete(chatId);
+                    }
+                }
+
+                conversationList.innerHTML = "";
 
 
                 if (
@@ -6184,45 +6187,59 @@ function loadConversations() {
                                 
                                 meta.appendChild(time);
                                 meta.appendChild(unreadBadge);
-                                
-                                // Aggiornamento del contatore dei messaggi non letti
+
+                                // Riutilizza il listener della chat tra i render della lista.
+                                // Il badge DOM viene ricreato, quindi il listener conserva il riferimento aggiornato.
                                 const conversationIdForBadge = conversation.chatId;
-                                
-                                if (unreadMessageListeners.has(conversationIdForBadge)) {
-                                    unreadMessageListeners.get(conversationIdForBadge)();
-                                }
-                            
-                            const unreadMessagesUnsubscribe = onSnapshot(
-                                query(
-                                    collection(db, "chats", conversationIdForBadge, "messages")
-                                ),
-                                () => {
+                                const existingUnreadListener = unreadMessageListeners.get(conversationIdForBadge);
+
+                                if (
+                                    existingUnreadListener &&
+                                    existingUnreadListener.userUid === currentUser.uid
+                                ) {
+                                    existingUnreadListener.badge = unreadBadge;
                                     updateUnreadBadge(
                                         conversationIdForBadge,
                                         unreadBadge,
                                         currentUser.uid
                                     );
-                                },
-                                error => {
-                                        console.error("ERRORE BADGE - DETTAGLI:", {
-                                            chatId: conversationIdForBadge,
-                                            userUid: currentUser.uid,
-                                            code: error.code,
-                                            message: error.message
-                                        });
+                                } else {
+                                    if (existingUnreadListener) {
+                                        existingUnreadListener.unsubscribe();
                                     }
-                            );
-                            
-                            unreadMessageListeners.set(
-                                conversationIdForBadge,
-                                unreadMessagesUnsubscribe
-                            );
 
-                            
-                            meta.appendChild(time);
-                            meta.appendChild(unreadBadge);
-                            
-                            top.appendChild(meta);
+                                    const listenerEntry = {
+                                        badge: unreadBadge,
+                                        userUid: currentUser.uid,
+                                        unsubscribe: null
+                                    };
+
+                                    listenerEntry.unsubscribe = onSnapshot(
+                                        collection(db, "chats", conversationIdForBadge, "messages"),
+                                        () => {
+                                            const activeListener = unreadMessageListeners.get(conversationIdForBadge);
+                                            if (activeListener && activeListener.userUid === currentUser.uid) {
+                                                updateUnreadBadge(
+                                                    conversationIdForBadge,
+                                                    activeListener.badge,
+                                                    currentUser.uid
+                                                );
+                                            }
+                                        },
+                                        error => {
+                                            console.error("ERRORE BADGE - DETTAGLI:", {
+                                                chatId: conversationIdForBadge,
+                                                userUid: currentUser.uid,
+                                                code: error.code,
+                                                message: error.message
+                                            });
+                                        }
+                                    );
+
+                                    unreadMessageListeners.set(conversationIdForBadge, listenerEntry);
+                                }
+
+                                top.appendChild(meta);
 
 
                         info.appendChild(
