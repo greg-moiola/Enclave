@@ -149,6 +149,8 @@ const notificationsPopupMessage =
 let currentChatUserUid = null;
 
 let currentChatId = null;
+// Indica se il documento Firestore della chat aperta esiste già.
+let currentChatDocumentExists = false;
 
 let unsubscribeMessages = null;
 
@@ -4355,10 +4357,14 @@ async function loadMessages(chatId) {
     }
 
     const chatData = chatDocument.exists() ? chatDocument.data() : {};
+    currentChatDocumentExists = chatDocument.exists();
     const isGroupChat = chatData.type === "group";
     const chatParticipants = Array.isArray(chatData.participants)
         ? chatData.participants
         : [];
+
+    // Cache dei nickname del gruppo: evita letture Firestore ripetute a ogni nuovo messaggio.
+    const senderNicknameCache = new Map();
 
     const messagesReference =
         collection(
@@ -4387,20 +4393,13 @@ async function loadMessages(chatId) {
                     return;
                 }
 
-                closeMessageMenus();
-
-                chatMessages.innerHTML =
-                    "";
-
-
                 if (snapshot.empty) {
+                    closeMessageMenus();
 
-                    await markChatAsRead(chatId);
+                    // Aggiorna lo stato di lettura in background: non bloccare la UI.
+                    void markChatAsRead(chatId);
 
-                    if (
-                        loadVersion !== messagesLoadVersion ||
-                        currentChatId !== chatId
-                    ) {
+                    if (loadVersion !== messagesLoadVersion || currentChatId !== chatId) {
                         return;
                     }
 
@@ -4461,49 +4460,83 @@ async function loadMessages(chatId) {
                     }
                 );
 
-                const latestMessage =
-                        messages[messages.length - 1];
-                    
-                    if (latestMessage?.createdAt) {
-                        await markChatAsRead(
-                            chatId,
-                            latestMessage.createdAt
-                        );
+                const latestMessage = messages[messages.length - 1];
+
+                if (latestMessage?.createdAt) {
+                    // La scrittura dello stato di lettura non deve ritardare il rendering.
+                    void markChatAsRead(chatId, latestMessage.createdAt);
+                }
+
+                // Se è cambiato soltanto readBy, aggiorna il bordo verde in-place.
+                // Non svuotare né ricostruire la chat per una semplice conferma di lettura.
+                const existingMessageElements = Array.from(
+                    chatMessages.querySelectorAll(":scope > .message")
+                );
+                const existingById = new Map(
+                    existingMessageElements.map(element => [element.dataset.messageId, element])
+                );
+                const sameMessagesExceptReadState =
+                    existingMessageElements.length === messages.length &&
+                    messages.every(message => {
+                        const element = existingById.get(message.id);
+                        const previousMessage = element?._enclaveMessage;
+                        if (!element || !previousMessage) return false;
+                        const { readBy: _previousReadBy, ...previousStableData } = previousMessage;
+                        const { readBy: _nextReadBy, ...nextStableData } = message;
+                        return JSON.stringify(previousStableData) === JSON.stringify(nextStableData);
+                    });
+
+                if (sameMessagesExceptReadState) {
+                    const currentUser = auth.currentUser;
+                    for (const message of messages) {
+                        const element = existingById.get(message.id);
+                        const bubble = element?.querySelector(".message-bubble");
+                        if (!element || !bubble) continue;
+
+                        const isOwnMessage = currentUser && message.senderId === currentUser.uid;
+                        const recipients = chatParticipants.filter(uid => uid !== message.senderId);
+                        const readBy = Array.isArray(message.readBy) ? message.readBy : [];
+                        const isReadByAllRecipients = isOwnMessage && recipients.length > 0 &&
+                            recipients.every(uid => readBy.includes(uid));
+
+                        bubble.classList.toggle("message-read", Boolean(isReadByAllRecipients));
+                        if (isReadByAllRecipients) bubble.title = "Letto";
+                        else bubble.removeAttribute("title");
+                        element._enclaveMessage = message;
                     }
+
+                    if (currentUser && currentChatId === chatId) {
+                        void markMessagesAsRead(chatId, messages, currentUser.uid);
+                    }
+                    return;
+                }
 
                 const senderNicknames = {};
 
-                    if (isGroupChat) {
-                        const senderIds = [
-                            ...new Set(
-                                messages
-                                    .map(message => message.senderId)
-                                    .filter(Boolean)
-                            )
-                        ];
-    
-                        await Promise.all(
-                            senderIds.map(async (senderId) => {
-                                try {
-                                    const userDocument = await getDoc(
-                                        doc(db, "publicUsers", senderId)
-                                    );
-    
-                                    senderNicknames[senderId] =
-                                        userDocument.exists()
-                                            ? userDocument.data().nickname || "Utente"
-                                            : "Utente";
-                                } catch (error) {
-                                    console.error(
-                                        "Errore recupero nickname:",
-                                        error
-                                    );
-    
-                                    senderNicknames[senderId] = "Utente";
-                                }
-                            })
-                        );
-                    }
+                if (isGroupChat) {
+                    const senderIds = [...new Set(
+                        messages.map(message => message.senderId).filter(Boolean)
+                    )];
+
+                    await Promise.all(senderIds.map(async senderId => {
+                        if (senderNicknameCache.has(senderId)) {
+                            senderNicknames[senderId] = senderNicknameCache.get(senderId);
+                            return;
+                        }
+                        try {
+                            const userDocument = await getDoc(doc(db, "publicUsers", senderId));
+                            const nickname = userDocument.exists()
+                                ? userDocument.data().nickname || "Utente"
+                                : "Utente";
+                            senderNicknameCache.set(senderId, nickname);
+                            senderNicknames[senderId] = nickname;
+                        } catch (error) {
+                            console.error("Errore recupero nickname:", error);
+                            senderNicknameCache.set(senderId, "Utente");
+                            senderNicknames[senderId] = "Utente";
+                        }
+                    }));
+                }
 
                 if (
                     loadVersion !== messagesLoadVersion ||
@@ -4512,9 +4545,12 @@ async function loadMessages(chatId) {
                     return;
                 }
 
-                const currentUser =
-                    auth.currentUser;
+                const currentUser = auth.currentUser;
 
+                // Il DOM resta visibile mentre eventuali dati ausiliari vengono caricati.
+                // La sostituzione avviene in un unico passaggio, evitando il frame bianco.
+                closeMessageMenus();
+                chatMessages.replaceChildren();
 
                 messages.forEach(
                     (message) => {
@@ -5431,6 +5467,7 @@ chatBackButton.addEventListener(
         currentChatUserUid = null;
 
         currentChatId = null;
+        currentChatDocumentExists = false;
 
 
         if (window.innerWidth <= 700) {
@@ -5487,9 +5524,13 @@ async function sendMessage() {
         }
 
         const chatReference = doc(db, "chats", chatId);
+        // Se la conversazione è già aperta, loadMessages ha già caricato il documento:
+        // evita una lettura di rete aggiuntiva prima di inviare ogni messaggio.
+        const updateChatMetadataAfterMessage =
+            currentChatId === chatId && currentChatDocumentExists;
         console.log("DEBUG 1 - Chat ID:", chatId);
 
-        if (currentChatUserUid) {
+        if (currentChatUserUid && !updateChatMetadataAfterMessage) {
 
             const existingChat = await getDoc(chatReference);
             console.log("DEBUG 2 - Chat esistente:", existingChat.exists());
@@ -5526,10 +5567,13 @@ async function sendMessage() {
                     lastMessageAt: serverTimestamp(),
                     lastSenderId: currentUser.uid
                 });
+                if (currentChatId === chatId) {
+                    currentChatDocumentExists = true;
+                }
 
             }
 
-        } else {
+        } else if (!currentChatUserUid && !updateChatMetadataAfterMessage) {
 
             await updateDoc(chatReference, {
                 lastMessage: message,
@@ -5538,7 +5582,7 @@ async function sendMessage() {
             });
 
         }
-        console.log("DEBUG 3 - Chat creata/aggiornata correttamente");
+        console.log("DEBUG 3 - Chat pronta per l'invio");
 
         const messageData = {
             text: message,
@@ -5560,8 +5604,20 @@ async function sendMessage() {
             collection(db, "chats", chatId, "messages"),
             messageData
         );
-        console.log("DEBUG 4 - Messaggio salvato:", messageReference.id);
 
+        // La chat è già aperta: aggiorna l'anteprima dopo aver avviato il messaggio,
+        // senza mettere due richieste di rete in sequenza prima della visualizzazione.
+        if (updateChatMetadataAfterMessage) {
+            void updateDoc(chatReference, {
+                lastMessage: message,
+                lastMessageAt: serverTimestamp(),
+                lastSenderId: currentUser.uid
+            }).catch(error => {
+                console.error("Errore aggiornamento anteprima chat:", error);
+            });
+        }
+
+        console.log("DEBUG 4 - Messaggio salvato:", messageReference.id);
         console.log("MESSAGGIO SALVATO:", messageReference.id);
 
         messageInput.value = "";
