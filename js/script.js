@@ -158,6 +158,23 @@ let currentChatId = null;
 // Indica se il documento Firestore della chat aperta esiste già.
 let currentChatDocumentExists = false;
 
+// Tema globale personale: un unico colore per le bolle in tutte le chat e i gruppi.
+let currentUserChatTheme = "#111111";
+let themeSaveQueue = Promise.resolve();
+
+const ENCLAVE_CHAT_THEMES = [
+    { name: "Rosso", color: "#D9303E" },
+    { name: "Arancione", color: "#E87522" },
+    { name: "Giallo oro", color: "#C79613" },
+    { name: "Verde", color: "#268B4A" },
+    { name: "Blu", color: "#2878D0" },
+    { name: "Tiffany", color: "#0ABAB5" },
+    { name: "Viola", color: "#8059C9" },
+    { name: "Rosa", color: "#D65391" },
+    { name: "Marrone", color: "#986747" },
+    { name: "Nero", color: "#111111" }
+];
+
 let unsubscribeMessages = null;
 
 // Evita che il caricamento asincrono di una vecchia chat sovrascriva quella appena aperta.
@@ -501,6 +518,11 @@ async function loadUserProfile(user) {
     const userData =
         userDocument.data();
 
+    currentUserChatTheme = ENCLAVE_CHAT_THEMES.some(theme => theme.color.toLowerCase() === String(userData.chatBubbleTheme || "#111111").toLowerCase())
+        ? ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(userData.chatBubbleTheme || "#111111").toLowerCase()).color
+        : "#111111";
+
+    applyConversationTheme();
 
     const nickname =
         userData.nickname;
@@ -680,21 +702,177 @@ function createOwnProfileNicknamePanel() {
     return overlay;
 }
 
-const editProfileNicknameButton =
-    document.getElementById("editProfileNicknameButton");
+function lightenThemeColor(hex, amount = 0.78) {
+    if (hex.toLowerCase() === "#111111") return "#e9e9e9";
+    const value = hex.replace("#", "");
+    const channels = [0, 2, 4].map(index => parseInt(value.slice(index, index + 2), 16));
+    const lightened = channels.map(channel => Math.round(channel + (255 - channel) * amount));
+    return "#" + lightened.map(channel => channel.toString(16).padStart(2, "0")).join("");
+}
 
-if (editProfileNicknameButton) {
-    editProfileNicknameButton.addEventListener("click", () => {
-        const overlay = createOwnProfileNicknamePanel();
-        const input = overlay.querySelector("#ownProfileNicknameInput");
-        const status = overlay.querySelector(".own-profile-nickname-status");
+function applyConversationTheme() {
+    if (!chatMessages) return;
+    const validTheme = ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(currentUserChatTheme || "#111111").toLowerCase());
+    const ownColor = validTheme ? validTheme.color : "#111111";
+    chatMessages.style.setProperty("--enclave-own-bubble", ownColor);
+    chatMessages.style.setProperty("--enclave-other-bubble", lightenThemeColor(ownColor));
+
+    const settingsOverlay = document.getElementById("enclaveSettingsOverlay");
+    if (settingsOverlay && !settingsOverlay.classList.contains("hidden")) {
+        settingsOverlay.querySelectorAll(".settings-theme-swatch").forEach(button => {
+            const selected = button.dataset.themeColor.toLowerCase() === ownColor.toLowerCase();
+            button.setAttribute("aria-pressed", String(selected));
+            const check = button.querySelector(".settings-theme-swatch-check");
+            if (check) check.textContent = selected ? "✓" : "";
+        });
+    }
+}
+
+function createEnclaveSettingsPanel() {
+    let overlay = document.getElementById("enclaveSettingsOverlay");
+    if (overlay) return overlay;
+
+    overlay = document.createElement("div");
+    overlay.id = "enclaveSettingsOverlay";
+    overlay.className = "group-info-overlay hidden";
+
+    const panel = document.createElement("div");
+    panel.className = "group-info-panel enclave-settings-panel";
+
+    const header = document.createElement("div");
+    header.className = "group-info-header";
+    const title = document.createElement("h2");
+    title.className = "group-info-title";
+    title.textContent = "Impostazioni";
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "group-info-close";
+    closeButton.textContent = "×";
+    closeButton.setAttribute("aria-label", "Chiudi impostazioni");
+    header.append(title, closeButton);
+
+    const content = document.createElement("div");
+    content.className = "settings-content";
+
+    const nicknameButton = document.createElement("button");
+    nicknameButton.type = "button";
+    nicknameButton.className = "settings-option";
+    nicknameButton.innerHTML = '<span class="settings-option-icon">✎</span><span class="settings-option-text"><span class="settings-option-title">Nickname</span><span class="settings-option-description">Modifica il nome visualizzato sul tuo profilo</span></span><span aria-hidden="true">›</span>';
+
+    const themeButton = document.createElement("button");
+    themeButton.type = "button";
+    themeButton.className = "settings-option";
+    themeButton.setAttribute("aria-expanded", "false");
+    themeButton.innerHTML = '<span class="settings-option-icon">◉</span><span class="settings-option-text"><span class="settings-option-title">Colore delle bolle</span><span class="settings-option-description">Scegli il colore delle bolle in tutte le chat e i gruppi</span></span><span class="settings-theme-chevron" aria-hidden="true">›</span>';
+
+    const themeSection = document.createElement("div");
+    themeSection.className = "settings-theme-section hidden";
+    const themeHeading = document.createElement("p");
+    themeHeading.className = "settings-theme-heading";
+    themeHeading.textContent = "Scegli un colore";
+    const grid = document.createElement("div");
+    grid.className = "settings-theme-grid";
+
+    ENCLAVE_CHAT_THEMES.forEach(theme => {
+        const swatch = document.createElement("button");
+        swatch.type = "button";
+        swatch.className = "settings-theme-swatch";
+        swatch.style.backgroundColor = theme.color;
+        swatch.dataset.themeColor = theme.color;
+        swatch.title = theme.name;
+        swatch.setAttribute("aria-label", theme.name);
+        swatch.setAttribute("aria-pressed", "false");
+        const check = document.createElement("span");
+        check.className = "settings-theme-swatch-check";
+        swatch.appendChild(check);
+        swatch.addEventListener("click", () => {
+            const user = auth.currentUser;
+            if (!user) {
+                status.textContent = "Accedi per salvare il tema.";
+                return;
+            }
+
+            // Applica subito il colore a tutte le bolle; salva una sola preferenza globale sul profilo.
+            currentUserChatTheme = theme.color;
+            applyConversationTheme();
+            status.textContent = "Colore applicato ovunque. Salvataggio…";
+            themeSaveQueue = themeSaveQueue.then(async () => {
+                await updateDoc(doc(db, "users", user.uid), {
+                    chatBubbleTheme: theme.color,
+                    updatedAt: serverTimestamp()
+                });
+                if (auth.currentUser?.uid === user.uid && currentUserChatTheme === theme.color) {
+                    status.textContent = "Tema globale salvato per tutte le chat e i gruppi.";
+                }
+            }).catch(error => {
+                console.error("Errore salvataggio tema globale:", error);
+                if (auth.currentUser?.uid === user.uid && currentUserChatTheme === theme.color) {
+                    status.textContent = "Il colore è applicato ovunque, ma non è stato possibile salvarlo. Controlla la connessione.";
+                }
+            });
+        });
+        grid.appendChild(swatch);
+    });
+
+    const status = document.createElement("p");
+    status.className = "settings-theme-status";
+    status.setAttribute("role", "status");
+    status.textContent = "La scelta vale per tutte le chat private e i gruppi.";
+
+    themeSection.append(themeHeading, grid, status);
+    content.append(nicknameButton, themeButton, themeSection);
+    panel.append(header, content);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.classList.add("hidden");
+    closeButton.addEventListener("click", close);
+    overlay.addEventListener("click", event => {
+        if (event.target === overlay) close();
+    });
+
+    nicknameButton.addEventListener("click", () => {
+        close();
+        const nicknameOverlay = createOwnProfileNicknamePanel();
+        const input = nicknameOverlay.querySelector("#ownProfileNicknameInput");
+        const nicknameStatus = nicknameOverlay.querySelector(".own-profile-nickname-status");
         input.value = profileNickname.textContent.trim() === "—" ? "" : profileNickname.textContent.trim();
-        status.textContent = "";
-        overlay.classList.remove("hidden");
+        nicknameStatus.textContent = "";
+        nicknameOverlay.classList.remove("hidden");
         window.setTimeout(() => {
             input.focus();
             input.select();
         }, 50);
+    });
+
+    themeButton.addEventListener("click", () => {
+        const willOpen = themeSection.classList.contains("hidden");
+        themeSection.classList.toggle("hidden", !willOpen);
+        themeButton.setAttribute("aria-expanded", String(willOpen));
+        const chevron = themeButton.querySelector(".settings-theme-chevron");
+        if (chevron) chevron.textContent = willOpen ? "⌄" : "›";
+        if (willOpen) {
+            applyConversationTheme();
+            status.textContent = "La scelta vale per tutte le chat private e i gruppi.";
+        }
+    });
+
+    return overlay;
+}
+
+const settingsButton = document.getElementById("settingsButton");
+if (settingsButton) {
+    settingsButton.addEventListener("click", () => {
+        const overlay = createEnclaveSettingsPanel();
+        const themeSection = overlay.querySelector(".settings-theme-section");
+        const themeButton = overlay.querySelector(".settings-option[aria-expanded]");
+        const chevron = overlay.querySelector(".settings-theme-chevron");
+        themeSection.classList.add("hidden");
+        themeButton?.setAttribute("aria-expanded", "false");
+        if (chevron) chevron.textContent = "›";
+        overlay.querySelector(".settings-theme-status").textContent = "La scelta vale per tutte le chat private e i gruppi.";
+        overlay.classList.remove("hidden");
+        applyConversationTheme();
     });
 }
 
@@ -968,6 +1146,11 @@ document
             currentChatUserUid = null;
 
             currentChatId = null;
+            currentUserChatTheme = "#111111";
+            if (chatMessages) {
+                chatMessages.style.removeProperty("--enclave-own-bubble");
+                chatMessages.style.removeProperty("--enclave-other-bubble");
+            }
 
             clearReply();
 
@@ -4331,6 +4514,7 @@ function openMessageMenu(
 // =========================
 
 async function loadMessages(chatId) {
+    applyConversationTheme();
 
     const loadVersion = ++messagesLoadVersion;
 
