@@ -805,6 +805,16 @@
     }
 }
 
+#messageAttachButton,
+#sendMessageButton {
+    background: var(--enclave-own-bubble, #111);
+    transition: background-color 160ms ease, transform 160ms ease;
+}
+
+.message-attach-button[aria-expanded="true"] {
+    background: var(--enclave-own-bubble, #111);
+}
+
 #sendMessageButton {
     font-size: 17px;
 }
