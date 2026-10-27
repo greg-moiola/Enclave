@@ -711,11 +711,18 @@ function lightenThemeColor(hex, amount = 0.78) {
 }
 
 function applyConversationTheme() {
-    if (!chatMessages) return;
     const validTheme = ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(currentUserChatTheme || "#111111").toLowerCase());
     const ownColor = validTheme ? validTheme.color : "#111111";
-    chatMessages.style.setProperty("--enclave-own-bubble", ownColor);
-    chatMessages.style.setProperty("--enclave-other-bubble", lightenThemeColor(ownColor));
+    const otherColor = lightenThemeColor(ownColor);
+
+    // Le variabili globali aggiornano sia le bolle dei messaggi sia i due pulsanti
+    // dell'area di scrittura, in tutte le chat private e nei gruppi.
+    document.documentElement.style.setProperty("--enclave-own-bubble", ownColor);
+    document.documentElement.style.setProperty("--enclave-other-bubble", otherColor);
+    if (chatMessages) {
+        chatMessages.style.setProperty("--enclave-own-bubble", ownColor);
+        chatMessages.style.setProperty("--enclave-other-bubble", otherColor);
+    }
 
     const settingsOverlay = document.getElementById("enclaveSettingsOverlay");
     if (settingsOverlay && !settingsOverlay.classList.contains("hidden")) {
@@ -1147,6 +1154,8 @@ document
 
             currentChatId = null;
             currentUserChatTheme = "#111111";
+            document.documentElement.style.removeProperty("--enclave-own-bubble");
+            document.documentElement.style.removeProperty("--enclave-other-bubble");
             if (chatMessages) {
                 chatMessages.style.removeProperty("--enclave-own-bubble");
                 chatMessages.style.removeProperty("--enclave-other-bubble");
