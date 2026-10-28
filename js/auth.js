@@ -16,6 +16,8 @@ import {
 
 import { auth, db } from "./firebase.js";
 
+const SESSION_AUTH_MARKER = "enclaveSessionAuthMarker";
+
 
 function generateEnclaveId() {
 
@@ -62,6 +64,12 @@ export async function registerUser(email, password, nickname) {
 
     try {
 
+        const rememberConnected = localStorage.getItem("enclaveRememberConnected") === "true";
+        await setPersistence(
+            auth,
+            rememberConnected ? browserLocalPersistence : browserSessionPersistence
+        );
+
         const userCredential =
             await createUserWithEmailAndPassword(
                 auth,
@@ -70,6 +78,9 @@ export async function registerUser(email, password, nickname) {
             );
 
         const user = userCredential.user;
+        // Segna una sessione avviata esplicitamente in questa scheda. Serve a distinguere
+        // una vecchia sessione persistente da una sessione corrente quando "Rimani connesso" è OFF.
+        sessionStorage.setItem(SESSION_AUTH_MARKER, "true");
 
 const enclaveId =
     await generateUniqueEnclaveId();
@@ -161,6 +172,7 @@ export async function loginUser(email, password) {
         const user =
             userCredential.user;
 
+        sessionStorage.setItem(SESSION_AUTH_MARKER, "true");
 
         // Controlla se l'email è verificata
 
