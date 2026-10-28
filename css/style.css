@@ -19,6 +19,12 @@ body {
     color: #111;
 }
 
+/* Durante l’uso dell’app, anche l’area dietro la barra di stato iOS
+   deve avere lo stesso sfondo bianco dell’intestazione. */
+body.enclave-home-active {
+    background: #fff;
+}
+
 .auth-container {
     width: 100%;
     max-width: 420px;
