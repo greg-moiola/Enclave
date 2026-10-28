@@ -2971,9 +2971,7 @@
     }
 
     .home-header {
-        flex: 0 0 calc(70px + env(safe-area-inset-top, 0px));
-        height: calc(70px + env(safe-area-inset-top, 0px));
-        padding-top: env(safe-area-inset-top, 0px);
+        flex: 0 0 70px;
     }
 
     #homeScreen.mobile-chat-open .home-header {
@@ -2995,9 +2993,7 @@
     }
 
     .chat-header {
-        flex: 0 0 calc(62px + env(safe-area-inset-top, 0px));
-        min-height: calc(62px + env(safe-area-inset-top, 0px));
-        padding-top: env(safe-area-inset-top, 0px);
+        flex: 0 0 62px;
         position: relative;
         z-index: 2;
     }
