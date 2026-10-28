@@ -24,8 +24,7 @@ import {
     where,
     onSnapshot,
     serverTimestamp,
-    arrayUnion,
-    arrayRemove
+    arrayUnion
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 import {
@@ -125,9 +124,6 @@ const chatSidebar =
 const chatMessages =
     document.getElementById("chatMessages");
 
-const typingIndicator =
-    document.getElementById("typingIndicator");
-
 const messageInput =
     document.getElementById("messageInput");
 
@@ -187,12 +183,6 @@ const ENCLAVE_CHAT_THEMES = [
 ];
 
 let unsubscribeMessages = null;
-let unsubscribeTypingStatus = null;
-let typingStopTimer = null;
-let typingWriteInProgress = false;
-let typingStatusChatId = null;
-let typingStatusUserUid = null;
-let typingStatusActive = false;
 
 // Evita che il caricamento asincrono di una vecchia chat sovrascriva quella appena aperta.
 let messagesLoadVersion = 0;
@@ -1103,12 +1093,6 @@ function markChatViewOpen() {
 function returnToChatList() {
     closeMessageMenus();
     clearReply();
-    stopTypingStatus();
-    if (unsubscribeTypingStatus) {
-        unsubscribeTypingStatus();
-        unsubscribeTypingStatus = null;
-    }
-    hideTypingIndicator();
     chatEmptyState.classList.remove("hidden");
     activeChat.classList.add("hidden");
     homeMain.classList.remove("chat-open");
@@ -4808,147 +4792,10 @@ function openMessageMenu(
 
 
 // =========================
-// INDICATORE "STA SCRIVENDO"
-// =========================
-
-function hideTypingIndicator() {
-    if (!typingIndicator) return;
-    typingIndicator.classList.add("hidden");
-    typingIndicator.setAttribute("aria-hidden", "true");
-}
-
-function showTypingIndicator(isGroup = false) {
-    if (!typingIndicator) return;
-    typingIndicator.classList.remove("hidden");
-    typingIndicator.setAttribute("aria-hidden", "false");
-    typingIndicator.setAttribute(
-        "aria-label",
-        isGroup ? "Un partecipante sta scrivendo" : "L'altra persona sta scrivendo"
-    );
-}
-
-function stopTypingStatus(chatId = typingStatusChatId, userUid = typingStatusUserUid) {
-    if (typingStopTimer) {
-        clearTimeout(typingStopTimer);
-        typingStopTimer = null;
-    }
-
-    const shouldRemove = typingStatusActive && chatId && userUid;
-    typingStatusActive = false;
-    typingWriteInProgress = false;
-
-    if (shouldRemove) {
-        void updateDoc(doc(db, "chats", chatId), {
-            typingUsers: arrayRemove(userUid)
-        }).catch(error => {
-            // La chat potrebbe essere stata eliminata o non essere accessibile.
-            console.debug("Stato digitazione non aggiornato:", error?.code || error);
-        });
-    }
-
-    if (typingStatusChatId === chatId && typingStatusUserUid === userUid) {
-        typingStatusChatId = null;
-        typingStatusUserUid = null;
-    }
-}
-
-function startTypingStatus() {
-    const user = auth.currentUser;
-    const chatId = currentChatId;
-
-    if (
-        !user ||
-        !chatId ||
-        !currentChatDocumentExists ||
-        !messageInput.value.trim()
-    ) {
-        stopTypingStatus();
-        return;
-    }
-
-    if (typingStatusChatId && (
-        typingStatusChatId !== chatId ||
-        typingStatusUserUid !== user.uid
-    )) {
-        stopTypingStatus();
-    }
-
-    typingStatusChatId = chatId;
-    typingStatusUserUid = user.uid;
-
-    if (!typingStatusActive && !typingWriteInProgress) {
-        typingWriteInProgress = true;
-        void updateDoc(doc(db, "chats", chatId), {
-            typingUsers: arrayUnion(user.uid)
-        }).then(() => {
-            if (typingStatusChatId === chatId && typingStatusUserUid === user.uid) {
-                typingStatusActive = true;
-            } else {
-                void updateDoc(doc(db, "chats", chatId), {
-                    typingUsers: arrayRemove(user.uid)
-                }).catch(() => {});
-            }
-        }).catch(error => {
-            console.debug("Impossibile aggiornare lo stato di digitazione:", error?.code || error);
-        }).finally(() => {
-            typingWriteInProgress = false;
-        });
-    }
-
-    if (typingStopTimer) clearTimeout(typingStopTimer);
-    typingStopTimer = setTimeout(() => {
-        stopTypingStatus(chatId, user.uid);
-    }, 2200);
-}
-
-function listenForTypingStatus(chatId, loadVersion) {
-    if (unsubscribeTypingStatus) {
-        unsubscribeTypingStatus();
-        unsubscribeTypingStatus = null;
-    }
-
-    hideTypingIndicator();
-
-    // Ascolta anche un documento ancora inesistente: potrebbe essere creato
-    // quando viene inviato il primo messaggio della conversazione.
-    unsubscribeTypingStatus = onSnapshot(
-        doc(db, "chats", chatId),
-        snapshot => {
-            if (
-                loadVersion !== messagesLoadVersion ||
-                currentChatId !== chatId
-            ) return;
-
-            const typingUsers = snapshot.exists() && Array.isArray(snapshot.data().typingUsers)
-                ? snapshot.data().typingUsers
-                : [];
-            const currentUid = auth.currentUser?.uid;
-            const someoneElseTyping = typingUsers.some(uid => uid !== currentUid);
-
-            if (someoneElseTyping) {
-                showTypingIndicator(snapshot.data()?.type === "group");
-            } else {
-                hideTypingIndicator();
-            }
-        },
-        error => {
-            hideTypingIndicator();
-            console.debug("Listener digitazione non disponibile:", error?.code || error);
-        }
-    );
-}
-
-// =========================
 // CARICAMENTO MESSAGGI
 // =========================
 
 async function loadMessages(chatId) {
-    stopTypingStatus();
-    if (unsubscribeTypingStatus) {
-        unsubscribeTypingStatus();
-        unsubscribeTypingStatus = null;
-    }
-    hideTypingIndicator();
     applyConversationTheme();
 
     const loadVersion = ++messagesLoadVersion;
@@ -4987,8 +4834,6 @@ async function loadMessages(chatId) {
     const chatParticipants = Array.isArray(chatData.participants)
         ? chatData.participants
         : [];
-
-    listenForTypingStatus(chatId, loadVersion);
 
     // Cache dei nickname del gruppo: evita letture Firestore ripetute a ogni nuovo messaggio.
     const senderNicknameCache = new Map();
@@ -6080,7 +5925,6 @@ async function sendMessage() {
     const message = messageInput.value.trim();
 
     if (!message) return;
-    stopTypingStatus();
 
     const currentUser = auth.currentUser;
 
@@ -6315,9 +6159,6 @@ sendMessageButton.addEventListener(
     sendMessage
 );
 
-
-messageInput.addEventListener("input", startTypingStatus);
-messageInput.addEventListener("blur", () => stopTypingStatus());
 
 messageInput.addEventListener(
     "keydown",
