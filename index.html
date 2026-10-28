@@ -26,12 +26,20 @@
 
 <body>
 
+    <!-- Schermata iniziale: evita di mostrare login/registrazione mentre Firebase ripristina la sessione. -->
+    <div id="startupScreen" class="screen startup-screen" aria-live="polite">
+        <div class="startup-content">
+            <h1>ENCLAVE</h1>
+            <span class="startup-spinner" aria-hidden="true"></span>
+            <p>Accesso sicuro in corso…</p>
+        </div>
+    </div>
 
     <!-- ========================= -->
     <!-- SCHERMATA REGISTRAZIONE -->
     <!-- ========================= -->
 
-    <div id="registerScreen" class="screen">
+    <div id="registerScreen" class="screen hidden">
 
         <div class="auth-container">
 
