@@ -49,6 +49,9 @@ console.log("Enclave avviato correttamente.");
 // FUNZIONI SCHERMATE
 // =========================
 
+const startupScreen =
+    document.getElementById("startupScreen");
+
 const registerScreen =
     document.getElementById("registerScreen");
 
@@ -481,8 +484,13 @@ let replyTarget = null;
 // CAMBIO SCHERMATE
 // =========================
 
+function hideStartupScreen() {
+    startupScreen?.classList.add("hidden");
+}
+
 function showRegister() {
 
+    hideStartupScreen();
     registerScreen.classList.remove("hidden");
 
     loginScreen.classList.add("hidden");
@@ -494,6 +502,7 @@ function showRegister() {
 
 function showLogin() {
 
+    hideStartupScreen();
     registerScreen.classList.add("hidden");
 
     loginScreen.classList.remove("hidden");
@@ -505,6 +514,7 @@ function showLogin() {
 
 function showHome() {
 
+    hideStartupScreen();
     registerScreen.classList.add("hidden");
 
     loginScreen.classList.add("hidden");
@@ -891,6 +901,35 @@ function createEnclaveSettingsPanel() {
 
     themeSection.append(themeHeading, grid, status);
 
+    const tabs = document.createElement("div");
+    tabs.className = "settings-tabs";
+    tabs.setAttribute("role", "tablist");
+
+    const normalTab = document.createElement("button");
+    normalTab.type = "button";
+    normalTab.className = "settings-tab-button is-active";
+    normalTab.dataset.settingsTab = "normal";
+    normalTab.setAttribute("role", "tab");
+    normalTab.setAttribute("aria-selected", "true");
+    normalTab.textContent = "Generali";
+
+    const advancedTab = document.createElement("button");
+    advancedTab.type = "button";
+    advancedTab.className = "settings-tab-button";
+    advancedTab.dataset.settingsTab = "advanced";
+    advancedTab.setAttribute("role", "tab");
+    advancedTab.setAttribute("aria-selected", "false");
+    advancedTab.textContent = "Impostazioni avanzate";
+    tabs.append(normalTab, advancedTab);
+
+    const normalSection = document.createElement("div");
+    normalSection.className = "settings-tab-panel";
+    normalSection.setAttribute("role", "tabpanel");
+
+    const advancedSection = document.createElement("div");
+    advancedSection.className = "settings-tab-panel hidden";
+    advancedSection.setAttribute("role", "tabpanel");
+
     const notificationsOption = document.createElement("div");
     notificationsOption.className = "settings-option notifications-settings-option";
     notificationsOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">🔔</span><span class="settings-option-text"><span class="settings-option-title">Notifiche</span><span class="settings-option-description">Attiva o disattiva le notifiche di Enclave</span></span>';
@@ -907,15 +946,6 @@ function createEnclaveSettingsPanel() {
     notificationsStatus.className = "settings-notifications-status";
     notificationsStatus.setAttribute("role", "status");
     notificationsStatus.textContent = "";
-
-    const advancedButton = document.createElement("button");
-    advancedButton.type = "button";
-    advancedButton.className = "settings-option advanced-settings-button";
-    advancedButton.setAttribute("aria-expanded", "false");
-    advancedButton.innerHTML = '<span class="settings-option-icon" aria-hidden="true">⚙</span><span class="settings-option-text"><span class="settings-option-title">Impostazioni avanzate</span><span class="settings-option-description">Notifiche e accesso al tuo account</span></span><span class="settings-advanced-chevron" aria-hidden="true">›</span>';
-
-    const advancedSection = document.createElement("div");
-    advancedSection.className = "settings-advanced-section hidden";
 
     const rememberOption = document.createElement("div");
     rememberOption.className = "settings-option notifications-settings-option";
@@ -934,8 +964,9 @@ function createEnclaveSettingsPanel() {
     rememberStatus.setAttribute("role", "status");
     rememberStatus.textContent = "La preferenza vale solo per questo dispositivo. Se premi Esci, dovrai accedere di nuovo.";
 
+    normalSection.append(nicknameButton, themeButton, themeSection);
     advancedSection.append(notificationsOption, notificationsStatus, rememberOption, rememberStatus);
-    content.append(nicknameButton, themeButton, themeSection, advancedButton, advancedSection);
+    content.append(tabs, normalSection, advancedSection);
     panel.append(header, content);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
@@ -972,17 +1003,21 @@ function createEnclaveSettingsPanel() {
         }
     });
 
-    advancedButton.addEventListener("click", () => {
-        const willOpen = advancedSection.classList.contains("hidden");
-        advancedSection.classList.toggle("hidden", !willOpen);
-        advancedButton.setAttribute("aria-expanded", String(willOpen));
-        const chevron = advancedButton.querySelector(".settings-advanced-chevron");
-        if (chevron) chevron.textContent = willOpen ? "⌄" : "›";
-        if (willOpen) {
+    const activateSettingsTab = tabName => {
+        const showAdvanced = tabName === "advanced";
+        normalSection.classList.toggle("hidden", showAdvanced);
+        advancedSection.classList.toggle("hidden", !showAdvanced);
+        normalTab.classList.toggle("is-active", !showAdvanced);
+        advancedTab.classList.toggle("is-active", showAdvanced);
+        normalTab.setAttribute("aria-selected", String(!showAdvanced));
+        advancedTab.setAttribute("aria-selected", String(showAdvanced));
+        if (showAdvanced) {
             updateNotificationsSwitchUI();
             updateRememberConnectedSwitchUI();
         }
-    });
+    };
+    normalTab.addEventListener("click", () => activateSettingsTab("normal"));
+    advancedTab.addEventListener("click", () => activateSettingsTab("advanced"));
 
     rememberSwitch.addEventListener("click", async () => {
         rememberSwitch.disabled = true;
@@ -1097,13 +1132,8 @@ if (settingsButton) {
         themeButton?.setAttribute("aria-expanded", "false");
         if (chevron) chevron.textContent = "›";
         overlay.querySelector(".settings-theme-status").textContent = "La scelta vale per tutte le chat private e i gruppi.";
-        const advancedSection = overlay.querySelector(".settings-advanced-section");
-        const advancedButton = overlay.querySelector(".advanced-settings-button");
-        // Riporta la sezione avanzata chiusa ogni volta che si apre il pannello.
-        advancedSection?.classList.add("hidden");
-        advancedButton?.setAttribute("aria-expanded", "false");
-        const advancedChevron = overlay.querySelector(".settings-advanced-chevron");
-        if (advancedChevron) advancedChevron.textContent = "›";
+        // Ogni apertura parte dalla scheda Generali; Avanzate è una scheda separata in alto.
+        overlay.querySelector('[data-settings-tab="normal"]')?.click();
         overlay.classList.remove("hidden");
         applyConversationTheme();
         updateNotificationsSwitchUI();
@@ -1118,6 +1148,7 @@ if (settingsButton) {
 
 function showVerification(user) {
 
+    hideStartupScreen();
     verificationEmail.textContent =
         user.email;
 
@@ -1395,7 +1426,8 @@ document
             clearReply();
 
             try {
-                // Esci chiude sempre la sessione Firebase, anche se "Rimani connesso" è attivo.
+                // Esci chiude sempre la sessione Firebase e cancella il marcatore della scheda.
+                sessionStorage.removeItem("enclaveSessionAuthMarker");
                 await signOut(auth);
             } catch (error) {
                 console.error("Errore durante la disconnessione:", error);
@@ -6995,18 +7027,29 @@ function loadConversations() {
             rememberEnabled ? browserLocalPersistence : browserSessionPersistence
         );
 
-        // Attende che Firebase abbia ripristinato l'eventuale sessione salvata.
+        // Firebase può ripristinare una vecchia sessione locale anche se la nuova
+        // preferenza "Rimani connesso" è OFF. In quel caso richiediamo un login esplicito.
         await auth.authStateReady();
-        const savedUser = auth.currentUser;
+        let savedUser = auth.currentUser;
+        const hasCurrentTabSession = sessionStorage.getItem("enclaveSessionAuthMarker") === "true";
+
+        if (!rememberEnabled && savedUser && !hasCurrentTabSession) {
+            await signOut(auth);
+            savedUser = null;
+        }
+
         if (savedUser && savedUser.emailVerified) {
-            showHome();
             await loadUserProfile(savedUser);
+            showHome();
             loadConversations();
         } else if (savedUser && !savedUser.emailVerified) {
             showVerification(savedUser);
             checkEmailVerification(savedUser);
+        } else {
+            showRegister();
         }
     } catch (error) {
         console.error("Impossibile ripristinare la sessione Enclave:", error);
+        showRegister();
     }
 })();
