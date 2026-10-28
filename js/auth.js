@@ -1,7 +1,10 @@
 import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
-    sendEmailVerification
+    sendEmailVerification,
+    browserLocalPersistence,
+    browserSessionPersistence,
+    setPersistence
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -140,6 +143,12 @@ await setDoc(
 export async function loginUser(email, password) {
 
     try {
+
+        const rememberConnected = localStorage.getItem("enclaveRememberConnected") === "true";
+        await setPersistence(
+            auth,
+            rememberConnected ? browserLocalPersistence : browserSessionPersistence
+        );
 
         const userCredential =
             await signInWithEmailAndPassword(
