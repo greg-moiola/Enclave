@@ -232,6 +232,8 @@ const ENCLAVE_VAPID_KEY =
     "BGbi6huAaDx6taFFgwQ0ipz5VDpJ1r0ia1rFGXR3GZrEEb0jiNeBpikMbkwALoTIRKCoo-29nU9Dq6NwO3cPUZc";
 
 let foregroundMessageListenerRegistered = false;
+let userNotificationsEnabled = null;
+let notificationsPreferenceLoaded = false;
 
 
 async function enableEnclaveNotifications(requestPermission = true) {
@@ -288,6 +290,8 @@ async function enableEnclaveNotifications(requestPermission = true) {
         // Il listener viene registrato una sola volta per evitare notifiche duplicate.
         if (!foregroundMessageListenerRegistered) {
             onMessage(messaging, async (payload) => {
+                // L'impostazione dell'account prevale sul permesso del browser.
+                if (userNotificationsEnabled === false) return;
                 try {
                     const title =
                         payload.notification?.title ||
@@ -328,9 +332,14 @@ async function enableEnclaveNotifications(requestPermission = true) {
         await updateDoc(
             doc(db, "users", currentUser.uid),
             {
-                fcmTokens: arrayUnion(token)
+                fcmTokens: arrayUnion(token),
+                notificationsEnabled: true,
+                updatedAt: serverTimestamp()
             }
         );
+        userNotificationsEnabled = true;
+        notificationsPreferenceLoaded = true;
+        updateNotificationsSwitchUI();
 
         console.log("TOKEN FCM SALVATO CORRETTAMENTE");
         console.log("UID:", currentUser.uid);
@@ -369,16 +378,22 @@ const NOTIFICATIONS_PROMPT_KEY =
 
 
 function maybeShowNotificationsPrompt() {
-    if (!auth.currentUser?.emailVerified) return;
+    if (!auth.currentUser?.emailVerified || !notificationsPreferenceLoaded) return;
+
+    // La scelta salvata nel profilo vale su tutti i dispositivi.
+    if (userNotificationsEnabled === false) return;
+
+    if (typeof Notification === "undefined") {
+        localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
+        return;
+    }
 
     if (Notification.permission === "granted") {
         localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
-
-        // Il permesso esiste già: registra automaticamente il token.
+        // Se l'utente non ha disattivato le notifiche, registra il token sul dispositivo.
         enableEnclaveNotifications(false).catch(error => {
             console.error("Registrazione automatica FCM fallita:", error);
         });
-
         return;
     }
 
@@ -387,19 +402,40 @@ function maybeShowNotificationsPrompt() {
         return;
     }
 
+    // Il popup iniziale viene mostrato solo finché l'utente non ha già scelto.
     if (localStorage.getItem(NOTIFICATIONS_PROMPT_KEY)) return;
-
     notificationsOverlay?.classList.remove("hidden");
 }
-
 
 function closeNotificationsPrompt() {
     localStorage.setItem(NOTIFICATIONS_PROMPT_KEY, "done");
     notificationsOverlay?.classList.add("hidden");
 }
 
-skipNotificationsButton?.addEventListener("click", () => {
+async function disableEnclaveNotifications() {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Devi accedere per modificare le notifiche.");
+
+    userNotificationsEnabled = false;
+    notificationsPreferenceLoaded = true;
+    updateNotificationsSwitchUI();
+
+    // Svuotare i token impedisce al sistema di inviare push a questo account.
+    // La preferenza viene salvata sul profilo, quindi il popup non riappare agli accessi successivi.
+    await updateDoc(doc(db, "users", user.uid), {
+        notificationsEnabled: false,
+        fcmTokens: [],
+        updatedAt: serverTimestamp()
+    });
+}
+
+skipNotificationsButton?.addEventListener("click", async () => {
     closeNotificationsPrompt();
+    try {
+        await disableEnclaveNotifications();
+    } catch (error) {
+        console.error("Impossibile salvare la scelta notifiche:", error);
+    }
 });
 
 activateNotificationsButton?.addEventListener("click", async () => {
@@ -407,34 +443,23 @@ activateNotificationsButton?.addEventListener("click", async () => {
 
     activateNotificationsButton.disabled = true;
     skipNotificationsButton.disabled = true;
-
-    notificationsPopupMessage.textContent =
-        "Stiamo attivando le notifiche...";
+    notificationsPopupMessage.textContent = "Stiamo attivando le notifiche...";
 
     try {
         const enabled = await enableEnclaveNotifications();
-
-                    if (!enabled) {
-                        notificationsPopupMessage.textContent =
-                            "Attivazione non riuscita. Riprova più tardi.";
-                    
-                        return;
-                    }
-
-        if (Notification.permission === "granted") {
+        if (!enabled) {
             notificationsPopupMessage.textContent =
-                "Permesso ottenuto su questo dispositivo.";
-        } else {
-            notificationsPopupMessage.textContent =
-                "Permesso non concesso. Potrai modificarlo dalle impostazioni del dispositivo.";
+                "Attivazione non riuscita. Riprova dalle impostazioni di Enclave o del dispositivo.";
+            return;
         }
 
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+            notificationsPopupMessage.textContent = "Permesso ottenuto su questo dispositivo.";
+        }
         closeNotificationsPrompt();
     } catch (error) {
         console.error("Errore notifiche:", error);
-
-        notificationsPopupMessage.textContent =
-            "Non siamo riusciti ad attivarle. Riprova più tardi.";
+        notificationsPopupMessage.textContent = "Non siamo riusciti ad attivarle. Riprova più tardi.";
     } finally {
         activateNotificationsButton.disabled = false;
         skipNotificationsButton.disabled = false;
@@ -482,8 +507,6 @@ function showHome() {
 
     homeScreen.classList.remove("hidden");
 
-    maybeShowNotificationsPrompt();
-
 }
 
 
@@ -518,6 +541,14 @@ async function loadUserProfile(user) {
     const userData =
         userDocument.data();
 
+    userNotificationsEnabled = userData.notificationsEnabled === true
+        ? true
+        : userData.notificationsEnabled === false
+            ? false
+            : null;
+    notificationsPreferenceLoaded = true;
+    updateNotificationsSwitchUI();
+
     currentUserChatTheme = ENCLAVE_CHAT_THEMES.some(theme => theme.color.toLowerCase() === String(userData.chatBubbleTheme || "#111111").toLowerCase())
         ? ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(userData.chatBubbleTheme || "#111111").toLowerCase()).color
         : "#111111";
@@ -547,6 +578,8 @@ async function loadUserProfile(user) {
 
     profileInitial.textContent =
         nickname.charAt(0).toUpperCase();
+
+    maybeShowNotificationsPrompt();
 
 }
 
@@ -735,6 +768,16 @@ function applyConversationTheme() {
     }
 }
 
+function updateNotificationsSwitchUI() {
+    const switchButton = document.querySelector("#enclaveSettingsOverlay .notification-switch");
+    if (!switchButton) return;
+    const permissionGranted = typeof Notification !== "undefined" && Notification.permission === "granted";
+    const isEnabled = userNotificationsEnabled !== false && permissionGranted;
+    switchButton.setAttribute("aria-checked", String(isEnabled));
+    switchButton.classList.toggle("is-on", isEnabled);
+    switchButton.title = isEnabled ? "Disattiva notifiche" : "Attiva notifiche";
+}
+
 function createEnclaveSettingsPanel() {
     let overlay = document.getElementById("enclaveSettingsOverlay");
     if (overlay) return overlay;
@@ -827,7 +870,24 @@ function createEnclaveSettingsPanel() {
     status.textContent = "La scelta vale per tutte le chat private e i gruppi.";
 
     themeSection.append(themeHeading, grid, status);
-    content.append(nicknameButton, themeButton, themeSection);
+
+    const notificationsOption = document.createElement("div");
+    notificationsOption.className = "settings-option notifications-settings-option";
+    notificationsOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">🔔</span><span class="settings-option-text"><span class="settings-option-title">Notifiche</span><span class="settings-option-description">Attiva o disattiva le notifiche di Enclave</span></span>';
+    const notificationsSwitch = document.createElement("button");
+    notificationsSwitch.type = "button";
+    notificationsSwitch.className = "notification-switch";
+    notificationsSwitch.setAttribute("role", "switch");
+    notificationsSwitch.setAttribute("aria-label", "Attiva o disattiva le notifiche");
+    notificationsSwitch.setAttribute("aria-checked", "false");
+    notificationsSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
+    notificationsOption.appendChild(notificationsSwitch);
+
+    const notificationsStatus = document.createElement("p");
+    notificationsStatus.className = "settings-notifications-status";
+    notificationsStatus.setAttribute("role", "status");
+    notificationsStatus.textContent = "";
+    content.append(nicknameButton, themeButton, themeSection, notificationsOption, notificationsStatus);
     panel.append(header, content);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
@@ -864,13 +924,89 @@ function createEnclaveSettingsPanel() {
         }
     });
 
+    notificationsSwitch.addEventListener("click", async () => {
+        notificationsSwitch.disabled = true;
+        notificationsStatus.textContent = "Salvataggio…";
+        try {
+            const isEnabled = notificationsSwitch.getAttribute("aria-checked") === "true";
+            if (isEnabled) {
+                await disableEnclaveNotifications();
+                notificationsStatus.textContent = "Notifiche disattivate per il tuo account.";
+            } else {
+                const enabled = await enableEnclaveNotifications(true);
+                if (enabled) {
+                    userNotificationsEnabled = true;
+                    notificationsPreferenceLoaded = true;
+                    notificationsStatus.textContent = "Notifiche attivate.";
+                } else {
+                    notificationsStatus.textContent = (typeof Notification !== "undefined" && Notification.permission === "denied")
+                        ? "Permesso bloccato dal dispositivo. Attivalo nelle impostazioni del browser o del telefono."
+                        : "Non è stato possibile attivare le notifiche. Riprova.";
+                }
+            }
+        } catch (error) {
+            console.error("Errore aggiornamento preferenza notifiche:", error);
+            notificationsStatus.textContent = "Impossibile salvare la preferenza. Controlla la connessione.";
+        } finally {
+            notificationsSwitch.disabled = false;
+            updateNotificationsSwitchUI();
+        }
+    });
+
     return overlay;
 }
+
+let mobileChatHistoryStateActive = false;
+
+function markChatViewOpen() {
+    homeMain.classList.add("chat-open");
+    if (window.innerWidth <= 700) {
+        homeScreen.classList.add("mobile-chat-open");
+        if (!mobileChatHistoryStateActive) {
+            history.pushState({ enclaveChatView: true }, "", window.location.href);
+            mobileChatHistoryStateActive = true;
+        }
+    }
+}
+
+function returnToChatList() {
+    closeMessageMenus();
+    clearReply();
+    chatEmptyState.classList.remove("hidden");
+    activeChat.classList.add("hidden");
+    homeMain.classList.remove("chat-open");
+    homeScreen.classList.remove("mobile-chat-open");
+    messagesLoadVersion++;
+
+    if (unsubscribeMessages) {
+        unsubscribeMessages();
+        unsubscribeMessages = null;
+    }
+
+    chatMessages.replaceChildren();
+    currentChatUserUid = null;
+    currentChatId = null;
+    currentChatDocumentExists = false;
+
+    if (window.innerWidth <= 700) {
+        chatSidebar.style.display = "flex";
+        chatArea.style.display = "none";
+    }
+}
+
+window.addEventListener("popstate", () => {
+    if (!mobileChatHistoryStateActive) return;
+    mobileChatHistoryStateActive = false;
+    if (homeMain.classList.contains("chat-open")) {
+        returnToChatList();
+    }
+});
 
 const settingsButton = document.getElementById("settingsButton");
 if (settingsButton) {
     settingsButton.addEventListener("click", () => {
         const overlay = createEnclaveSettingsPanel();
+        updateNotificationsSwitchUI();
         const themeSection = overlay.querySelector(".settings-theme-section");
         const themeButton = overlay.querySelector(".settings-option[aria-expanded]");
         const chevron = overlay.querySelector(".settings-theme-chevron");
@@ -1153,6 +1289,9 @@ document
             currentChatUserUid = null;
 
             currentChatId = null;
+            mobileChatHistoryStateActive = false;
+            homeScreen.classList.remove("mobile-chat-open");
+            homeMain.classList.remove("chat-open");
             currentUserChatTheme = "#111111";
             document.documentElement.style.removeProperty("--enclave-own-bubble");
             document.documentElement.style.removeProperty("--enclave-other-bubble");
@@ -5591,9 +5730,7 @@ chatSearch.addEventListener(
                     );
 
 
-                    homeMain.classList.add(
-                        "chat-open"
-                    );
+                    markChatViewOpen();
 
 
                     if (
@@ -5634,66 +5771,17 @@ chatSearch.addEventListener(
 // TORNA ALLA LISTA CHAT
 // =========================
 
-chatBackButton.addEventListener(
-    "click",
-    () => {
-
-        closeMessageMenus();
-
-        clearReply();
-
-
-        chatEmptyState.classList.remove(
-            "hidden"
-        );
-
-
-        activeChat.classList.add(
-            "hidden"
-        );
-
-
-        homeMain.classList.remove(
-            "chat-open"
-        );
-
-
-        // Invalida anche eventuali getDoc ancora in corso.
-        messagesLoadVersion++;
-
-        if (unsubscribeMessages) {
-
-            unsubscribeMessages();
-
-            unsubscribeMessages = null;
-
-        }
-
-        chatMessages.replaceChildren();
-
-        currentChatUserUid = null;
-
-        currentChatId = null;
-        currentChatDocumentExists = false;
-
-
-        if (window.innerWidth <= 700) {
-
-            chatSidebar.style.display =
-                "flex";
-
-
-            chatArea.style.display =
-                "none";
-
-        }
-
+chatBackButton.addEventListener("click", () => {
+    if (mobileChatHistoryStateActive) {
+        // Lascia che il normale evento popstate esegua la chiusura della chat.
+        history.back();
+        return;
     }
-);
+    returnToChatList();
+});
 
 
-
- // =========================
+// =========================
 // INVIO MESSAGGI
 // =========================
 
@@ -6617,9 +6705,7 @@ function loadConversations() {
                                         );
                                     
                                     
-                                        homeMain.classList.add(
-                                            "chat-open"
-                                        );
+                                        markChatViewOpen();
                                     
                                     
                                         if (
@@ -6682,9 +6768,7 @@ function loadConversations() {
                                 );
 
 
-                                homeMain.classList.add(
-                                    "chat-open"
-                                );
+                                markChatViewOpen();
 
 
                                 if (
