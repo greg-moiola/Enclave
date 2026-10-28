@@ -4,7 +4,11 @@ import {
 } from "./auth.js";
 
 import {
-    sendEmailVerification
+    sendEmailVerification,
+    browserLocalPersistence,
+    browserSessionPersistence,
+    setPersistence,
+    signOut
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -778,6 +782,21 @@ function updateNotificationsSwitchUI() {
     switchButton.title = isEnabled ? "Disattiva notifiche" : "Attiva notifiche";
 }
 
+const REMEMBER_CONNECTED_KEY = "enclaveRememberConnected";
+
+function isRememberConnectedEnabled() {
+    return localStorage.getItem(REMEMBER_CONNECTED_KEY) === "true";
+}
+
+function updateRememberConnectedSwitchUI() {
+    const switchButton = document.querySelector("#enclaveSettingsOverlay .remember-connected-switch");
+    if (!switchButton) return;
+    const isEnabled = isRememberConnectedEnabled();
+    switchButton.setAttribute("aria-checked", String(isEnabled));
+    switchButton.classList.toggle("is-on", isEnabled);
+    switchButton.title = isEnabled ? "Disattiva Rimani connesso" : "Attiva Rimani connesso";
+}
+
 function createEnclaveSettingsPanel() {
     let overlay = document.getElementById("enclaveSettingsOverlay");
     if (overlay) return overlay;
@@ -812,6 +831,7 @@ function createEnclaveSettingsPanel() {
     const themeButton = document.createElement("button");
     themeButton.type = "button";
     themeButton.className = "settings-option";
+    themeButton.dataset.themeOption = "true";
     themeButton.setAttribute("aria-expanded", "false");
     themeButton.innerHTML = '<span class="settings-option-icon">◉</span><span class="settings-option-text"><span class="settings-option-title">Colore delle bolle</span><span class="settings-option-description">Scegli il colore delle bolle in tutte le chat e i gruppi</span></span><span class="settings-theme-chevron" aria-hidden="true">›</span>';
 
@@ -887,7 +907,35 @@ function createEnclaveSettingsPanel() {
     notificationsStatus.className = "settings-notifications-status";
     notificationsStatus.setAttribute("role", "status");
     notificationsStatus.textContent = "";
-    content.append(nicknameButton, themeButton, themeSection, notificationsOption, notificationsStatus);
+
+    const advancedButton = document.createElement("button");
+    advancedButton.type = "button";
+    advancedButton.className = "settings-option advanced-settings-button";
+    advancedButton.setAttribute("aria-expanded", "false");
+    advancedButton.innerHTML = '<span class="settings-option-icon" aria-hidden="true">⚙</span><span class="settings-option-text"><span class="settings-option-title">Impostazioni avanzate</span><span class="settings-option-description">Notifiche e accesso al tuo account</span></span><span class="settings-advanced-chevron" aria-hidden="true">›</span>';
+
+    const advancedSection = document.createElement("div");
+    advancedSection.className = "settings-advanced-section hidden";
+
+    const rememberOption = document.createElement("div");
+    rememberOption.className = "settings-option notifications-settings-option";
+    rememberOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">🔐</span><span class="settings-option-text"><span class="settings-option-title">Rimani connesso</span><span class="settings-option-description">Mantieni l’accesso su questo dispositivo quando riapri Enclave</span></span>';
+    const rememberSwitch = document.createElement("button");
+    rememberSwitch.type = "button";
+    rememberSwitch.className = "notification-switch remember-connected-switch";
+    rememberSwitch.setAttribute("role", "switch");
+    rememberSwitch.setAttribute("aria-label", "Rimani connesso su questo dispositivo");
+    rememberSwitch.setAttribute("aria-checked", "false");
+    rememberSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
+    rememberOption.appendChild(rememberSwitch);
+
+    const rememberStatus = document.createElement("p");
+    rememberStatus.className = "settings-notifications-status remember-connected-status";
+    rememberStatus.setAttribute("role", "status");
+    rememberStatus.textContent = "La preferenza vale solo per questo dispositivo. Se premi Esci, dovrai accedere di nuovo.";
+
+    advancedSection.append(notificationsOption, notificationsStatus, rememberOption, rememberStatus);
+    content.append(nicknameButton, themeButton, themeSection, advancedButton, advancedSection);
     panel.append(header, content);
     overlay.appendChild(panel);
     document.body.appendChild(overlay);
@@ -921,6 +969,41 @@ function createEnclaveSettingsPanel() {
         if (willOpen) {
             applyConversationTheme();
             status.textContent = "La scelta vale per tutte le chat private e i gruppi.";
+        }
+    });
+
+    advancedButton.addEventListener("click", () => {
+        const willOpen = advancedSection.classList.contains("hidden");
+        advancedSection.classList.toggle("hidden", !willOpen);
+        advancedButton.setAttribute("aria-expanded", String(willOpen));
+        const chevron = advancedButton.querySelector(".settings-advanced-chevron");
+        if (chevron) chevron.textContent = willOpen ? "⌄" : "›";
+        if (willOpen) {
+            updateNotificationsSwitchUI();
+            updateRememberConnectedSwitchUI();
+        }
+    });
+
+    rememberSwitch.addEventListener("click", async () => {
+        rememberSwitch.disabled = true;
+        rememberStatus.textContent = "Salvataggio…";
+        try {
+            const currentlyEnabled = isRememberConnectedEnabled();
+            const nextEnabled = !currentlyEnabled;
+            await setPersistence(
+                auth,
+                nextEnabled ? browserLocalPersistence : browserSessionPersistence
+            );
+            localStorage.setItem(REMEMBER_CONNECTED_KEY, String(nextEnabled));
+            rememberStatus.textContent = nextEnabled
+                ? "Rimani connesso attivato su questo dispositivo. Se premi Esci, la sessione verrà comunque chiusa."
+                : "Rimani connesso disattivato. La sessione non verrà mantenuta dopo la chiusura del browser o dell’app.";
+        } catch (error) {
+            console.error("Errore aggiornamento preferenza Rimani connesso:", error);
+            rememberStatus.textContent = "Impossibile salvare la preferenza. Controlla la connessione e riprova.";
+        } finally {
+            rememberSwitch.disabled = false;
+            updateRememberConnectedSwitchUI();
         }
     });
 
@@ -1014,8 +1097,17 @@ if (settingsButton) {
         themeButton?.setAttribute("aria-expanded", "false");
         if (chevron) chevron.textContent = "›";
         overlay.querySelector(".settings-theme-status").textContent = "La scelta vale per tutte le chat private e i gruppi.";
+        const advancedSection = overlay.querySelector(".settings-advanced-section");
+        const advancedButton = overlay.querySelector(".advanced-settings-button");
+        // Riporta la sezione avanzata chiusa ogni volta che si apre il pannello.
+        advancedSection?.classList.add("hidden");
+        advancedButton?.setAttribute("aria-expanded", "false");
+        const advancedChevron = overlay.querySelector(".settings-advanced-chevron");
+        if (advancedChevron) advancedChevron.textContent = "›";
         overlay.classList.remove("hidden");
         applyConversationTheme();
+        updateNotificationsSwitchUI();
+        updateRememberConnectedSwitchUI();
     });
 }
 
@@ -1266,7 +1358,7 @@ document
     .getElementById("logoutButton")
     .addEventListener(
         "click",
-        () => {
+        async () => {
 
             if (unsubscribeMessages) {
 
@@ -1302,6 +1394,12 @@ document
 
             clearReply();
 
+            try {
+                // Esci chiude sempre la sessione Firebase, anche se "Rimani connesso" è attivo.
+                await signOut(auth);
+            } catch (error) {
+                console.error("Errore durante la disconnessione:", error);
+            }
 
             showRegister();
 
@@ -6883,4 +6981,32 @@ function loadConversations() {
     // La pagina parte sempre con il layout normale, senza conservare una
     // vecchia altezza ridotta da una precedente apertura della tastiera.
     clearKeyboardViewport();
+})();
+
+
+// =========================
+// RIPRISTINO SESSIONE ALL'AVVIO
+// =========================
+(async () => {
+    try {
+        const rememberEnabled = localStorage.getItem(REMEMBER_CONNECTED_KEY) === "true";
+        await setPersistence(
+            auth,
+            rememberEnabled ? browserLocalPersistence : browserSessionPersistence
+        );
+
+        // Attende che Firebase abbia ripristinato l'eventuale sessione salvata.
+        await auth.authStateReady();
+        const savedUser = auth.currentUser;
+        if (savedUser && savedUser.emailVerified) {
+            showHome();
+            await loadUserProfile(savedUser);
+            loadConversations();
+        } else if (savedUser && !savedUser.emailVerified) {
+            showVerification(savedUser);
+            checkEmailVerification(savedUser);
+        }
+    } catch (error) {
+        console.error("Impossibile ripristinare la sessione Enclave:", error);
+    }
 })();
