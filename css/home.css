@@ -2791,6 +2791,17 @@
     padding: 4px 2px 2px;
 }
 
+.settings-advanced-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 4px 2px 2px;
+}
+
+.settings-advanced-section.hidden {
+    display: none;
+}
+
 .settings-theme-heading {
     margin: 8px 0 12px;
     color: #555;
