@@ -490,7 +490,6 @@ function hideStartupScreen() {
 
 function showRegister() {
 
-    document.body.classList.remove("enclave-home-active");
     hideStartupScreen();
     registerScreen.classList.remove("hidden");
 
@@ -503,7 +502,6 @@ function showRegister() {
 
 function showLogin() {
 
-    document.body.classList.remove("enclave-home-active");
     hideStartupScreen();
     registerScreen.classList.add("hidden");
 
@@ -516,7 +514,6 @@ function showLogin() {
 
 function showHome() {
 
-    document.body.classList.add("enclave-home-active");
     hideStartupScreen();
     registerScreen.classList.add("hidden");
 
@@ -1151,7 +1148,6 @@ if (settingsButton) {
 
 function showVerification(user) {
 
-    document.body.classList.remove("enclave-home-active");
     hideStartupScreen();
     verificationEmail.textContent =
         user.email;
