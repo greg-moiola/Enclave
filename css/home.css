@@ -3022,3 +3022,109 @@
 .message-own .message-bubble.message-read {
     box-shadow: inset 0 0 0 2px #22c55e;
 }
+
+/* ========================= */
+/* SFONDI GLOBALI DELLE CHAT */
+/* ========================= */
+
+.settings-wallpaper-section {
+    padding: 4px 2px 2px;
+}
+
+.settings-wallpaper-section.hidden {
+    display: none !important;
+}
+
+.settings-wallpaper-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.settings-wallpaper-choice {
+    position: relative;
+    min-width: 0;
+    padding: 0 0 9px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    border: 2px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+    color: #222;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
+}
+
+.settings-wallpaper-choice:hover {
+    transform: translateY(-1px);
+    border-color: #aaa;
+}
+
+.settings-wallpaper-choice.is-selected,
+.settings-wallpaper-choice[aria-pressed="true"] {
+    border-color: #2878d0;
+    box-shadow: 0 0 0 1px #2878d0;
+}
+
+.settings-wallpaper-preview,
+.settings-wallpaper-default-preview {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: #f0f0f0;
+}
+
+.settings-wallpaper-default-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f7f7f7, #dedede);
+    color: #555;
+    font-size: 28px;
+    font-weight: 600;
+}
+
+.settings-wallpaper-label {
+    display: block;
+    padding: 0 9px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.settings-wallpaper-check {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #2878d0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 800;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, .22);
+    opacity: 0;
+}
+
+.settings-wallpaper-choice[aria-pressed="true"] .settings-wallpaper-check {
+    opacity: 1;
+}
+
+.settings-wallpaper-empty,
+.settings-wallpaper-status {
+    margin: 10px 0 0;
+    color: #777;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.settings-wallpaper-empty.hidden {
+    display: none !important;
+}
