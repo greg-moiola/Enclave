@@ -169,6 +169,16 @@ let currentChatDocumentExists = false;
 let currentUserChatTheme = "#111111";
 let themeSaveQueue = Promise.resolve();
 
+// Sfondo globale personale: viene salvato nel profilo Firestore, non in Storage.
+let currentUserChatWallpaper = "";
+let wallpaperSaveQueue = Promise.resolve();
+
+// Per aggiungere uno sfondo: inserisci qui un elemento e carica il file indicato in /images.
+// Usa un ID stabile (es. wallpaper2) e un nome file con estensione (es. wallpaper2.jpg).
+const ENCLAVE_WALLPAPERS = [
+    { id: "wallpaper1", name: "Wallpaper1", src: "./images/wallpaper1.jpg" }
+];
+
 const ENCLAVE_CHAT_THEMES = [
     { name: "Rosso", color: "#D9303E" },
     { name: "Arancione", color: "#E87522" },
@@ -567,7 +577,12 @@ async function loadUserProfile(user) {
         ? ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(userData.chatBubbleTheme || "#111111").toLowerCase()).color
         : "#111111";
 
+    currentUserChatWallpaper = ENCLAVE_WALLPAPERS.some(wallpaper => wallpaper.id === userData.chatWallpaper)
+        ? userData.chatWallpaper
+        : "";
+
     applyConversationTheme();
+    applyConversationWallpaper();
 
     const nickname =
         userData.nickname;
@@ -782,6 +797,37 @@ function applyConversationTheme() {
     }
 }
 
+function applyConversationWallpaper() {
+    if (!chatMessages) return;
+
+    const wallpaper = ENCLAVE_WALLPAPERS.find(item => item.id === currentUserChatWallpaper);
+    if (!wallpaper) {
+        chatMessages.style.backgroundImage = "";
+        chatMessages.style.backgroundSize = "";
+        chatMessages.style.backgroundPosition = "";
+        chatMessages.style.backgroundRepeat = "";
+        chatMessages.style.backgroundAttachment = "";
+    } else {
+        const imageUrl = new URL(wallpaper.src, document.baseURI).href;
+        chatMessages.style.backgroundImage = `linear-gradient(rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.12)), url("${imageUrl}")`;
+        chatMessages.style.backgroundSize = "cover";
+        chatMessages.style.backgroundPosition = "center";
+        chatMessages.style.backgroundRepeat = "no-repeat";
+        chatMessages.style.backgroundAttachment = "scroll";
+    }
+
+    const overlay = document.getElementById("enclaveSettingsOverlay");
+    if (overlay && !overlay.classList.contains("hidden")) {
+        overlay.querySelectorAll(".settings-wallpaper-choice").forEach(button => {
+            const selected = button.dataset.wallpaperId === currentUserChatWallpaper;
+            button.setAttribute("aria-pressed", String(selected));
+            button.classList.toggle("is-selected", selected);
+            const check = button.querySelector(".settings-wallpaper-check");
+            if (check) check.textContent = selected ? "✓" : "";
+        });
+    }
+}
+
 function updateNotificationsSwitchUI() {
     const switchButton = document.querySelector("#enclaveSettingsOverlay .notification-switch");
     if (!switchButton) return;
@@ -805,6 +851,38 @@ function updateRememberConnectedSwitchUI() {
     switchButton.setAttribute("aria-checked", String(isEnabled));
     switchButton.classList.toggle("is-on", isEnabled);
     switchButton.title = isEnabled ? "Disattiva Rimani connesso" : "Attiva Rimani connesso";
+}
+
+function saveChatWallpaper(wallpaperId) {
+    const user = auth.currentUser;
+    const status = document.querySelector("#enclaveSettingsOverlay .settings-wallpaper-status");
+    if (!user) {
+        if (status) status.textContent = "Accedi per salvare lo sfondo.";
+        return;
+    }
+
+    if (wallpaperId && !ENCLAVE_WALLPAPERS.some(wallpaper => wallpaper.id === wallpaperId)) return;
+
+    currentUserChatWallpaper = wallpaperId;
+    applyConversationWallpaper();
+    if (status) status.textContent = "Sfondo applicato. Salvataggio…";
+
+    wallpaperSaveQueue = wallpaperSaveQueue.then(async () => {
+        await updateDoc(doc(db, "users", user.uid), {
+            chatWallpaper: wallpaperId,
+            updatedAt: serverTimestamp()
+        });
+        if (auth.currentUser?.uid === user.uid && currentUserChatWallpaper === wallpaperId && status) {
+            status.textContent = wallpaperId
+                ? "Sfondo salvato sul tuo account e sincronizzato sui tuoi dispositivi."
+                : "Sfondo predefinito ripristinato e salvato sul tuo account.";
+        }
+    }).catch(error => {
+        console.error("Errore salvataggio sfondo chat:", error);
+        if (auth.currentUser?.uid === user.uid && currentUserChatWallpaper === wallpaperId && status) {
+            status.textContent = "Lo sfondo è applicato qui, ma non è stato possibile salvarlo. Controlla la connessione.";
+        }
+    });
 }
 
 function createEnclaveSettingsPanel() {
@@ -901,6 +979,69 @@ function createEnclaveSettingsPanel() {
 
     themeSection.append(themeHeading, grid, status);
 
+    const wallpaperButton = document.createElement("button");
+    wallpaperButton.type = "button";
+    wallpaperButton.className = "settings-option";
+    wallpaperButton.dataset.wallpaperOption = "true";
+    wallpaperButton.setAttribute("aria-expanded", "false");
+    wallpaperButton.innerHTML = '<span class="settings-option-icon" aria-hidden="true">▧</span><span class="settings-option-text"><span class="settings-option-title">Sfondo</span><span class="settings-option-description">Scegli lo sfondo per tutte le conversazioni</span></span><span class="settings-wallpaper-chevron" aria-hidden="true">›</span>';
+
+    const wallpaperSection = document.createElement("div");
+    wallpaperSection.className = "settings-wallpaper-section hidden";
+    const wallpaperHeading = document.createElement("p");
+    wallpaperHeading.className = "settings-theme-heading";
+    wallpaperHeading.textContent = "Scegli uno sfondo";
+    const wallpaperGrid = document.createElement("div");
+    wallpaperGrid.className = "settings-wallpaper-grid";
+    const wallpaperEmpty = document.createElement("p");
+    wallpaperEmpty.className = "settings-wallpaper-empty";
+    wallpaperEmpty.textContent = "Non ci sono ancora immagini disponibili. Aggiungi i file nella cartella images e registrali nell'elenco ENCLAVE_WALLPAPERS in js/script.js.";
+
+    const defaultWallpaperButton = document.createElement("button");
+    defaultWallpaperButton.type = "button";
+    defaultWallpaperButton.className = "settings-wallpaper-choice settings-wallpaper-default";
+    defaultWallpaperButton.dataset.wallpaperId = "";
+    defaultWallpaperButton.setAttribute("aria-pressed", "false");
+    defaultWallpaperButton.innerHTML = '<span class="settings-wallpaper-default-preview" aria-hidden="true">Aa</span><span class="settings-wallpaper-label">Predefinito</span><span class="settings-wallpaper-check" aria-hidden="true"></span>';
+    defaultWallpaperButton.addEventListener("click", () => saveChatWallpaper(""));
+    wallpaperGrid.appendChild(defaultWallpaperButton);
+
+    ENCLAVE_WALLPAPERS.forEach(wallpaper => {
+        const choice = document.createElement("button");
+        choice.type = "button";
+        choice.className = "settings-wallpaper-choice";
+        choice.dataset.wallpaperId = wallpaper.id;
+        choice.setAttribute("aria-label", wallpaper.name);
+        choice.setAttribute("aria-pressed", "false");
+
+        const image = document.createElement("img");
+        image.className = "settings-wallpaper-preview";
+        image.src = new URL(wallpaper.src, document.baseURI).href;
+        image.alt = "Anteprima " + wallpaper.name;
+        image.loading = "lazy";
+        image.addEventListener("error", () => {
+            choice.remove();
+            wallpaperEmpty.classList.toggle("hidden", wallpaperGrid.querySelectorAll(".settings-wallpaper-choice:not(.settings-wallpaper-default)").length > 0);
+        }, { once: true });
+
+        const label = document.createElement("span");
+        label.className = "settings-wallpaper-label";
+        label.textContent = wallpaper.name;
+        const check = document.createElement("span");
+        check.className = "settings-wallpaper-check";
+        check.setAttribute("aria-hidden", "true");
+        choice.append(image, label, check);
+        choice.addEventListener("click", () => saveChatWallpaper(wallpaper.id));
+        wallpaperGrid.appendChild(choice);
+    });
+
+    const wallpaperStatus = document.createElement("p");
+    wallpaperStatus.className = "settings-wallpaper-status";
+    wallpaperStatus.setAttribute("role", "status");
+    wallpaperStatus.textContent = "La scelta vale per tutte le chat private e i gruppi.";
+    wallpaperSection.append(wallpaperHeading, wallpaperGrid, wallpaperEmpty, wallpaperStatus);
+    wallpaperEmpty.classList.toggle("hidden", ENCLAVE_WALLPAPERS.length > 0);
+
     const tabs = document.createElement("div");
     tabs.className = "settings-tabs";
     tabs.setAttribute("role", "tablist");
@@ -964,7 +1105,7 @@ function createEnclaveSettingsPanel() {
     rememberStatus.setAttribute("role", "status");
     rememberStatus.textContent = "La preferenza vale solo per questo dispositivo. Se premi Esci, dovrai accedere di nuovo.";
 
-    normalSection.append(nicknameButton, themeButton, themeSection);
+    normalSection.append(nicknameButton, themeButton, themeSection, wallpaperButton, wallpaperSection);
     advancedSection.append(notificationsOption, notificationsStatus, rememberOption, rememberStatus);
     content.append(tabs, normalSection, advancedSection);
     panel.append(header, content);
@@ -1001,6 +1142,15 @@ function createEnclaveSettingsPanel() {
             applyConversationTheme();
             status.textContent = "La scelta vale per tutte le chat private e i gruppi.";
         }
+    });
+
+    wallpaperButton.addEventListener("click", () => {
+        const willOpen = wallpaperSection.classList.contains("hidden");
+        wallpaperSection.classList.toggle("hidden", !willOpen);
+        wallpaperButton.setAttribute("aria-expanded", String(willOpen));
+        const chevron = wallpaperButton.querySelector(".settings-wallpaper-chevron");
+        if (chevron) chevron.textContent = willOpen ? "⌄" : "›";
+        if (willOpen) applyConversationWallpaper();
     });
 
     const activateSettingsTab = tabName => {
@@ -1126,16 +1276,25 @@ if (settingsButton) {
         const overlay = createEnclaveSettingsPanel();
         updateNotificationsSwitchUI();
         const themeSection = overlay.querySelector(".settings-theme-section");
-        const themeButton = overlay.querySelector(".settings-option[aria-expanded]");
+        const themeButton = overlay.querySelector("[data-theme-option]");
         const chevron = overlay.querySelector(".settings-theme-chevron");
         themeSection.classList.add("hidden");
         themeButton?.setAttribute("aria-expanded", "false");
         if (chevron) chevron.textContent = "›";
         overlay.querySelector(".settings-theme-status").textContent = "La scelta vale per tutte le chat private e i gruppi.";
+        const wallpaperSection = overlay.querySelector(".settings-wallpaper-section");
+        const wallpaperButton = overlay.querySelector("[data-wallpaper-option]");
+        wallpaperSection?.classList.add("hidden");
+        wallpaperButton?.setAttribute("aria-expanded", "false");
+        const wallpaperChevron = overlay.querySelector(".settings-wallpaper-chevron");
+        if (wallpaperChevron) wallpaperChevron.textContent = "›";
+        const wallpaperStatus = overlay.querySelector(".settings-wallpaper-status");
+        if (wallpaperStatus) wallpaperStatus.textContent = "La scelta vale per tutte le chat private e i gruppi.";
         // Ogni apertura parte dalla scheda Generali; Avanzate è una scheda separata in alto.
         overlay.querySelector('[data-settings-tab="normal"]')?.click();
         overlay.classList.remove("hidden");
         applyConversationTheme();
+        applyConversationWallpaper();
         updateNotificationsSwitchUI();
         updateRememberConnectedSwitchUI();
     });
@@ -1416,6 +1575,14 @@ document
             homeScreen.classList.remove("mobile-chat-open");
             homeMain.classList.remove("chat-open");
             currentUserChatTheme = "#111111";
+            currentUserChatWallpaper = "";
+            if (chatMessages) {
+                chatMessages.style.backgroundImage = "";
+                chatMessages.style.backgroundSize = "";
+                chatMessages.style.backgroundPosition = "";
+                chatMessages.style.backgroundRepeat = "";
+                chatMessages.style.backgroundAttachment = "";
+            }
             document.documentElement.style.removeProperty("--enclave-own-bubble");
             document.documentElement.style.removeProperty("--enclave-other-bubble");
             if (chatMessages) {
