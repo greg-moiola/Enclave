@@ -176,7 +176,12 @@ let wallpaperSaveQueue = Promise.resolve();
 // Per aggiungere uno sfondo: inserisci qui un elemento e carica il file indicato in /images.
 // Usa un ID stabile (es. wallpaper2) e un nome file con estensione (es. wallpaper2.jpg).
 const ENCLAVE_WALLPAPERS = [
-    { id: "wallpaper1", name: "Wallpaper1", src: "./images/wallpaper1.jpg" }
+    { id: "wallpaper1", name: "Wallpaper1", src: "./images/wallpaper1.jpg" },
+    { id: "wallpaper2", name: "Wallpaper2", src: "./images/wallpaper2.jpg" },
+    { id: "wallpaper3", name: "Wallpaper3", src: "./images/wallpaper3.jpg" },
+    { id: "wallpaper4", name: "Wallpaper4", src: "./images/wallpaper4.jpg" },
+    { id: "wallpaper5", name: "Wallpaper5", src: "./images/wallpaper5.jpg" },
+    { id: "wallpaper6", name: "Wallpaper6", src: "./images/wallpaper6.jpg" },
 ];
 
 const ENCLAVE_CHAT_THEMES = [
