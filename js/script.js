@@ -1209,7 +1209,6 @@ function createEnclaveSettingsPanel() {
         if (event.pointerType === "mouse" && event.button !== 0) return;
         settingsSwipeStartX = event.clientX;
         settingsSwipePointerId = event.pointerId;
-        try { tabs.setPointerCapture(event.pointerId); } catch (_) {}
     });
     tabs.addEventListener("pointerup", event => {
         if (settingsSwipeStartX === null || event.pointerId !== settingsSwipePointerId) return;
