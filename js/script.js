@@ -183,10 +183,11 @@ const ENCLAVE_WALLPAPERS = [
     { id: "wallpaper5", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper5.jpg" },
     { id: "wallpaper6", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper6.jpg" },
     { id: "wallpaper7", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper7.jpg" },
-    { id: "wallpaper8", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono1.jpg" },
-    { id: "wallpaper9", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono2.jpg" },
-    { id: "wallpaper10", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono3.jpg" },
-    { id: "wallpaper11", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono4.jpg" },
+    { id: "wallpaper8", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono5.jpg" },
+    { id: "wallpaper9", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono3.jpg" },
+    { id: "wallpaper10", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono4.jpg" },
+    { id: "wallpaper11", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono2.jpg" },
+    { id: "wallpaper12", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono1.jpg" },
 
 ];
 
