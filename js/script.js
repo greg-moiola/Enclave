@@ -188,6 +188,8 @@ const ENCLAVE_WALLPAPERS = [
     { id: "wallpaper10", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono3.jpg" },
     { id: "wallpaper11", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono4.jpg" },
 
+];
+
 const ENCLAVE_CHAT_THEMES = [
     { name: "Rosso", color: "#D9303E" },
     { name: "Arancione", color: "#E87522" },
