@@ -176,12 +176,7 @@ let wallpaperSaveQueue = Promise.resolve();
 // Per aggiungere uno sfondo: inserisci qui un elemento e carica il file indicato in /images.
 // Usa un ID stabile (es. wallpaper2) e un nome file con estensione (es. wallpaper2.jpg).
 const ENCLAVE_WALLPAPERS = [
-    { id: "wallpaper1", name: "Ethereal Horizon", src: "./images/wallpaper1.jpg" },
-    { id: "wallpaper2", name: "noir atmosphere", src: "./images/wallpaper2.jpg" },
-    { id: "wallpaper3", name: "Crimson Galaxy", src: "./images/wallpaper3.jpg" },
-    { id: "wallpaper4", name: "Neon Cosmos", src: "./images/wallpaper4.jpg" },
-    { id: "wallpaper5", name: "Midnight Electric", src: "./images/wallpaper5.jpg" },
-    { id: "wallpaper6", name: "Emerald Nebula", src: "./images/wallpaper6.jpg" },
+    { id: "wallpaper1", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper1.jpg" }
 ];
 
 const ENCLAVE_CHAT_THEMES = [
@@ -993,15 +988,16 @@ function createEnclaveSettingsPanel() {
 
     const wallpaperSection = document.createElement("div");
     wallpaperSection.className = "settings-wallpaper-section hidden";
-    const wallpaperHeading = document.createElement("p");
-    wallpaperHeading.className = "settings-theme-heading";
-    wallpaperHeading.textContent = "Scegli uno sfondo";
-    const wallpaperGrid = document.createElement("div");
-    wallpaperGrid.className = "settings-wallpaper-grid";
-    const wallpaperEmpty = document.createElement("p");
-    wallpaperEmpty.className = "settings-wallpaper-empty";
-    wallpaperEmpty.textContent = "Non ci sono ancora immagini disponibili. Aggiungi i file nella cartella images e registrali nell'elenco ENCLAVE_WALLPAPERS in js/script.js.";
 
+    const wallpaperEmpty = document.createElement("p");
+    wallpaperEmpty.className = "settings-wallpaper-empty hidden";
+    wallpaperEmpty.textContent = "Non ci sono ancora immagini disponibili in questa categoria. Aggiungi i file nella cartella images e registrali nell'elenco ENCLAVE_WALLPAPERS in js/script.js.";
+
+    const defaultHeading = document.createElement("p");
+    defaultHeading.className = "settings-theme-heading settings-wallpaper-category-title";
+    defaultHeading.textContent = "Predefinito";
+    const defaultGrid = document.createElement("div");
+    defaultGrid.className = "settings-wallpaper-grid";
     const defaultWallpaperButton = document.createElement("button");
     defaultWallpaperButton.type = "button";
     defaultWallpaperButton.className = "settings-wallpaper-choice settings-wallpaper-default";
@@ -1009,43 +1005,63 @@ function createEnclaveSettingsPanel() {
     defaultWallpaperButton.setAttribute("aria-pressed", "false");
     defaultWallpaperButton.innerHTML = '<span class="settings-wallpaper-default-preview" aria-hidden="true">Aa</span><span class="settings-wallpaper-label">Predefinito</span><span class="settings-wallpaper-check" aria-hidden="true"></span>';
     defaultWallpaperButton.addEventListener("click", () => saveChatWallpaper(""));
-    wallpaperGrid.appendChild(defaultWallpaperButton);
+    defaultGrid.appendChild(defaultWallpaperButton);
+    wallpaperSection.append(defaultHeading, defaultGrid);
 
-    ENCLAVE_WALLPAPERS.forEach(wallpaper => {
-        const choice = document.createElement("button");
-        choice.type = "button";
-        choice.className = "settings-wallpaper-choice";
-        choice.dataset.wallpaperId = wallpaper.id;
-        choice.setAttribute("aria-label", wallpaper.name);
-        choice.setAttribute("aria-pressed", "false");
+    const wallpaperCategories = [
+        { id: "monocolore", title: "Monocolore" },
+        { id: "realistici", title: "Realistici" }
+    ];
 
-        const image = document.createElement("img");
-        image.className = "settings-wallpaper-preview";
-        image.src = new URL(wallpaper.src, document.baseURI).href;
-        image.alt = "Anteprima " + wallpaper.name;
-        image.loading = "lazy";
-        image.addEventListener("error", () => {
-            choice.remove();
-            wallpaperEmpty.classList.toggle("hidden", wallpaperGrid.querySelectorAll(".settings-wallpaper-choice:not(.settings-wallpaper-default)").length > 0);
-        }, { once: true });
+    wallpaperCategories.forEach(category => {
+        const heading = document.createElement("p");
+        heading.className = "settings-theme-heading settings-wallpaper-category-title";
+        heading.textContent = category.title;
+        const grid = document.createElement("div");
+        grid.className = "settings-wallpaper-grid";
+        grid.dataset.wallpaperCategory = category.id;
+        const categoryWallpapers = ENCLAVE_WALLPAPERS.filter(item => (item.category || "realistici") === category.id);
 
-        const label = document.createElement("span");
-        label.className = "settings-wallpaper-label";
-        label.textContent = wallpaper.name;
-        const check = document.createElement("span");
-        check.className = "settings-wallpaper-check";
-        check.setAttribute("aria-hidden", "true");
-        choice.append(image, label, check);
-        choice.addEventListener("click", () => saveChatWallpaper(wallpaper.id));
-        wallpaperGrid.appendChild(choice);
+        categoryWallpapers.forEach(wallpaper => {
+            const choice = document.createElement("button");
+            choice.type = "button";
+            choice.className = "settings-wallpaper-choice";
+            choice.dataset.wallpaperId = wallpaper.id;
+            choice.setAttribute("aria-label", wallpaper.name);
+            choice.setAttribute("aria-pressed", "false");
+            const image = document.createElement("img");
+            image.className = "settings-wallpaper-preview";
+            image.src = new URL(wallpaper.src, document.baseURI).href;
+            image.alt = "Anteprima " + wallpaper.name;
+            image.loading = "lazy";
+            image.addEventListener("error", () => {
+                choice.remove();
+                const hasChoices = grid.querySelectorAll(".settings-wallpaper-choice").length > 0;
+                heading.classList.toggle("hidden", !hasChoices);
+                grid.classList.toggle("hidden", !hasChoices);
+            }, { once: true });
+            const label = document.createElement("span");
+            label.className = "settings-wallpaper-label";
+            label.textContent = wallpaper.name;
+            const check = document.createElement("span");
+            check.className = "settings-wallpaper-check";
+            check.setAttribute("aria-hidden", "true");
+            choice.append(image, label, check);
+            choice.addEventListener("click", () => saveChatWallpaper(wallpaper.id));
+            grid.appendChild(choice);
+        });
+        const hasChoices = categoryWallpapers.length > 0;
+        heading.classList.toggle("hidden", !hasChoices);
+        grid.classList.toggle("hidden", !hasChoices);
+        wallpaperSection.append(heading, grid);
     });
 
+    wallpaperSection.appendChild(wallpaperEmpty);
     const wallpaperStatus = document.createElement("p");
     wallpaperStatus.className = "settings-wallpaper-status";
     wallpaperStatus.setAttribute("role", "status");
     wallpaperStatus.textContent = "La scelta vale per tutte le chat private e i gruppi.";
-    wallpaperSection.append(wallpaperHeading, wallpaperGrid, wallpaperEmpty, wallpaperStatus);
-    wallpaperEmpty.classList.toggle("hidden", ENCLAVE_WALLPAPERS.length > 0);
+    wallpaperSection.appendChild(wallpaperStatus);
 
     const tabs = document.createElement("div");
     tabs.className = "settings-tabs";
@@ -1173,6 +1189,22 @@ function createEnclaveSettingsPanel() {
     };
     normalTab.addEventListener("click", () => activateSettingsTab("normal"));
     advancedTab.addEventListener("click", () => activateSettingsTab("advanced"));
+
+    // Scorrimento orizzontale sulla barra delle schede: funziona con touch, trackpad e mouse.
+    let settingsSwipeStartX = null;
+    tabs.addEventListener("pointerdown", event => {
+        settingsSwipeStartX = event.clientX;
+    });
+    tabs.addEventListener("pointerup", event => {
+        if (settingsSwipeStartX === null) return;
+        const deltaX = event.clientX - settingsSwipeStartX;
+        settingsSwipeStartX = null;
+        if (Math.abs(deltaX) < 35) return;
+        const advancedIsActive = advancedTab.classList.contains("is-active");
+        if (deltaX < 0 && !advancedIsActive) activateSettingsTab("advanced");
+        if (deltaX > 0 && advancedIsActive) activateSettingsTab("normal");
+    });
+    tabs.addEventListener("pointercancel", () => { settingsSwipeStartX = null; });
 
     rememberSwitch.addEventListener("click", async () => {
         rememberSwitch.disabled = true;
