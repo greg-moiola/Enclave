@@ -3204,3 +3204,133 @@
 @supports not (backdrop-filter: blur(1px)) {
     #enclaveSettingsOverlay .settings-tabs { background: rgba(240,240,240,.98); }
 }
+
+
+
+/* =========================================================
+   ENCLAVE MOTION & FLUIDITY
+   Animazioni brevi basate su opacity/transform: restano
+   fluide anche sui dispositivi meno potenti.
+   ========================================================= */
+
+@keyframes enclave-overlay-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+@keyframes enclave-panel-in {
+    from { opacity: 0; transform: translate3d(0, 9px, 0) scale(.985); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes enclave-message-in {
+    from { opacity: 0; transform: translate3d(0, 5px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes enclave-tab-content-in {
+    from { opacity: 0; transform: translate3d(0, 5px, 0); }
+    to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* Entrata discreta dei pannelli */
+#enclaveSettingsOverlay:not(.hidden),
+.group-creation-overlay:not(.hidden) {
+    animation: enclave-overlay-in .16s ease-out both;
+}
+#enclaveSettingsOverlay .enclave-settings-panel,
+.group-creation-overlay:not(.hidden) .group-creation-panel {
+    animation: enclave-panel-in .22s cubic-bezier(.2,.75,.25,1) both;
+    transform-origin: center;
+}
+
+/* Le righe appena ricevute compaiono senza spostamenti bruschi. */
+.chat-messages > .message:nth-last-child(-n+12) {
+    animation: enclave-message-in .16s ease-out both;
+}
+
+/* Cambio scheda: transizione leggera, senza animare proprietà costose. */
+#enclaveSettingsOverlay .settings-tab-panel:not(.hidden) {
+    animation: enclave-tab-content-in .18s ease-out both;
+}
+#enclaveSettingsOverlay .settings-tab-button {
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        color .18s ease,
+        background-color .18s ease,
+        border-color .18s ease,
+        box-shadow .18s ease,
+        transform .18s cubic-bezier(.2,.75,.25,1);
+}
+#enclaveSettingsOverlay .settings-tab-button:active {
+    transform: scale(.975);
+}
+
+/* Feedback tattile/visivo coerente sui controlli, senza animare layout. */
+.conversation-item,
+.settings-option,
+.settings-theme-swatch,
+.settings-wallpaper-choice,
+.group-create-button,
+.group-cancel-button,
+button {
+    -webkit-tap-highlight-color: transparent;
+}
+.conversation-item {
+    transition:
+        background-color .16s ease,
+        transform .18s cubic-bezier(.2,.75,.25,1);
+}
+.conversation-item:active {
+    transform: scale(.992);
+}
+.settings-option,
+.settings-wallpaper-choice,
+.settings-theme-swatch,
+.group-create-button,
+.group-cancel-button {
+    transition:
+        background-color .16s ease,
+        border-color .16s ease,
+        box-shadow .18s ease,
+        transform .18s cubic-bezier(.2,.75,.25,1);
+}
+.settings-option:active,
+.settings-wallpaper-choice:active,
+.settings-theme-swatch:active,
+.group-create-button:active,
+.group-cancel-button:active {
+    transform: scale(.985);
+}
+
+/* Scorrimento più naturale e contenimento degli aggiornamenti grafici. */
+.chat-messages,
+.conversation-list,
+.settings-panel,
+#enclaveSettingsOverlay .settings-content,
+.group-creation-panel {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+.chat-messages {
+    scrollbar-gutter: stable;
+}
+.conversation-list {
+    scrollbar-gutter: stable;
+}
+
+/* Focus visibile per tastiera, senza alterare il normale aspetto touch. */
+button:focus-visible,
+.settings-tab-button:focus-visible {
+    outline: 2px solid rgba(65, 125, 255, .7);
+    outline-offset: 2px;
+}
+
+/* Rispetta le preferenze di accessibilità del sistema. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}
