@@ -176,18 +176,18 @@ let wallpaperSaveQueue = Promise.resolve();
 // Per aggiungere uno sfondo: inserisci qui un elemento e carica il file indicato in /images.
 // Usa un ID stabile (es. wallpaper2) e un nome file con estensione (es. wallpaper2.jpg).
 const ENCLAVE_WALLPAPERS = [
-    { id: "wallpaper1", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper1.jpg" },
-    { id: "wallpaper2", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper2.jpg" },
-    { id: "wallpaper3", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper3.jpg" },
-    { id: "wallpaper4", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper4.jpg" },
-    { id: "wallpaper5", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper5.jpg" },
-    { id: "wallpaper6", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper6.jpg" },
-    { id: "wallpaper7", name: "Wallpaper 1", category: "realistici", src: "./images/wallpaper7.jpg" },
-    { id: "wallpaper8", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono5.jpg" },
-    { id: "wallpaper9", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono3.jpg" },
-    { id: "wallpaper10", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono4.jpg" },
-    { id: "wallpaper11", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono2.jpg" },
-    { id: "wallpaper12", name: "Wallpaper 1", category: "monocolore", src: "./images/wallpaper_mono1.jpg" },
+    { id: "wallpaper1", name: "Ethereal Horizon", category: "realistici", src: "./images/wallpaper1.jpg" },
+    { id: "wallpaper2", name: "Noir Atmosphere", category: "realistici", src: "./images/wallpaper2.jpg" },
+    { id: "wallpaper3", name: "Crimson Galaxy", category: "realistici", src: "./images/wallpaper3.jpg" },
+    { id: "wallpaper4", name: "Cyber Pastel", category: "realistici", src: "./images/wallpaper4.jpg" },
+    { id: "wallpaper5", name: "Midnight Electric", category: "realistici", src: "./images/wallpaper5.jpg" },
+    { id: "wallpaper6", name: "Emerald Nebula", category: "realistici", src: "./images/wallpaper6.jpg" },
+    { id: "wallpaper7", name: "Amber Cosmos", category: "realistici", src: "./images/wallpaper7.jpg" },
+    { id: "wallpaper8", name: "Nero", category: "monocolore", src: "./images/wallpaper_mono5.jpg" },
+    { id: "wallpaper9", name: "Bordeaux", category: "monocolore", src: "./images/wallpaper_mono3.jpg" },
+    { id: "wallpaper10", name: "Marrone", category: "monocolore", src: "./images/wallpaper_mono4.jpg" },
+    { id: "wallpaper11", name: "Azzurro", category: "monocolore", src: "./images/wallpaper_mono2.jpg" },
+    { id: "wallpaper12", name: "Rosa", category: "monocolore", src: "./images/wallpaper_mono1.jpg" },
 
 ];
 
