@@ -1204,19 +1204,29 @@ function createEnclaveSettingsPanel() {
 
     // Scorrimento orizzontale sulla barra delle schede: funziona con touch, trackpad e mouse.
     let settingsSwipeStartX = null;
+    let settingsSwipePointerId = null;
     tabs.addEventListener("pointerdown", event => {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
         settingsSwipeStartX = event.clientX;
+        settingsSwipePointerId = event.pointerId;
+        try { tabs.setPointerCapture(event.pointerId); } catch (_) {}
     });
     tabs.addEventListener("pointerup", event => {
-        if (settingsSwipeStartX === null) return;
+        if (settingsSwipeStartX === null || event.pointerId !== settingsSwipePointerId) return;
         const deltaX = event.clientX - settingsSwipeStartX;
         settingsSwipeStartX = null;
+        settingsSwipePointerId = null;
         if (Math.abs(deltaX) < 35) return;
         const advancedIsActive = advancedTab.classList.contains("is-active");
         if (deltaX < 0 && !advancedIsActive) activateSettingsTab("advanced");
         if (deltaX > 0 && advancedIsActive) activateSettingsTab("normal");
     });
-    tabs.addEventListener("pointercancel", () => { settingsSwipeStartX = null; });
+    const resetSettingsSwipe = () => {
+        settingsSwipeStartX = null;
+        settingsSwipePointerId = null;
+    };
+    tabs.addEventListener("pointercancel", resetSettingsSwipe);
+    tabs.addEventListener("lostpointercapture", resetSettingsSwipe);
 
     rememberSwitch.addEventListener("click", async () => {
         rememberSwitch.disabled = true;
@@ -2088,21 +2098,21 @@ function createGroupCreationPanel() {
     // CLICK FUORI
     // =========================
 
-    groupCreationOverlay.addEventListener(
-        "click",
-        (event) => {
-
-            if (
-                event.target ===
-                groupCreationOverlay
-            ) {
-
-                closeGroupCreation();
-
-            }
-
+    // Chiudi toccando/cliccando il backdrop, senza dover entrare nel pannello.
+    const closeFromBackdrop = event => {
+        if (event.target === groupCreationOverlay) {
+            closeGroupCreation();
         }
-    );
+    };
+    groupCreationOverlay.addEventListener("pointerdown", closeFromBackdrop);
+    groupCreationOverlay.addEventListener("click", closeFromBackdrop);
+
+    groupCreationOverlay.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+            event.preventDefault();
+            closeGroupCreation();
+        }
+    });
 
 
     // =========================
@@ -6169,12 +6179,10 @@ async function sendMessage() {
         // evita una lettura di rete aggiuntiva prima di inviare ogni messaggio.
         const updateChatMetadataAfterMessage =
             currentChatId === chatId && currentChatDocumentExists;
-        console.log("DEBUG 1 - Chat ID:", chatId);
 
         if (currentChatUserUid && !updateChatMetadataAfterMessage) {
 
             const existingChat = await getDoc(chatReference);
-            console.log("DEBUG 2 - Chat esistente:", existingChat.exists());
 
             if (existingChat.exists()) {
 
@@ -6223,7 +6231,6 @@ async function sendMessage() {
             });
 
         }
-        console.log("DEBUG 3 - Chat pronta per l'invio");
 
         const messageData = {
             text: message,
@@ -6258,8 +6265,6 @@ async function sendMessage() {
             });
         }
 
-        console.log("DEBUG 4 - Messaggio salvato:", messageReference.id);
-        console.log("MESSAGGIO SALVATO:", messageReference.id);
 
         messageInput.value = "";
         clearReply();
