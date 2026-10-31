@@ -3334,3 +3334,39 @@ button:focus-visible,
         transition-duration: .01ms !important;
     }
 }
+
+/* =========================================================
+   MOBILE MOTION — feedback più leggibile su schermi touch
+   Mantiene le animazioni brevi e limitate a opacity/transform.
+   ========================================================= */
+@media (max-width: 700px) and (prefers-reduced-motion: no-preference) {
+    @keyframes enclave-mobile-message-in {
+        from { opacity: 0; transform: translate3d(0, 12px, 0) scale(.985); }
+        to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    @keyframes enclave-mobile-panel-in {
+        from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.985); }
+        to   { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+    }
+    .chat-messages > .message:nth-last-child(-n+12) {
+        animation: enclave-mobile-message-in .24s cubic-bezier(.2,.75,.25,1) both;
+    }
+    #enclaveSettingsOverlay .enclave-settings-panel,
+    .group-creation-overlay:not(.hidden) .group-creation-panel {
+        animation: enclave-mobile-panel-in .28s cubic-bezier(.2,.75,.25,1) both;
+    }
+    #enclaveSettingsOverlay .settings-tab-button {
+        transition: color .22s ease, background-color .22s ease,
+                    border-color .22s ease, box-shadow .22s ease,
+                    transform .16s cubic-bezier(.2,.75,.25,1);
+    }
+    .conversation-item:active { transform: scale(.985); }
+    .settings-option:active,
+    .settings-wallpaper-choice:active,
+    .settings-theme-swatch:active,
+    .group-create-button:active,
+    .group-cancel-button:active,
+    #enclaveSettingsOverlay .settings-tab-button:active {
+        transform: scale(.96);
+    }
+}
