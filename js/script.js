@@ -4090,6 +4090,35 @@ newGroupButton.addEventListener(
     }
 );
 
+// Chiude il menu rapido "Nuovo gruppo" quando si interagisce
+// con qualsiasi altra parte dell'app, inclusa l'apertura di una chat.
+document.addEventListener("pointerdown", event => {
+    const menu = document.getElementById("newGroupMenu");
+
+    if (!menu || menu.classList.contains("hidden")) {
+        return;
+    }
+
+    if (
+        menu.contains(event.target) ||
+        newGroupButton.contains(event.target)
+    ) {
+        return;
+    }
+
+    menu.classList.add("hidden");
+});
+
+document.addEventListener("keydown", event => {
+    if (event.key !== "Escape") {
+        return;
+    }
+
+    document
+        .getElementById("newGroupMenu")
+        ?.classList.add("hidden");
+});
+
 
 // =========================
 // CREA GRUPPO FIRESTORE
