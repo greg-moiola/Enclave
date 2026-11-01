@@ -1093,7 +1093,7 @@ function createEnclaveSettingsPanel() {
     advancedTab.dataset.settingsTab = "advanced";
     advancedTab.setAttribute("role", "tab");
     advancedTab.setAttribute("aria-selected", "false");
-    advancedTab.textContent = "Impostazioni avanzate";
+    advancedTab.textContent = "Avanzate";
     tabs.append(normalTab, advancedTab);
 
     const normalSection = document.createElement("div");
