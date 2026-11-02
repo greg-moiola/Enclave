@@ -4071,14 +4071,19 @@ newGroupButton.addEventListener(
             );
 
 
-            menu.appendChild(
-                groupButton
-            );
+            menu.appendChild(groupButton);
 
+            const aiButton = document.createElement("button");
+            aiButton.type = "button";
+            aiButton.className = "enclave-ai-menu-option";
+            aiButton.innerHTML = '<span aria-hidden="true">✦</span><span>EnclaveAI</span><span class="enclave-ai-menu-tag">AI</span>';
+            aiButton.addEventListener("click", () => {
+                menu.classList.add("hidden");
+                openEnclaveAI();
+            });
+            menu.appendChild(aiButton);
 
-            chatSidebar.appendChild(
-                menu
-            );
+            chatSidebar.appendChild(menu);
 
         }
 
@@ -7302,3 +7307,142 @@ function loadConversations() {
         showRegister();
     }
 })();
+
+
+// =========================
+// ENCLAVEAI — SESSIONE TEMPORANEA
+// =========================
+const ENCLAVE_AI_WORKER_URL = "https://enclave-notification.gpvyw7wnf8.workers.dev/";
+let enclaveAIHistory = [];
+let enclaveAIOverlay = null;
+let enclaveAIWaiting = false;
+
+function buildEnclaveAIPanel() {
+    if (enclaveAIOverlay) return enclaveAIOverlay;
+
+    const overlay = document.createElement("div");
+    overlay.className = "enclave-ai-overlay";
+    overlay.id = "enclaveAIOverlay";
+    overlay.innerHTML = `
+      <section class="enclave-ai-panel" role="dialog" aria-modal="true" aria-labelledby="enclaveAITitle">
+        <header class="enclave-ai-header">
+          <div class="enclave-ai-brand">
+            <div class="enclave-ai-symbol"><span>✦</span></div>
+            <div><div class="enclave-ai-eyebrow">ENCLAVE INTELLIGENCE</div><h2 id="enclaveAITitle">EnclaveAI</h2><div class="enclave-ai-status"><i></i> Pronto ad aiutarti</div></div>
+          </div>
+          <div class="enclave-ai-header-actions">
+            <button type="button" class="enclave-ai-new" id="enclaveAINew" title="Nuova conversazione" aria-label="Nuova conversazione">↻</button>
+            <button type="button" class="enclave-ai-close" id="enclaveAIClose" aria-label="Chiudi">×</button>
+          </div>
+        </header>
+        <div class="enclave-ai-content" id="enclaveAIContent">
+          <div class="enclave-ai-welcome" id="enclaveAIWelcome">
+            <div class="enclave-ai-orb"><span>✦</span><b></b></div>
+            <div class="enclave-ai-welcome-kicker">IL TUO SPAZIO INTELLIGENTE</div>
+            <h3>Da dove<br>iniziamo?</h3>
+            <p>Domande, idee, dubbi. Scrivi quello che vuoi: troviamo una risposta insieme.</p>
+            <div class="enclave-ai-suggestions">
+              <button type="button" data-ai-prompt="Spiegami un concetto difficile in modo semplice."><span>✧</span> Spiegami qualcosa</button>
+              <button type="button" data-ai-prompt="Aiutami a trovare un'idea originale."><span>⌁</span> Troviamo un'idea</button>
+              <button type="button" data-ai-prompt="Aiutami a risolvere un problema passo dopo passo."><span>⟡</span> Risolviamo un problema</button>
+            </div>
+          </div>
+          <div class="enclave-ai-messages" id="enclaveAIMessages" aria-live="polite"></div>
+        </div>
+        <form class="enclave-ai-composer" id="enclaveAIForm">
+          <textarea id="enclaveAIInput" rows="1" maxlength="4000" placeholder="Chiedi qualcosa a EnclaveAI…" aria-label="Messaggio per EnclaveAI"></textarea>
+          <button type="submit" id="enclaveAISend" aria-label="Invia messaggio"><span>↑</span></button>
+          <div class="enclave-ai-disclaimer">Le conversazioni non vengono salvate da Enclave. Evita di inserire dati sensibili.</div>
+        </form>
+      </section>`;
+    document.body.appendChild(overlay);
+    enclaveAIOverlay = overlay;
+
+    overlay.querySelector("#enclaveAIClose").addEventListener("click", closeEnclaveAI);
+    overlay.querySelector("#enclaveAINew").addEventListener("click", resetEnclaveAI);
+    overlay.addEventListener("pointerdown", e => { if (e.target === overlay) closeEnclaveAI(); });
+    overlay.querySelectorAll("[data-ai-prompt]").forEach(button => button.addEventListener("click", () => {
+        const input = overlay.querySelector("#enclaveAIInput"); input.value = button.dataset.aiPrompt; input.focus();
+        overlay.querySelector("#enclaveAIForm").requestSubmit();
+    }));
+    overlay.querySelector("#enclaveAIForm").addEventListener("submit", sendEnclaveAIMessage);
+    overlay.querySelector("#enclaveAIInput").addEventListener("keydown", e => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); overlay.querySelector("#enclaveAIForm").requestSubmit(); }
+    });
+    return overlay;
+}
+
+function openEnclaveAI() {
+    if (!auth.currentUser || !auth.currentUser.emailVerified) return;
+    const overlay = buildEnclaveAIPanel();
+    requestAnimationFrame(() => overlay.classList.add("is-open"));
+    document.body.classList.add("enclave-ai-active");
+    setTimeout(() => overlay.querySelector("#enclaveAIInput")?.focus(), 220);
+}
+
+function closeEnclaveAI() {
+    if (!enclaveAIOverlay) return;
+    enclaveAIOverlay.classList.remove("is-open");
+    document.body.classList.remove("enclave-ai-active");
+    enclaveAIHistory = []; // nessuna memoria oltre la sessione aperta
+    setTimeout(() => { if (enclaveAIOverlay) enclaveAIOverlay.remove(); enclaveAIOverlay = null; }, 260);
+}
+
+function resetEnclaveAI() {
+    enclaveAIHistory = [];
+    const messages = enclaveAIOverlay.querySelector("#enclaveAIMessages");
+    messages.replaceChildren();
+    enclaveAIOverlay.querySelector("#enclaveAIWelcome").hidden = false;
+    enclaveAIOverlay.querySelector("#enclaveAIInput").focus();
+}
+
+function addEnclaveAIMessage(role, text) {
+    const messages = enclaveAIOverlay.querySelector("#enclaveAIMessages");
+    const item = document.createElement("div");
+    item.className = `enclave-ai-message ${role === "user" ? "is-user" : "is-assistant"}`;
+    const label = document.createElement("div"); label.className = "enclave-ai-message-label";
+    label.textContent = role === "user" ? "TU" : "ENCLAVEAI";
+    const bubble = document.createElement("div"); bubble.className = "enclave-ai-bubble"; bubble.textContent = text;
+    item.append(label, bubble); messages.appendChild(item);
+    enclaveAIOverlay.querySelector("#enclaveAIContent").scrollTo({ top: enclaveAIOverlay.querySelector("#enclaveAIContent").scrollHeight, behavior: "smooth" });
+    return item;
+}
+
+async function sendEnclaveAIMessage(event) {
+    event.preventDefault();
+    if (enclaveAIWaiting) return;
+    const input = enclaveAIOverlay.querySelector("#enclaveAIInput");
+    const text = input.value.trim();
+    if (!text) return;
+    const user = auth.currentUser;
+    if (!user || !user.emailVerified) { addEnclaveAIMessage("assistant", "Devi accedere a Enclave per utilizzare EnclaveAI."); return; }
+    input.value = "";
+    enclaveAIOverlay.querySelector("#enclaveAIWelcome").hidden = true;
+    addEnclaveAIMessage("user", text);
+    enclaveAIHistory.push({ role: "user", content: text });
+    // Il contesto è limitato alla sessione aperta e agli ultimi 12 messaggi.
+    enclaveAIHistory = enclaveAIHistory.slice(-12);
+    enclaveAIWaiting = true;
+    const send = enclaveAIOverlay.querySelector("#enclaveAISend"); send.disabled = true;
+    const typing = addEnclaveAIMessage("assistant", "Sto elaborando…"); typing.classList.add("is-typing");
+    try {
+        const idToken = await user.getIdToken();
+        const response = await fetch(ENCLAVE_AI_WORKER_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+            body: JSON.stringify({ action: "enclaveai", messages: enclaveAIHistory })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Servizio temporaneamente non disponibile (${response.status}).`);
+        const answer = typeof result.answer === "string" ? result.answer : "Non sono riuscito a generare una risposta.";
+        typing.remove(); addEnclaveAIMessage("assistant", answer);
+        enclaveAIHistory.push({ role: "assistant", content: answer });
+        enclaveAIHistory = enclaveAIHistory.slice(-12);
+    } catch (error) {
+        typing.remove(); addEnclaveAIMessage("assistant", error.message || "Non riesco a raggiungere EnclaveAI in questo momento.");
+        enclaveAIHistory.pop();
+    } finally {
+        enclaveAIWaiting = false;
+        if (enclaveAIOverlay?.isConnected) { send.disabled = false; input.focus(); }
+    }
+}
