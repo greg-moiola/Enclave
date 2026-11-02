@@ -3873,3 +3873,140 @@ button:focus-visible,
         transition: none !important;
     }
 }
+
+
+
+/* =========================
+   RESTYLING MODERNO — ENCLAVE
+   Solo presentazione: nessuna logica modificata
+   ========================= */
+
+:root {
+    --enclave-radius-sm: 12px;
+    --enclave-radius-md: 18px;
+    --enclave-radius-lg: 24px;
+    --enclave-shadow-soft: 0 8px 28px rgba(15, 23, 42, 0.08);
+    --enclave-border-soft: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+/* Superfici principali */
+.enclave-app {
+    background: #f4f6fa;
+}
+
+.home-header {
+    background: rgba(255, 255, 255, 0.94);
+    border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.025);
+}
+
+.home-logo {
+    letter-spacing: 0.16em;
+}
+
+/* Pulsanti: forma e feedback coerenti */
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
+button {
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease,
+        transform 180ms ease,
+        opacity 180ms ease;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 3px solid rgba(99, 102, 241, 0.24);
+    outline-offset: 2px;
+}
+
+/* Menu rapidi e menu contestuali più morbidi */
+.message-attach-menu,
+.new-group-menu,
+.quick-menu,
+.context-menu,
+.profile-settings-menu {
+    border-radius: 20px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.message-attach-menu button,
+.new-group-menu button,
+.quick-menu button,
+.context-menu button,
+.profile-settings-menu button {
+    border-radius: 12px;
+}
+
+.message-attach-menu button:hover,
+.new-group-menu button:hover,
+.quick-menu button:hover,
+.context-menu button:hover,
+.profile-settings-menu button:hover {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+/* Campi e aree di composizione */
+input,
+textarea,
+select {
+    border-radius: var(--enclave-radius-md);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+    border-color: rgba(99, 102, 241, 0.48);
+}
+
+/* Pannelli e modali */
+.modal,
+.settings-modal,
+.profile-modal,
+.group-modal {
+    border-radius: 24px;
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+}
+
+/* Micro-interazioni */
+@media (hover: hover) {
+    .profile-settings-button:hover,
+    .logout-button:hover {
+        transform: translateY(-1px);
+    }
+}
+
+@media (max-width: 600px) {
+    .home-header {
+        padding-right: 16px;
+        padding-left: 16px;
+    }
+
+    .message-attach-menu,
+    .new-group-menu,
+    .quick-menu,
+    .context-menu,
+    .profile-settings-menu {
+        border-radius: 18px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    button {
+        transition: none;
+    }
+}
