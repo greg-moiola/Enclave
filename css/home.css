@@ -3370,3 +3370,506 @@ button:focus-visible,
         transform: scale(.96);
     }
 }
+
+
+/* =========================
+   ENCLAVEAI — EXPERIENCE
+========================= */
+
+.new-group-menu .enclave-ai-menu-option {
+    color: #171923;
+    font-weight: 650;
+}
+
+.new-group-menu .enclave-ai-menu-option > span:first-child {
+    color: #8b7cff;
+    font-size: 17px;
+}
+
+.enclave-ai-menu-tag {
+    margin-left: auto;
+    padding: 2px 6px;
+    border-radius: 6px;
+    color: #7668d9;
+    background: #efedff;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+}
+
+/* Overlay */
+
+.enclave-ai-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: rgba(5, 7, 15, 0);
+    opacity: 0;
+    pointer-events: none;
+    backdrop-filter: blur(0);
+    transition:
+        opacity 0.28s ease,
+        background 0.28s ease,
+        backdrop-filter 0.28s ease;
+}
+
+.enclave-ai-overlay.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    background: rgba(5, 7, 15, 0.72);
+    backdrop-filter: blur(13px);
+}
+
+/* Pannello principale */
+
+.enclave-ai-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(760px, 100%);
+    height: min(820px, calc(100dvh - 44px));
+    overflow: hidden;
+    color: #f5f5fb;
+    border: 1px solid rgba(255, 255, 255, 0.13);
+    border-radius: 25px;
+    background:
+        radial-gradient(
+            ellipse at 80% -10%,
+            rgba(111, 91, 220, 0.2),
+            transparent 42%
+        ),
+        linear-gradient(145deg, #151622, #0d0e17 72%);
+    box-shadow:
+        0 35px 110px rgba(0, 0, 0, 0.55),
+        inset 0 1px rgba(255, 255, 255, 0.07);
+    transform: translateY(22px) scale(0.975);
+    transition: transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.enclave-ai-overlay.is-open .enclave-ai-panel {
+    transform: translateY(0) scale(1);
+}
+
+/* Header */
+
+.enclave-ai-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 88px;
+    padding: 19px 23px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.enclave-ai-brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.enclave-ai-symbol {
+    display: grid;
+    place-items: center;
+    width: 43px;
+    height: 43px;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #8c7cff, #5548a7);
+    box-shadow: 0 5px 24px rgba(126, 105, 255, 0.35);
+    font-size: 23px;
+    color: white;
+}
+
+.enclave-ai-eyebrow {
+    color: #a99dfb;
+    font-size: 9px;
+    letter-spacing: 0.19em;
+    font-weight: 750;
+}
+
+.enclave-ai-header h2 {
+    margin: 3px 0 2px;
+    font-size: 19px;
+    letter-spacing: -0.04em;
+    font-weight: 720;
+}
+
+.enclave-ai-status {
+    color: #a5a6b8;
+    font-size: 10px;
+}
+
+.enclave-ai-status i {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 5px;
+    border-radius: 50%;
+    background: #65d6a0;
+    box-shadow: 0 0 9px #65d6a0;
+}
+
+.enclave-ai-header-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.enclave-ai-header-actions button {
+    width: 37px;
+    height: 37px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.055);
+    color: #e9e8f6;
+    font-size: 20px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.enclave-ai-header-actions button:hover {
+    background: rgba(255, 255, 255, 0.13);
+    transform: translateY(-2px);
+}
+
+/* Area contenuti */
+
+.enclave-ai-content {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 24px 28px;
+    scroll-behavior: smooth;
+}
+
+/* Schermata iniziale */
+
+.enclave-ai-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100%;
+    padding: 8px 0 24px;
+    text-align: center;
+}
+
+.enclave-ai-welcome[hidden] {
+    display: none;
+}
+
+.enclave-ai-orb {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 86px;
+    height: 86px;
+    margin-bottom: 23px;
+    border-radius: 28px;
+    color: white;
+    font-size: 38px;
+    background: radial-gradient(
+        circle at 35% 25%,
+        #c0b6ff,
+        #7665df 48%,
+        #31285f 100%
+    );
+    box-shadow:
+        0 0 0 9px rgba(136, 117, 255, 0.06),
+        0 0 55px rgba(125, 105, 255, 0.27);
+    animation: enclaveAIOrb 4s ease-in-out infinite;
+}
+
+.enclave-ai-orb b {
+    position: absolute;
+    inset: -9px;
+    border: 1px solid rgba(174, 160, 255, 0.2);
+    border-radius: 32px;
+    animation: enclaveAIOrbit 8s linear infinite;
+}
+
+@keyframes enclaveAIOrb {
+    0%,
+    100% {
+        transform: translateY(0);
+        box-shadow:
+            0 0 0 9px rgba(136, 117, 255, 0.06),
+            0 0 45px rgba(125, 105, 255, 0.2);
+    }
+
+    50% {
+        transform: translateY(-7px);
+        box-shadow:
+            0 0 0 13px rgba(136, 117, 255, 0.04),
+            0 0 65px rgba(125, 105, 255, 0.36);
+    }
+}
+
+@keyframes enclaveAIOrbit {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.enclave-ai-welcome-kicker {
+    color: #a99dfb;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.2em;
+}
+
+.enclave-ai-welcome h3 {
+    margin: 10px 0 9px;
+    font-size: clamp(34px, 6vw, 49px);
+    line-height: 0.98;
+    letter-spacing: -0.065em;
+    font-weight: 750;
+    background: linear-gradient(110deg, #fff 20%, #b8afff 85%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.enclave-ai-welcome p {
+    max-width: 340px;
+    margin: 0;
+    color: #9b9cad;
+    font-size: 13px;
+    line-height: 1.65;
+}
+
+/* Suggerimenti */
+
+.enclave-ai-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    max-width: 490px;
+    margin-top: 25px;
+}
+
+.enclave-ai-suggestions button {
+    padding: 10px 13px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.045);
+    color: #d9d8e8;
+    font-size: 11px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.enclave-ai-suggestions button span {
+    margin-right: 5px;
+    color: #a99dfb;
+}
+
+.enclave-ai-suggestions button:hover {
+    border-color: rgba(169, 157, 251, 0.5);
+    background: rgba(137, 119, 255, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Messaggi */
+
+.enclave-ai-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 650px;
+    margin: 0 auto;
+}
+
+.enclave-ai-message {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    animation: enclaveAIMessageIn 0.28s ease both;
+}
+
+.enclave-ai-message.is-user {
+    align-items: flex-end;
+}
+
+.enclave-ai-message-label {
+    color: #9695a9;
+    font-size: 9px;
+    font-weight: 750;
+    letter-spacing: 0.16em;
+}
+
+.enclave-ai-bubble {
+    max-width: min(88%, 590px);
+    padding: 13px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 5px 17px 17px 17px;
+    background: rgba(255, 255, 255, 0.055);
+    color: #eeedf7;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.is-user .enclave-ai-bubble {
+    border-color: rgba(143, 126, 255, 0.25);
+    border-radius: 17px 5px 17px 17px;
+    background: linear-gradient(
+        135deg,
+        rgba(119, 102, 222, 0.28),
+        rgba(87, 76, 157, 0.22)
+    );
+}
+
+.is-typing .enclave-ai-bubble {
+    color: #aaa4db;
+    animation: enclaveAITyping 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes enclaveAIMessageIn {
+    from {
+        opacity: 0;
+        transform: translateY(9px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes enclaveAITyping {
+    to {
+        opacity: 0.45;
+    }
+}
+
+/* Composer */
+
+.enclave-ai-composer {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 15px 20px 27px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(7, 8, 15, 0.4);
+}
+
+.enclave-ai-composer textarea {
+    flex: 1;
+    min-height: 48px;
+    max-height: 125px;
+    resize: vertical;
+    padding: 14px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 15px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.055);
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+}
+
+.enclave-ai-composer textarea:focus {
+    border-color: rgba(161, 146, 255, 0.65);
+    box-shadow: 0 0 0 3px rgba(137, 119, 255, 0.1);
+}
+
+.enclave-ai-composer textarea::placeholder {
+    color: #77788c;
+}
+
+.enclave-ai-composer button {
+    flex: 0 0 47px;
+    width: 47px;
+    height: 47px;
+    border: 0;
+    border-radius: 15px;
+    background: linear-gradient(145deg, #9484ff, #6253c4);
+    color: white;
+    font-size: 25px;
+    box-shadow: 0 5px 20px rgba(111, 91, 220, 0.3);
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.enclave-ai-composer button:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.12);
+}
+
+.enclave-ai-composer button:disabled {
+    opacity: 0.45;
+    cursor: wait;
+}
+
+.enclave-ai-disclaimer {
+    position: absolute;
+    right: 22px;
+    bottom: 8px;
+    left: 22px;
+    text-align: center;
+    color: #66677a;
+    font-size: 9px;
+}
+
+/* Responsive mobile */
+
+@media (max-width: 600px) {
+    .enclave-ai-overlay {
+        padding: 0;
+        align-items: stretch;
+    }
+
+    .enclave-ai-panel {
+        width: 100%;
+        height: 100dvh;
+        max-height: 100dvh;
+        border-radius: 0;
+        border: 0;
+    }
+
+    .enclave-ai-header {
+        min-height: 78px;
+        padding: 15px 17px;
+    }
+
+    .enclave-ai-content {
+        padding: 18px 16px;
+    }
+
+    .enclave-ai-composer {
+        gap: 8px;
+        padding: 12px 12px 27px;
+    }
+
+    .enclave-ai-suggestions {
+        gap: 7px;
+    }
+
+    .enclave-ai-suggestions button {
+        padding: 9px 10px;
+        font-size: 10px;
+    }
+
+    .enclave-ai-bubble {
+        max-width: 94%;
+        font-size: 13px;
+    }
+}
+
+/* Rispetta la preferenza di movimento ridotto */
+
+@media (prefers-reduced-motion: reduce) {
+    .enclave-ai-overlay,
+    .enclave-ai-panel,
+    .enclave-ai-orb,
+    .enclave-ai-orb b,
+    .enclave-ai-message {
+        animation: none !important;
+        transition: none !important;
+    }
+}
