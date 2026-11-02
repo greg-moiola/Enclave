@@ -112,6 +112,14 @@ const chatUserInfo =
 const chatBackButton =
     document.getElementById("chatBackButton");
 
+const startVoiceCallButton =
+    document.getElementById("startVoiceCallButton");
+
+let activeVoiceCall = null;
+let unsubscribeIncomingCalls = null;
+let unsubscribeCallCandidates = [];
+let voiceCallModal = null;
+
 const homeMain =
     document.querySelector(".home-main");
 
@@ -1282,6 +1290,249 @@ function createEnclaveSettingsPanel() {
     return overlay;
 }
 
+// =====================================================
+// CHIAMATE VOCALI 1:1 — WEBRTC + FIRESTORE SIGNALING
+// =====================================================
+
+function createVoiceCallModal() {
+    if (voiceCallModal) return voiceCallModal;
+
+    const overlay = document.createElement("div");
+    overlay.className = "voice-call-overlay hidden";
+    overlay.id = "voiceCallOverlay";
+    overlay.innerHTML = `
+        <section class="voice-call-panel" role="dialog" aria-modal="true" aria-labelledby="voiceCallTitle">
+            <div class="voice-call-orb"><span>☎</span></div>
+            <p class="voice-call-eyebrow">ENCLAVE · VOICE</p>
+            <h2 id="voiceCallTitle">Chiamata vocale</h2>
+            <p id="voiceCallStatus" class="voice-call-status">Connessione in corso…</p>
+            <div class="voice-call-controls">
+                <button id="voiceCallMuteButton" type="button" class="voice-call-control" aria-label="Disattiva microfono" title="Microfono">🎙</button>
+                <button id="voiceCallEndButton" type="button" class="voice-call-end" aria-label="Termina chiamata" title="Termina chiamata">✕</button>
+            </div>
+            <button id="voiceCallAcceptButton" type="button" class="voice-call-accept hidden">Accetta chiamata</button>
+            <button id="voiceCallDeclineButton" type="button" class="voice-call-decline hidden">Rifiuta</button>
+        </section>`;
+    document.body.appendChild(overlay);
+    voiceCallModal = overlay;
+
+    overlay.querySelector("#voiceCallEndButton").addEventListener("click", () => endVoiceCall("ended"));
+    overlay.querySelector("#voiceCallDeclineButton").addEventListener("click", () => endVoiceCall("declined"));
+    overlay.querySelector("#voiceCallMuteButton").addEventListener("click", toggleVoiceCallMute);
+    overlay.querySelector("#voiceCallAcceptButton").addEventListener("click", acceptVoiceCall);
+    return overlay;
+}
+
+function showVoiceCallModal(status, title = "Chiamata vocale", incoming = false) {
+    const modal = createVoiceCallModal();
+    modal.querySelector("#voiceCallTitle").textContent = title;
+    modal.querySelector("#voiceCallStatus").textContent = status;
+    modal.querySelector("#voiceCallAcceptButton").classList.toggle("hidden", !incoming);
+    modal.querySelector("#voiceCallDeclineButton").classList.toggle("hidden", !incoming);
+    modal.querySelector("#voiceCallEndButton").classList.toggle("hidden", incoming);
+    modal.querySelector("#voiceCallMuteButton").classList.toggle("hidden", incoming);
+    modal.classList.remove("hidden");
+}
+
+function updateVoiceCallStatus(status) {
+    const node = voiceCallModal?.querySelector("#voiceCallStatus");
+    if (node) node.textContent = status;
+}
+
+function stopVoiceCallListeners() {
+    unsubscribeCallCandidates.forEach(unsubscribe => {
+        try { unsubscribe(); } catch (error) { console.warn("Listener ICE:", error); }
+    });
+    unsubscribeCallCandidates = [];
+}
+
+async function attachVoiceCallCandidateListener(callRef, collectionName, peerConnection) {
+    const candidateQuery = collection(db, "chats", currentChatId, "calls", callRef.id, collectionName);
+    const unsubscribe = onSnapshot(candidateQuery, snapshot => {
+        snapshot.docChanges().forEach(change => {
+            if (change.type !== "added") return;
+            const candidate = change.doc.data()?.candidate;
+            if (!candidate) return;
+            const iceCandidate = new RTCIceCandidate(candidate);
+            if (peerConnection.remoteDescription) {
+                peerConnection.addIceCandidate(iceCandidate).catch(error => {
+                    console.warn("ICE candidate non applicato:", error);
+                });
+            } else if (activeVoiceCall) {
+                activeVoiceCall.pendingIceCandidates ||= [];
+                activeVoiceCall.pendingIceCandidates.push(iceCandidate);
+            }
+        });
+    }, error => console.error("Errore listener ICE:", error));
+    unsubscribeCallCandidates.push(unsubscribe);
+}
+
+async function createVoicePeerConnection(callRef, localStream, remoteAudio) {
+    const peer = new RTCPeerConnection({
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    });
+    localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+    peer.ontrack = event => {
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.play().catch(() => {});
+    };
+    peer.onconnectionstatechange = () => {
+        if (!activeVoiceCall) return;
+        if (peer.connectionState === "connected") updateVoiceCallStatus("Chiamata attiva");
+        if (["failed", "disconnected"].includes(peer.connectionState)) updateVoiceCallStatus("Connessione instabile. Verifica la rete.");
+        if (peer.connectionState === "closed") updateVoiceCallStatus("Chiamata terminata");
+    };
+    peer.onicecandidate = event => {
+        if (!event.candidate) return;
+        const target = activeVoiceCall?.isCaller ? "callerCandidates" : "calleeCandidates";
+        addDoc(collection(db, "chats", currentChatId, "calls", callRef.id, target), {
+            candidate: event.candidate.toJSON(),
+            createdAt: serverTimestamp()
+        }).catch(error => console.error("Errore invio ICE:", error));
+    };
+    return peer;
+}
+
+async function startVoiceCall() {
+    if (!currentChatId || !currentChatUserUid || currentChatUserUid === auth.currentUser?.uid) return;
+    if (activeVoiceCall) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+        alert("Le chiamate vocali non sono supportate da questo browser.");
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const callRef = doc(collection(db, "chats", currentChatId, "calls"));
+        const remoteAudio = document.createElement("audio");
+        remoteAudio.autoplay = true;
+        remoteAudio.playsInline = true;
+        document.body.appendChild(remoteAudio);
+        activeVoiceCall = { callRef, stream, remoteAudio, isCaller: true, peer: null };
+        const peer = await createVoicePeerConnection(callRef, stream, remoteAudio);
+        activeVoiceCall.peer = peer;
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        await setDoc(callRef, {
+            callerId: auth.currentUser.uid,
+            calleeId: currentChatUserUid,
+            status: "ringing",
+            offer: { type: offer.type, sdp: offer.sdp },
+            createdAt: serverTimestamp()
+        });
+        showVoiceCallModal("Chiamata in corso…", chatUserNickname.textContent);
+        await attachVoiceCallCandidateListener(callRef, "calleeCandidates", peer);
+        const unsubscribe = onSnapshot(callRef, async snapshot => {
+            const data = snapshot.data();
+            if (!data || !activeVoiceCall) return;
+            if (data.answer && !peer.currentRemoteDescription) {
+                await peer.setRemoteDescription(new RTCSessionDescription(data.answer));
+                const pendingCandidates = activeVoiceCall?.pendingIceCandidates || [];
+                for (const candidate of pendingCandidates) {
+                    await peer.addIceCandidate(candidate).catch(error => console.warn("ICE in coda:", error));
+                }
+                if (activeVoiceCall) activeVoiceCall.pendingIceCandidates = [];
+                updateVoiceCallStatus("Connessione audio…");
+            }
+            if (["declined", "ended", "missed"].includes(data.status)) await endVoiceCall(data.status, false);
+        });
+        activeVoiceCall.unsubscribeCall = unsubscribe;
+    } catch (error) {
+        console.error("Avvio chiamata non riuscito:", error);
+        await endVoiceCall("ended", false);
+        alert(error.name === "NotAllowedError" ? "Consenti l'accesso al microfono per chiamare." : "Non è stato possibile avviare la chiamata.");
+    }
+}
+
+async function listenForIncomingVoiceCalls() {
+    if (!currentChatId || !auth.currentUser || currentChatUserUid == null) return;
+    if (unsubscribeIncomingCalls) unsubscribeIncomingCalls();
+    const incomingCalls = collection(db, "chats", currentChatId, "calls");
+    unsubscribeIncomingCalls = onSnapshot(incomingCalls, snapshot => {
+        if (activeVoiceCall) return;
+        const incoming = snapshot.docs.find(item => {
+            const data = item.data();
+            return data.callerId === currentChatUserUid
+                && data.calleeId === auth.currentUser.uid
+                && data.status === "ringing";
+        });
+        if (!incoming) return;
+        const callData = incoming.data();
+        activeVoiceCall = { callRef: incoming.ref, isCaller: false, stream: null, peer: null, remoteAudio: null };
+        showVoiceCallModal("Ti sta chiamando…", chatUserNickname.textContent, true);
+        updateVoiceCallStatus("Chiamata in arrivo da " + chatUserNickname.textContent);
+        activeVoiceCall.offer = callData.offer;
+    }, error => console.error("Errore chiamate in arrivo:", error));
+}
+
+async function acceptVoiceCall() {
+    if (!activeVoiceCall || activeVoiceCall.isCaller || !activeVoiceCall.offer) return;
+    const call = activeVoiceCall;
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const remoteAudio = document.createElement("audio");
+        remoteAudio.autoplay = true;
+        remoteAudio.playsInline = true;
+        document.body.appendChild(remoteAudio);
+        call.stream = stream;
+        call.remoteAudio = remoteAudio;
+        const peer = await createVoicePeerConnection(call.callRef, stream, remoteAudio);
+        call.peer = peer;
+        await peer.setRemoteDescription(new RTCSessionDescription(call.offer));
+        const answer = await peer.createAnswer();
+        await peer.setLocalDescription(answer);
+        await updateDoc(call.callRef, { answer: { type: answer.type, sdp: answer.sdp }, status: "accepted" });
+        await attachVoiceCallCandidateListener(call.callRef, "callerCandidates", peer);
+        call.unsubscribeCall = onSnapshot(call.callRef, snapshot => {
+            const data = snapshot.data();
+            if (activeVoiceCall && data && ["ended", "declined", "missed"].includes(data.status)) {
+                void endVoiceCall(data.status, false);
+            }
+        });
+        showVoiceCallModal("Connessione audio…", chatUserNickname.textContent);
+    } catch (error) {
+        console.error("Accettazione chiamata non riuscita:", error);
+        await endVoiceCall("ended");
+        alert("Non è stato possibile accettare la chiamata. Controlla il permesso del microfono.");
+    }
+}
+
+function toggleVoiceCallMute() {
+    const tracks = activeVoiceCall?.stream?.getAudioTracks() || [];
+    if (!tracks.length) return;
+    const enabled = !tracks[0].enabled;
+    tracks.forEach(track => { track.enabled = enabled; });
+    const button = voiceCallModal?.querySelector("#voiceCallMuteButton");
+    if (button) {
+        button.textContent = enabled ? "🎙" : "🔇";
+        button.setAttribute("aria-label", enabled ? "Disattiva microfono" : "Attiva microfono");
+    }
+}
+
+async function endVoiceCall(status = "ended", updateRemote = true) {
+    const call = activeVoiceCall;
+    if (!call) {
+        voiceCallModal?.classList.add("hidden");
+        return;
+    }
+    activeVoiceCall = null;
+    stopVoiceCallListeners();
+    if (call.unsubscribeCall) call.unsubscribeCall();
+    if (call.stream) call.stream.getTracks().forEach(track => track.stop());
+    if (call.peer) call.peer.close();
+    if (call.remoteAudio) call.remoteAudio.remove();
+    if (updateRemote && call.callRef) {
+        try { await updateDoc(call.callRef, { status }); }
+        catch (error) { console.warn("Aggiornamento stato chiamata:", error); }
+    }
+    voiceCallModal?.classList.add("hidden");
+}
+
+if (startVoiceCallButton) {
+    startVoiceCallButton.addEventListener("click", startVoiceCall);
+}
+
+
 let mobileChatHistoryStateActive = false;
 
 function markChatViewOpen() {
@@ -1296,6 +1547,11 @@ function markChatViewOpen() {
 }
 
 function returnToChatList() {
+    if (unsubscribeIncomingCalls) {
+        unsubscribeIncomingCalls();
+        unsubscribeIncomingCalls = null;
+    }
+    if (activeVoiceCall) void endVoiceCall("ended");
     closeMessageMenus();
     clearReply();
     chatEmptyState.classList.remove("hidden");
@@ -6105,6 +6361,7 @@ chatSearch.addEventListener(
 
                     currentChatUserUid =
                         userUid;
+                    if (startVoiceCallButton) startVoiceCallButton.classList.remove("hidden");
 
 
                     currentChatId =
@@ -6117,6 +6374,11 @@ chatSearch.addEventListener(
                     loadMessages(
                         currentChatId
                     );
+
+                    if (startVoiceCallButton) {
+                        startVoiceCallButton.disabled = false;
+                        listenForIncomingVoiceCalls();
+                    }
 
 
                     markChatViewOpen();
@@ -7065,6 +7327,8 @@ function loadConversations() {
                                     
                                         currentChatUserUid =
                                             null;
+                                        if (startVoiceCallButton) startVoiceCallButton.classList.add("hidden");
+                                        if (unsubscribeIncomingCalls) { unsubscribeIncomingCalls(); unsubscribeIncomingCalls = null; }
                                     
                                         currentChatId =
                                             conversation.chatId;
@@ -7138,6 +7402,7 @@ function loadConversations() {
 
                                 currentChatUserUid =
                                     conversation.uid;
+                                if (startVoiceCallButton) startVoiceCallButton.classList.remove("hidden");
 
 
                                 currentChatId =
@@ -7150,6 +7415,7 @@ function loadConversations() {
                                 loadMessages(
                                     currentChatId
                                 );
+                                listenForIncomingVoiceCalls();
 
 
                                 markChatViewOpen();
