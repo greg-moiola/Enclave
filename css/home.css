@@ -4324,3 +4324,128 @@ select:focus {
         transition: none;
     }
 }
+
+
+/* ENCLAVE 21 — schermata chiamata classica */
+.voice-call-overlay { 
+    position: fixed; 
+    inset: 0; z-index: 10050; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    padding: 20px; 
+    background: rgba(4, 7, 12, .88); 
+    backdrop-filter: blur(12px); 
+}
+.voice-call-overlay.hidden {
+    display: none; 
+}
+.voice-call-panel {
+    width: min(100%, 390px); 
+    min-height: 520px; 
+    box-sizing: border-box; 
+    display: flex; 
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 52px 28px 34px;
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 30px;
+    background: linear-gradient(160deg,#20242d,#101216 72%);
+    color: #fff;
+    box-shadow: 0 24px 90px rgba(0,0,0,.45); 
+}
+.voice-call-avatar {
+    width: 112px;
+    height: 112px;
+    flex: 0 0 112px;
+    display: grid
+    ; place-items: center;
+    border-radius: 50%;
+    background: #303744;
+    color: #fff;
+    font-size: 48px;
+    font-weight: 600;
+    box-shadow: 0 0 0 8px rgba(255,255,255,.035);
+    margin-bottom: 28px; 
+}
+.voice-call-panel h2 {
+    margin: 0;
+    color: #fff;
+    font-size: 25px;
+    font-weight: 600;
+    text-align: center;
+    overflow-wrap: anywhere;
+}
+.voice-call-status {
+    margin: 12px 0 0;
+    min-height: 24px;
+    color: #aeb5c1;
+    font-size: 14px;
+    text-align: center;
+}
+.voice-call-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 34px;
+    margin-top: auto;
+    padding-top: 42px; 
+}
+.voice-call-control, .voice-call-end, .voice-call-accept, .voice-call-decline {
+    width: 68px;
+    height: 68px;
+    border: 0;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px; color: white;
+    font-size: 23px;
+    cursor: pointer;
+}
+.voice-call-control {
+    background: #3a414c;
+}
+.voice-call-end, .voice-call-decline {
+    background: #e54858;
+}
+.voice-call-accept {
+    background: #22a866;
+}
+.voice-call-control span, .voice-call-end span, .voice-call-accept span, .voice-call-decline span {
+    font-size: 10px;
+    font-weight: 500;
+}
+.voice-call-incoming-actions {
+    display: flex;
+    gap: 44px; 
+    margin-top: auto;
+    padding-top: 42px;
+}
+.voice-call-incoming-actions .hidden {
+    display: none; 
+}
+.voice-call-control:hover {
+    background: #4a5361;
+}
+.voice-call-end:hover, .voice-call-decline:hover {
+    background: #f05b69; 
+}
+.voice-call-accept:hover {
+    background: #2bbc78;
+}
+
+@media (max-width: 480px) {
+    .voice-call-panel {
+        min-height: min(560px, calc(100dvh - 28px));
+        padding: 48px 22px 30px; 
+        border-radius: 26px;
+    } 
+    .voice-call-avatar {
+        width: 104px;
+        height: 104px;
+        flex-basis: 104px;
+    }
+}
