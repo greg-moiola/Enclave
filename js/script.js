@@ -1302,16 +1302,17 @@ function createVoiceCallModal() {
     overlay.id = "voiceCallOverlay";
     overlay.innerHTML = `
         <section class="voice-call-panel" role="dialog" aria-modal="true" aria-labelledby="voiceCallTitle">
-            <div class="voice-call-orb"><span>☎</span></div>
-            <p class="voice-call-eyebrow">ENCLAVE · VOICE</p>
+            <div class="voice-call-avatar" id="voiceCallAvatar" aria-hidden="true">?</div>
             <h2 id="voiceCallTitle">Chiamata vocale</h2>
             <p id="voiceCallStatus" class="voice-call-status">Connessione in corso…</p>
             <div class="voice-call-controls">
-                <button id="voiceCallMuteButton" type="button" class="voice-call-control" aria-label="Disattiva microfono" title="Microfono">🎙</button>
-                <button id="voiceCallEndButton" type="button" class="voice-call-end" aria-label="Termina chiamata" title="Termina chiamata">✕</button>
+                <button id="voiceCallMuteButton" type="button" class="voice-call-control" aria-label="Disattiva microfono" title="Microfono">🎙<span>Mute</span></button>
+                <button id="voiceCallEndButton" type="button" class="voice-call-end" aria-label="Termina chiamata" title="Termina chiamata">✕<span>Chiudi</span></button>
             </div>
-            <button id="voiceCallAcceptButton" type="button" class="voice-call-accept hidden">Accetta chiamata</button>
-            <button id="voiceCallDeclineButton" type="button" class="voice-call-decline hidden">Rifiuta</button>
+            <div class="voice-call-incoming-actions">
+                <button id="voiceCallAcceptButton" type="button" class="voice-call-accept hidden">✓<span>Accetta</span></button>
+                <button id="voiceCallDeclineButton" type="button" class="voice-call-decline hidden">✕<span>Rifiuta</span></button>
+            </div>
         </section>`;
     document.body.appendChild(overlay);
     voiceCallModal = overlay;
@@ -1326,6 +1327,7 @@ function createVoiceCallModal() {
 function showVoiceCallModal(status, title = "Chiamata vocale", incoming = false) {
     const modal = createVoiceCallModal();
     modal.querySelector("#voiceCallTitle").textContent = title;
+    modal.querySelector("#voiceCallAvatar").textContent = (title.trim().charAt(0) || "?").toLocaleUpperCase("it-IT");
     modal.querySelector("#voiceCallStatus").textContent = status;
     modal.querySelector("#voiceCallAcceptButton").classList.toggle("hidden", !incoming);
     modal.querySelector("#voiceCallDeclineButton").classList.toggle("hidden", !incoming);
