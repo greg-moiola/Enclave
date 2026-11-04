@@ -1422,6 +1422,23 @@ async function startVoiceCall() {
             offer: { type: offer.type, sdp: offer.sdp },
             createdAt: serverTimestamp()
         });
+        // Invia una notifica push al destinatario anche se non ha aperto questa chat.
+        // Il Worker verifica chiamante, destinatario e stato della chiamata prima dell'invio.
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const response = await fetch("https://enclave-notification.gpvyw7wnf8.workers.dev/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ action: "call", chatId: currentChatId, callId: callRef.id })
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) console.error("Notifica chiamata non inviata:", result);
+        } catch (notificationError) {
+            console.error("Errore invio notifica chiamata:", notificationError);
+        }
         showVoiceCallModal("Chiamata in corso…", chatUserNickname.textContent);
         await attachVoiceCallCandidateListener(callRef, "calleeCandidates", peer);
         const unsubscribe = onSnapshot(callRef, async snapshot => {
