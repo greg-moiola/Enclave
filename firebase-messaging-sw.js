@@ -1,3 +1,22 @@
+// Gestisce il click prima dell'inizializzazione Firebase, così Enclave riusa
+// una finestra già aperta invece di crearne una seconda.
+self.addEventListener("notificationclick", event => {
+    event.notification.close();
+    event.waitUntil((async () => {
+        const targetUrl = new URL("/Enclave/", self.location.origin).href;
+        const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
+        for (const client of windows) {
+            if ("focus" in client) {
+                await client.focus();
+                if ("navigate" in client) await client.navigate(targetUrl);
+                return;
+            }
+        }
+        if (clients.openWindow) await clients.openWindow(targetUrl);
+    })());
+});
+
+
 importScripts("https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js");
 importScripts("https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging-compat.js");
 
@@ -20,12 +39,11 @@ messaging.onBackgroundMessage((payload) => {
     }
 
     // I payload solo-data, invece, richiedono una notifica esplicita.
-    const isCall = payload.data?.type === "incoming_call";
-    const notificationTitle = payload.data?.title || (isCall ? "Chiamata in arrivo" : "Nuovo messaggio su Enclave");
+    const notificationTitle =
+        payload.data?.title || "Nuovo messaggio su Enclave";
 
     const notificationOptions = {
-        body: payload.data?.body || (isCall ? "Qualcuno ti sta chiamando su Enclave" : "Hai ricevuto un nuovo messaggio."),
-        tag: isCall ? `call-${payload.data?.callId || "incoming"}` : (payload.data?.messageId || undefined),
+        body: payload.data?.body || "Hai ricevuto un nuovo messaggio.",
         icon: "/Enclave/images/Enclave_icon_192.png",
         badge: "/Enclave/images/Enclave_icon_192.png",
         data: payload.data || {}
