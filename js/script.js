@@ -116,7 +116,10 @@ const startVoiceCallButton =
     document.getElementById("startVoiceCallButton");
 
 let activeVoiceCall = null;
-let unsubscribeIncomingCalls = null;
+let unsubscribeIncomingCalls = null; // listener globale delle chat dell'utente
+let incomingVoiceCallListeners = new Map();
+let incomingCallIndicators = new Map();
+let incomingVoiceCallUserUid = null;
 let unsubscribeCallCandidates = [];
 let voiceCallModal = null;
 
@@ -272,6 +275,28 @@ let foregroundMessageListenerRegistered = false;
 let userNotificationsEnabled = null;
 let notificationsPreferenceLoaded = false;
 
+// Rimuove le notifiche Enclave già presenti nel centro notifiche.
+async function clearEnclaveNotifications() {
+    if (!("serviceWorker" in navigator)) return;
+    try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+            if (!registration.scope.includes("/Enclave/")) continue;
+            const notifications = await registration.getNotifications();
+            notifications.forEach(notification => notification.close());
+        }
+    } catch (error) {
+        console.warn("Pulizia notifiche Enclave non riuscita:", error);
+    }
+}
+
+function clearNotificationsWhenEnclaveIsOpened() {
+    if (document.visibilityState === "visible") void clearEnclaveNotifications();
+}
+document.addEventListener("visibilitychange", clearNotificationsWhenEnclaveIsOpened);
+window.addEventListener("focus", clearNotificationsWhenEnclaveIsOpened);
+window.addEventListener("pageshow", clearNotificationsWhenEnclaveIsOpened);
+
 
 async function enableEnclaveNotifications(requestPermission = true) {
     try {
@@ -320,6 +345,9 @@ async function enableEnclaveNotifications(requestPermission = true) {
         const serviceWorkerRegistration =
             await navigator.serviceWorker.ready;
 
+        // All'apertura di Enclave elimina le vecchie notifiche rimaste nel centro notifiche.
+        await clearEnclaveNotifications();
+
         const messaging = getMessaging(app);
 
         // Mostra una notifica anche quando Enclave è aperto e la pagina è in primo
@@ -327,7 +355,8 @@ async function enableEnclaveNotifications(requestPermission = true) {
         // Il listener viene registrato una sola volta per evitare notifiche duplicate.
         if (!foregroundMessageListenerRegistered) {
             onMessage(messaging, async (payload) => {
-                // L'impostazione dell'account prevale sul permesso del browser.
+                // Enclave è già visibile: evitiamo notifiche di sistema mentre si usa l'app.
+                if (document.visibilityState === "visible" && document.hasFocus()) return;
                 if (userNotificationsEnabled === false) return;
                 try {
                     const title =
@@ -1348,8 +1377,13 @@ function stopVoiceCallListeners() {
     unsubscribeCallCandidates = [];
 }
 
+function getVoiceCallChatId(callRef) {
+    return callRef?.parent?.parent?.id || activeVoiceCall?.chatId || currentChatId;
+}
+
 async function attachVoiceCallCandidateListener(callRef, collectionName, peerConnection) {
-    const candidateQuery = collection(db, "chats", currentChatId, "calls", callRef.id, collectionName);
+    const callChatId = getVoiceCallChatId(callRef);
+    const candidateQuery = collection(db, "chats", callChatId, "calls", callRef.id, collectionName);
     const unsubscribe = onSnapshot(candidateQuery, snapshot => {
         snapshot.docChanges().forEach(change => {
             if (change.type !== "added") return;
@@ -1387,7 +1421,8 @@ async function createVoicePeerConnection(callRef, localStream, remoteAudio) {
     peer.onicecandidate = event => {
         if (!event.candidate) return;
         const target = activeVoiceCall?.isCaller ? "callerCandidates" : "calleeCandidates";
-        addDoc(collection(db, "chats", currentChatId, "calls", callRef.id, target), {
+        const callChatId = getVoiceCallChatId(callRef);
+        addDoc(collection(db, "chats", callChatId, "calls", callRef.id, target), {
             candidate: event.candidate.toJSON(),
             createdAt: serverTimestamp()
         }).catch(error => console.error("Errore invio ICE:", error));
@@ -1410,7 +1445,16 @@ async function startVoiceCall() {
         remoteAudio.autoplay = true;
         remoteAudio.playsInline = true;
         document.body.appendChild(remoteAudio);
-        activeVoiceCall = { callRef, stream, remoteAudio, isCaller: true, peer: null };
+        activeVoiceCall = {
+            callRef,
+            chatId: currentChatId,
+            peerUid: currentChatUserUid,
+            displayName: chatUserNickname.textContent,
+            stream,
+            remoteAudio,
+            isCaller: true,
+            peer: null
+        };
         const peer = await createVoicePeerConnection(callRef, stream, remoteAudio);
         activeVoiceCall.peer = peer;
         const offer = await peer.createOffer();
@@ -1422,24 +1466,37 @@ async function startVoiceCall() {
             offer: { type: offer.type, sdp: offer.sdp },
             createdAt: serverTimestamp()
         });
-        // Invia una notifica push al destinatario anche se non ha aperto questa chat.
-        // Il Worker verifica chiamante, destinatario e stato della chiamata prima dell'invio.
+
+        showVoiceCallModal("Chiamata in corso…", chatUserNickname.textContent);
+
+        // Push al destinatario tramite il Worker già pubblicato.
         try {
             const idToken = await auth.currentUser.getIdToken();
-            const response = await fetch("https://enclave-notification.gpvyw7wnf8.workers.dev/", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`
-                },
-                body: JSON.stringify({ action: "call", chatId: currentChatId, callId: callRef.id })
-            });
-            const result = await response.json().catch(() => ({}));
-            if (!response.ok) console.error("Notifica chiamata non inviata:", result);
+            const notificationResponse = await fetch(
+                "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        action: "call",
+                        chatId: activeVoiceCall.chatId,
+                        callId: callRef.id
+                    })
+                }
+            );
+            const notificationResult = await notificationResponse.json().catch(() => ({}));
+            if (!notificationResponse.ok) {
+                console.error("Notifica chiamata non inviata:", notificationResult);
+            } else {
+                console.log("Risultato notifica chiamata:", notificationResult);
+            }
         } catch (notificationError) {
             console.error("Errore invio notifica chiamata:", notificationError);
         }
-        showVoiceCallModal("Chiamata in corso…", chatUserNickname.textContent);
+
         await attachVoiceCallCandidateListener(callRef, "calleeCandidates", peer);
         const unsubscribe = onSnapshot(callRef, async snapshot => {
             const data = snapshot.data();
@@ -1463,25 +1520,140 @@ async function startVoiceCall() {
     }
 }
 
-async function listenForIncomingVoiceCalls() {
-    if (!currentChatId || !auth.currentUser || currentChatUserUid == null) return;
-    if (unsubscribeIncomingCalls) unsubscribeIncomingCalls();
-    const incomingCalls = collection(db, "chats", currentChatId, "calls");
-    unsubscribeIncomingCalls = onSnapshot(incomingCalls, snapshot => {
-        if (activeVoiceCall) return;
-        const incoming = snapshot.docs.find(item => {
-            const data = item.data();
-            return data.callerId === currentChatUserUid
-                && data.calleeId === auth.currentUser.uid
-                && data.status === "ringing";
+function updateIncomingCallIndicator(chatId, callerUid, isRinging) {
+    if (isRinging) incomingCallIndicators.set(chatId, callerUid);
+    else incomingCallIndicators.delete(chatId);
+
+    const conversation = [...document.querySelectorAll(".conversation-item")]
+        .find(item => item.dataset.chatId === chatId);
+    const indicator = conversation?.querySelector(".incoming-call-indicator");
+    if (indicator) {
+        indicator.classList.toggle("visible", isRinging);
+        indicator.setAttribute("aria-label", isRinging ? "Chiamata in arrivo" : "");
+        indicator.title = isRinging ? "Chiamata in arrivo" : "";
+    }
+}
+
+function stopGlobalIncomingVoiceCallListener() {
+    if (unsubscribeIncomingCalls) {
+        unsubscribeIncomingCalls();
+        unsubscribeIncomingCalls = null;
+    }
+    for (const unsubscribe of incomingVoiceCallListeners.values()) {
+        try { unsubscribe(); } catch (error) { console.warn("Chiusura listener chiamate:", error); }
+    }
+    incomingVoiceCallListeners.clear();
+    incomingCallIndicators.clear();
+}
+
+async function showIncomingVoiceCall(callRef, chatId, callData) {
+    if (activeVoiceCall || !auth.currentUser) return;
+    if (callData.calleeId !== auth.currentUser.uid || callData.status !== "ringing") return;
+
+    const createdAtMs = callData.createdAt?.toMillis?.();
+    if (createdAtMs && Date.now() - createdAtMs > 2 * 60 * 1000) return;
+
+    const callerUid = callData.callerId;
+    activeVoiceCall = {
+        callRef, chatId, callerUid, peerUid: callerUid,
+        isCaller: false, stream: null, peer: null, remoteAudio: null,
+        offer: callData.offer, displayName: "Contatto"
+    };
+
+    try {
+        const callerDocument = await getDoc(doc(db, "users", callerUid));
+        const originalNickname = callerDocument.exists()
+            ? (callerDocument.data().nickname || "Contatto")
+            : "Contatto";
+        const displayName = await getContactNickname(callerUid, originalNickname);
+        if (!activeVoiceCall || activeVoiceCall.callRef.id !== callRef.id) return;
+        activeVoiceCall.displayName = displayName;
+        showVoiceCallModal("Ti sta chiamando…", displayName, true);
+        updateVoiceCallStatus("Chiamata in arrivo da " + displayName);
+    } catch (error) {
+        console.error("Impossibile caricare il nome del chiamante:", error);
+        if (activeVoiceCall?.callRef.id === callRef.id) {
+            showVoiceCallModal("Ti sta chiamando…", "Contatto", true);
+            updateVoiceCallStatus("Chiamata in arrivo");
+        }
+    }
+}
+
+function listenForIncomingVoiceCalls() {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    if (unsubscribeIncomingCalls && incomingVoiceCallUserUid === currentUser.uid) return;
+
+    stopGlobalIncomingVoiceCallListener();
+    incomingVoiceCallUserUid = currentUser.uid;
+
+    const chatsQuery = query(
+        collection(db, "chats"),
+        where("participants", "array-contains", currentUser.uid)
+    );
+
+    unsubscribeIncomingCalls = onSnapshot(chatsQuery, snapshot => {
+        const activeChatIds = new Set(snapshot.docs.map(chatDocument => chatDocument.id));
+
+        for (const [chatId, unsubscribe] of incomingVoiceCallListeners) {
+            if (!activeChatIds.has(chatId)) {
+                unsubscribe();
+                incomingVoiceCallListeners.delete(chatId);
+                updateIncomingCallIndicator(chatId, null, false);
+            }
+        }
+
+        snapshot.docs.forEach(chatDocument => {
+            const chatId = chatDocument.id;
+            if (incomingVoiceCallListeners.has(chatId)) return;
+
+            const callsReference = query(
+                collection(db, "chats", chatId, "calls"),
+                where("calleeId", "==", currentUser.uid)
+            );
+            const unsubscribe = onSnapshot(callsReference, callsSnapshot => {
+                if (activeVoiceCall?.chatId === chatId) {
+                    const activeCallSnapshot = callsSnapshot.docs.find(
+                        callDocument => callDocument.id === activeVoiceCall.callRef.id
+                    );
+                    const activeCallStatus = activeCallSnapshot?.data()?.status;
+                    if (["ended", "declined", "missed"].includes(activeCallStatus)) {
+                        void endVoiceCall(activeCallStatus, false);
+                    }
+                }
+
+                const ringingCalls = callsSnapshot.docs
+                    .map(callDocument => ({ ref: callDocument.ref, data: callDocument.data() }))
+                    .filter(call => {
+                        const createdAtMs = call.data.createdAt?.toMillis?.();
+                        const recentEnough = !createdAtMs || Date.now() - createdAtMs <= 2 * 60 * 1000;
+                        return recentEnough &&
+                            call.data.calleeId === currentUser.uid &&
+                            call.data.callerId !== currentUser.uid &&
+                            call.data.status === "ringing";
+                    })
+                    .sort((a, b) =>
+                        (b.data.createdAt?.toMillis?.() || 0) -
+                        (a.data.createdAt?.toMillis?.() || 0)
+                    );
+
+                if (!ringingCalls.length) {
+                    updateIncomingCallIndicator(chatId, null, false);
+                    return;
+                }
+
+                const incoming = ringingCalls[0];
+                updateIncomingCallIndicator(chatId, incoming.data.callerId, true);
+                // Anche se la scheda è in background, prepara la schermata:
+                // sarà visibile appena l'utente torna su Enclave.
+                if (!activeVoiceCall) {
+                    void showIncomingVoiceCall(incoming.ref, chatId, incoming.data);
+                }
+            }, error => console.error("Errore listener chiamate per chat:", chatId, error));
+
+            incomingVoiceCallListeners.set(chatId, unsubscribe);
         });
-        if (!incoming) return;
-        const callData = incoming.data();
-        activeVoiceCall = { callRef: incoming.ref, isCaller: false, stream: null, peer: null, remoteAudio: null };
-        showVoiceCallModal("Ti sta chiamando…", chatUserNickname.textContent, true);
-        updateVoiceCallStatus("Chiamata in arrivo da " + chatUserNickname.textContent);
-        activeVoiceCall.offer = callData.offer;
-    }, error => console.error("Errore chiamate in arrivo:", error));
+    }, error => console.error("Errore listener globale chiamate in arrivo:", error));
 }
 
 async function acceptVoiceCall() {
@@ -1508,7 +1680,7 @@ async function acceptVoiceCall() {
                 void endVoiceCall(data.status, false);
             }
         });
-        showVoiceCallModal("Connessione audio…", chatUserNickname.textContent);
+        showVoiceCallModal("Connessione audio…", call.displayName || "Contatto");
     } catch (error) {
         console.error("Accettazione chiamata non riuscita:", error);
         await endVoiceCall("ended");
@@ -1535,6 +1707,7 @@ async function endVoiceCall(status = "ended", updateRemote = true) {
         return;
     }
     activeVoiceCall = null;
+    if (call.chatId) updateIncomingCallIndicator(call.chatId, call.callerUid, false);
     stopVoiceCallListeners();
     if (call.unsubscribeCall) call.unsubscribeCall();
     if (call.stream) call.stream.getTracks().forEach(track => track.stop());
@@ -1566,10 +1739,7 @@ function markChatViewOpen() {
 }
 
 function returnToChatList() {
-    if (unsubscribeIncomingCalls) {
-        unsubscribeIncomingCalls();
-        unsubscribeIncomingCalls = null;
-    }
+    // Il listener globale resta attivo anche quando si torna alla lista chat.
     if (activeVoiceCall) void endVoiceCall("ended");
     closeMessageMenus();
     clearReply();
@@ -1836,6 +2006,7 @@ document
                 );
 
                 loadConversations();
+                listenForIncomingVoiceCalls();
 
             } else if (result.emailNotVerified) {
 
@@ -1900,6 +2071,9 @@ document
 
             }
 
+            stopGlobalIncomingVoiceCallListener();
+            incomingVoiceCallUserUid = null;
+            if (activeVoiceCall) await endVoiceCall("ended", false);
 
             currentChatUserUid = null;
 
@@ -7119,6 +7293,7 @@ function loadConversations() {
 
                         conversationElement.className =
                             "conversation-item";
+                        conversationElement.dataset.chatId = conversation.chatId;
 
                         if (conversation.type !== "group" && conversation.uid) {
                             
@@ -7237,6 +7412,18 @@ function loadConversations() {
                                 meta.appendChild(time);
                                 meta.appendChild(unreadBadge);
 
+                                if (conversation.type !== "group" && conversation.uid) {
+                                    const callIndicator = document.createElement("span");
+                                    callIndicator.className = "incoming-call-indicator";
+                                    callIndicator.setAttribute("aria-label", "");
+                                    if (incomingCallIndicators.has(conversation.chatId)) {
+                                        callIndicator.classList.add("visible");
+                                        callIndicator.setAttribute("aria-label", "Chiamata in arrivo");
+                                        callIndicator.title = "Chiamata in arrivo";
+                                    }
+                                    meta.appendChild(callIndicator);
+                                }
+
                                 // Riutilizza il listener della chat tra i render della lista.
                                 // Il badge DOM viene ricreato, quindi il listener conserva il riferimento aggiornato.
                                 const conversationIdForBadge = conversation.chatId;
@@ -7347,7 +7534,7 @@ function loadConversations() {
                                         currentChatUserUid =
                                             null;
                                         if (startVoiceCallButton) startVoiceCallButton.classList.add("hidden");
-                                        if (unsubscribeIncomingCalls) { unsubscribeIncomingCalls(); unsubscribeIncomingCalls = null; }
+                                        // Il listener globale delle chiamate resta attivo anche nei gruppi.
                                     
                                         currentChatId =
                                             conversation.chatId;
@@ -7581,6 +7768,7 @@ function loadConversations() {
             await loadUserProfile(savedUser);
             showHome();
             loadConversations();
+            listenForIncomingVoiceCalls();
         } else if (savedUser && !savedUser.emailVerified) {
             showVerification(savedUser);
             checkEmailVerification(savedUser);
