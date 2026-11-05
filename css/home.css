@@ -4449,3 +4449,26 @@ select:focus {
         flex-basis: 104px;
     }
 }
+
+
+/* Indicatore verde di chiamata in arrivo nella riga del contatto */
+.incoming-call-indicator {
+    display: none;
+    width: 9px;
+    height: 9px;
+    flex: 0 0 9px;
+    margin-left: 7px;
+    border-radius: 50%;
+    background: #20c878;
+    box-shadow: 0 0 0 3px rgba(32, 200, 120, 0.13), 0 0 10px rgba(32, 200, 120, 0.42);
+    align-self: center;
+    animation: enclave-incoming-call-pulse 1.35s ease-in-out infinite;
+}
+.incoming-call-indicator.visible { display: inline-block; }
+@keyframes enclave-incoming-call-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .55; transform: scale(.82); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .incoming-call-indicator { animation: none; }
+}
