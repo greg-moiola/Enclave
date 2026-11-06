@@ -8162,13 +8162,24 @@ function addEnclaveAIMessage(role, text) {
     return item;
 }
 
+function messagesForEnclaveAI(messages) {
+    const conversation = messages
+        .filter(message => message && (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
+        .map(message => ({ role: message.role, content: message.content }));
+    const firstUser = conversation.find(message => message.role === "user");
+    if (firstUser) {
+        firstUser.content = "Contesto per rispondere, da non ripetere all'utente:\n" + ENCLAVE_AI_GUIDE + "\n\nMessaggio dell'utente:\n" + firstUser.content;
+    }
+    return conversation;
+}
+
 async function requestEnclaveAIAnswer(idToken, messages) {
     const response = await fetch(ENCLAVE_AI_WORKER_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
         body: JSON.stringify({
             action: "enclaveai",
-            messages: [{ role: "system", content: ENCLAVE_AI_GUIDE }, ...messages]
+            messages: messagesForEnclaveAI(messages)
         })
     });
     const result = await response.json().catch(() => ({}));
@@ -8213,6 +8224,7 @@ async function sendEnclaveAIMessage(event) {
         enclaveAIHistory.push({ role: "assistant", content: answer });
         enclaveAIHistory = enclaveAIHistory.slice(-12);
     } catch (error) {
+        console.error("EnclaveAI non raggiungibile:", error);
         typing.remove(); addEnclaveAIMessage("assistant", error.message || "Non riesco a raggiungere EnclaveAI in questo momento.");
         enclaveAIHistory.pop();
     } finally {
