@@ -1225,7 +1225,6 @@ function createEnclaveSettingsPanel() {
     microphoneSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
     microphoneOption.appendChild(microphoneSwitch);
 
-
     advancedSection.append(
         notificationsOption,
         notificationsStatus,
@@ -1323,19 +1322,15 @@ function createEnclaveSettingsPanel() {
 
     microphoneSwitch.addEventListener("click", async () => {
         microphoneSwitch.disabled = true;
-
         try {
             const turningOn = microphoneSwitch.getAttribute("aria-checked") !== "true";
             if (!turningOn) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
-                microphoneStatus.textContent = microphonePermissionState === "granted"
-                    
                 return;
             }
 
             if (!navigator.mediaDevices?.getUserMedia) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
-                
                 return;
             }
 
@@ -1343,12 +1338,10 @@ function createEnclaveSettingsPanel() {
             stream.getTracks().forEach(track => track.stop());
             microphonePermissionState = "granted";
             localStorage.setItem(MICROPHONE_READY_KEY, "true");
-            
         } catch (error) {
             console.error("Errore attivazione microfono:", error);
             localStorage.setItem(MICROPHONE_READY_KEY, "false");
             microphonePermissionState = error?.name === "NotAllowedError" ? "denied" : microphonePermissionState;
-            
         } finally {
             microphoneSwitch.disabled = false;
             updateMicrophoneSwitchUI();
@@ -8054,11 +8047,11 @@ function buildEnclaveAIPanel() {
             <div class="enclave-ai-orb"><span>✦</span><b></b></div>
             <div class="enclave-ai-welcome-kicker">IL TUO SPAZIO INTELLIGENTE</div>
             <h3>Da dove<br>iniziamo?</h3>
-            <p>Domande, idee, dubbi. Scrivi quello che vuoi: troviamo una risposta insieme.</p>
+            <p>Domande, idee, dubbi. Posso anche spiegarti cos’è Enclave e come si usa.</p>
             <div class="enclave-ai-suggestions">
+              <button type="button" data-ai-prompt="Cos’è Enclave?"><span>✦</span> Cos’è Enclave?</button>
+              <button type="button" data-ai-prompt="Spiegami come si usa Enclave."><span>⟡</span> Come si usa</button>
               <button type="button" data-ai-prompt="Spiegami un concetto difficile in modo semplice."><span>✧</span> Spiegami qualcosa</button>
-              <button type="button" data-ai-prompt="Aiutami a trovare un'idea originale."><span>⌁</span> Troviamo un'idea</button>
-              <button type="button" data-ai-prompt="Aiutami a risolvere un problema passo dopo passo."><span>⟡</span> Risolviamo un problema</button>
             </div>
           </div>
           <div class="enclave-ai-messages" id="enclaveAIMessages" aria-live="polite"></div>
@@ -8110,16 +8103,77 @@ function resetEnclaveAI() {
     enclaveAIOverlay.querySelector("#enclaveAIInput").focus();
 }
 
+const ENCLAVE_AI_GUIDE = [
+    "Sei EnclaveAI, l'assistente dentro Enclave. Rispondi in italiano.",
+    "Ogni risposta deve essere completa: non interrompere una frase, un elenco o un ragionamento a metà.",
+    "Se l'argomento è ampio, resta breve ma chiudi sempre il discorso. Non lasciare asterischi aperti.",
+    "Puoi usare il grassetto markdown scrivendo le parole importanti tra doppi asterischi.",
+    "Se ti chiedono cosa sai fare, dì che rispondi a domande generali e che spieghi come usare Enclave, che è una PWA.",
+    "Se ti chiedono cos'è Enclave, rispondi in modo oggettivo usando solo i fatti qui sotto. Non inventare funzioni.",
+    "Enclave è una PWA di messaggistica privata. Il motto mostrato in accesso è Private. Connected. La descrizione dell'app è: la tua area privata di messaggistica.",
+    "Si usa dal browser e si può installare sulla schermata Home. Su iPhone: Condividi, poi Aggiungi a Home. Su Android: menu del browser, poi Installa app oppure Aggiungi a schermata Home. Installata, si apre a tutto schermo, senza la barra del browser.",
+    "Per creare un account servono email, password e nickname. L'email va verificata prima di entrare. Dalla schermata di accesso si entra con email e password.",
+    "In Impostazioni, scheda Avanzate, Rimani connesso mantiene l'accesso su quel dispositivo. Il pulsante Esci chiude la sessione e al ritorno chiede di nuovo l'accesso.",
+    "Ogni account ha un nickname e un Enclave ID. Una chat privata si inizia cercando l'Enclave ID dell'altra persona. Dalle informazioni di un contatto si può impostare un soprannome visibile solo a chi lo imposta.",
+    "Nelle chat private si scrivono messaggi, si può rispondere a un messaggio e compare la conferma di lettura. Il pulsante della cornetta in alto avvia una chiamata vocale solo in una chat privata, non in un gruppo.",
+    "In Impostazioni, scheda Avanzate, la levetta Microfono riguarda le chiamate. Accesa, Enclave usa il permesso già concesso e non richiede il microfono a ogni chiamata. Spenta, il telefono può chiedere il microfono quando si inizia o si accetta una chiamata.",
+    "I gruppi si creano dal pulsante +. Un gruppo può avere fino a 20 partecipanti. Si possono vedere i partecipanti, aggiungerne se c'è posto, e uscire dal gruppo.",
+    "In Impostazioni, scheda Avanzate, la levetta Notifiche attiva o disattiva le notifiche dell'account. Il telefono deve comunque concedere il permesso. Mentre Enclave è aperto e in uso, la notifica di sistema non viene mostrata.",
+    "In Impostazioni, scheda Generali, si modificano il proprio nickname, il colore delle bolle e lo sfondo. Colore e sfondo valgono per tutte le chat private e i gruppi.",
+    "EnclaveAI si apre dal pulsante +. La conversazione dura solo finché il pannello è aperto e Enclave non la salva. Non va usata per dati sensibili.",
+    "Il menu allegati con Immagine e Messaggio vocale non è una funzione attiva: non dire che si possono inviare foto o vocali."
+].join(" ");
+
+function renderEnclaveAIText(text) {
+    const escaped = String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    return escaped
+        .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/__([^_\n]+)__/g, "<strong>$1</strong>")
+        .replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>")
+        .replace(/\n/g, "<br>");
+}
+
+function setEnclaveAIBubbleText(bubble, role, text) {
+    if (role === "assistant") bubble.innerHTML = renderEnclaveAIText(text);
+    else bubble.textContent = text;
+}
+
+function answerLooksCutOff(text) {
+    const trimmed = String(text || "").trim();
+    if (trimmed.length < 240) return false;
+    if (/\*\*[^*\n]*$/.test(trimmed)) return true;
+    return !/[.!?…:;]["'»)\]]?\s*$/.test(trimmed);
+}
+
 function addEnclaveAIMessage(role, text) {
     const messages = enclaveAIOverlay.querySelector("#enclaveAIMessages");
     const item = document.createElement("div");
     item.className = `enclave-ai-message ${role === "user" ? "is-user" : "is-assistant"}`;
     const label = document.createElement("div"); label.className = "enclave-ai-message-label";
     label.textContent = role === "user" ? "TU" : "ENCLAVEAI";
-    const bubble = document.createElement("div"); bubble.className = "enclave-ai-bubble"; bubble.textContent = text;
+    const bubble = document.createElement("div"); bubble.className = "enclave-ai-bubble";
+    setEnclaveAIBubbleText(bubble, role, text);
     item.append(label, bubble); messages.appendChild(item);
     enclaveAIOverlay.querySelector("#enclaveAIContent").scrollTo({ top: enclaveAIOverlay.querySelector("#enclaveAIContent").scrollHeight, behavior: "smooth" });
     return item;
+}
+
+async function requestEnclaveAIAnswer(idToken, messages) {
+    const response = await fetch(ENCLAVE_AI_WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+        body: JSON.stringify({
+            action: "enclaveai",
+            messages: [{ role: "system", content: ENCLAVE_AI_GUIDE }, ...messages]
+        })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Servizio temporaneamente non disponibile (${response.status}).`);
+    return typeof result.answer === "string" ? result.answer.trim() : "";
 }
 
 async function sendEnclaveAIMessage(event) {
@@ -8141,15 +8195,21 @@ async function sendEnclaveAIMessage(event) {
     const typing = addEnclaveAIMessage("assistant", "Sto elaborando…"); typing.classList.add("is-typing");
     try {
         const idToken = await user.getIdToken();
-        const response = await fetch(ENCLAVE_AI_WORKER_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
-            body: JSON.stringify({ action: "enclaveai", messages: enclaveAIHistory })
-        });
-        const result = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(result.error || `Servizio temporaneamente non disponibile (${response.status}).`);
-        const answer = typeof result.answer === "string" ? result.answer : "Non sono riuscito a generare una risposta.";
-        typing.remove(); addEnclaveAIMessage("assistant", answer);
+        let answer = await requestEnclaveAIAnswer(idToken, enclaveAIHistory);
+        if (!answer) answer = "Non sono riuscito a generare una risposta.";
+        typing.remove();
+        const answerItem = addEnclaveAIMessage("assistant", answer);
+        const answerBubble = answerItem.querySelector(".enclave-ai-bubble");
+        for (let attempt = 0; attempt < 2 && answerLooksCutOff(answer); attempt += 1) {
+            const continuation = await requestEnclaveAIAnswer(idToken, [
+                ...enclaveAIHistory,
+                { role: "assistant", content: answer },
+                { role: "user", content: "Continua esattamente da dove ti sei fermato, senza ripetere. Completa la frase e concludi la risposta." }
+            ]);
+            if (!continuation || continuation.length < 2) break;
+            answer = `${answer.replace(/\s+$/, "")} ${continuation}`;
+            setEnclaveAIBubbleText(answerBubble, "assistant", answer);
+        }
         enclaveAIHistory.push({ role: "assistant", content: answer });
         enclaveAIHistory = enclaveAIHistory.slice(-12);
     } catch (error) {
