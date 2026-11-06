@@ -4437,6 +4437,21 @@ select:focus {
     background: #2bbc78;
 }
 
+.voice-call-accept,
+.voice-call-decline,
+.voice-call-end,
+.voice-call-control {
+    touch-action: manipulation;
+}
+
+@media (max-width: 700px) {
+    .voice-call-overlay {
+        background: rgba(4, 7, 12, 0.94);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+
 @media (max-width: 480px) {
     .voice-call-panel {
         min-height: min(560px, calc(100dvh - 28px));
