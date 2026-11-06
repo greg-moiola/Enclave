@@ -1225,16 +1225,11 @@ function createEnclaveSettingsPanel() {
     microphoneSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
     microphoneOption.appendChild(microphoneSwitch);
 
-    const microphoneStatus = document.createElement("p");
-    microphoneStatus.className = "settings-notifications-status microphone-ready-status";
-    microphoneStatus.setAttribute("role", "status");
-    microphoneStatus.textContent = "Se disattivo, il telefono può chiedere il microfono quando inizi o accetti una chiamata.";
 
     advancedSection.append(
         notificationsOption,
         notificationsStatus,
         microphoneOption,
-        microphoneStatus,
         rememberOption,
         rememberStatus
     );
@@ -1328,20 +1323,19 @@ function createEnclaveSettingsPanel() {
 
     microphoneSwitch.addEventListener("click", async () => {
         microphoneSwitch.disabled = true;
-        microphoneStatus.textContent = "Salvataggio…";
+
         try {
             const turningOn = microphoneSwitch.getAttribute("aria-checked") !== "true";
             if (!turningOn) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
                 microphoneStatus.textContent = microphonePermissionState === "granted"
-                    ? "Microfono disattivato in Enclave. Se il telefono ha già memorizzato il permesso, la richiesta di sistema non ricompare finché non lo togli dalle impostazioni del browser."
-                    : "Microfono disattivato. Enclave lo richiederà quando inizi o accetti una chiamata.";
+                    
                 return;
             }
 
             if (!navigator.mediaDevices?.getUserMedia) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
-                microphoneStatus.textContent = "Questo dispositivo non permette l’accesso al microfono.";
+                
                 return;
             }
 
@@ -1349,14 +1343,12 @@ function createEnclaveSettingsPanel() {
             stream.getTracks().forEach(track => track.stop());
             microphonePermissionState = "granted";
             localStorage.setItem(MICROPHONE_READY_KEY, "true");
-            microphoneStatus.textContent = "Microfono attivo. Le prossime chiamate non chiederanno di nuovo l’accesso su questo dispositivo.";
+            
         } catch (error) {
             console.error("Errore attivazione microfono:", error);
             localStorage.setItem(MICROPHONE_READY_KEY, "false");
             microphonePermissionState = error?.name === "NotAllowedError" ? "denied" : microphonePermissionState;
-            microphoneStatus.textContent = error?.name === "NotAllowedError"
-                ? "Permesso negato. Attiva il microfono dalle impostazioni del telefono e riprova."
-                : "Non è stato possibile attivare il microfono. Riprova.";
+            
         } finally {
             microphoneSwitch.disabled = false;
             updateMicrophoneSwitchUI();
