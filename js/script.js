@@ -8105,8 +8105,8 @@ function resetEnclaveAI() {
 
 const ENCLAVE_AI_GUIDE = [
     "Sei EnclaveAI, l'assistente dentro Enclave. Rispondi in italiano.",
-    "Ogni risposta deve essere completa: non interrompere una frase, un elenco o un ragionamento a metà.",
-    "Se l'argomento è ampio, resta breve ma chiudi sempre il discorso. Non lasciare asterischi aperti.",
+    "Ogni risposta sta in un solo messaggio, entro 120 parole, ed è completa. Non interrompere una frase o un elenco a metà. L'ultima frase finisce con un punto.",
+    "Non lasciare asterischi aperti.",
     "Puoi usare il grassetto markdown scrivendo le parole importanti tra doppi asterischi.",
     "Se ti chiedono cosa sai fare, dì che rispondi a domande generali e che spieghi come usare Enclave, che è una PWA.",
     "Se ti chiedono cos'è Enclave, rispondi in modo oggettivo usando solo i fatti qui sotto. Non inventare funzioni.",
@@ -8140,13 +8140,6 @@ function renderEnclaveAIText(text) {
 function setEnclaveAIBubbleText(bubble, role, text) {
     if (role === "assistant") bubble.innerHTML = renderEnclaveAIText(text);
     else bubble.textContent = text;
-}
-
-function answerLooksCutOff(text) {
-    const trimmed = String(text || "").trim();
-    if (trimmed.length < 240) return false;
-    if (/\*\*[^*\n]*$/.test(trimmed)) return true;
-    return !/[.!?…:;]["'»)\]]?\s*$/.test(trimmed);
 }
 
 function addEnclaveAIMessage(role, text) {
@@ -8209,18 +8202,7 @@ async function sendEnclaveAIMessage(event) {
         let answer = await requestEnclaveAIAnswer(idToken, enclaveAIHistory);
         if (!answer) answer = "Non sono riuscito a generare una risposta.";
         typing.remove();
-        const answerItem = addEnclaveAIMessage("assistant", answer);
-        const answerBubble = answerItem.querySelector(".enclave-ai-bubble");
-        for (let attempt = 0; attempt < 2 && answerLooksCutOff(answer); attempt += 1) {
-            const continuation = await requestEnclaveAIAnswer(idToken, [
-                ...enclaveAIHistory,
-                { role: "assistant", content: answer },
-                { role: "user", content: "Continua esattamente da dove ti sei fermato, senza ripetere. Completa la frase e concludi la risposta." }
-            ]);
-            if (!continuation || continuation.length < 2) break;
-            answer = `${answer.replace(/\s+$/, "")} ${continuation}`;
-            setEnclaveAIBubbleText(answerBubble, "assistant", answer);
-        }
+        addEnclaveAIMessage("assistant", answer);
         enclaveAIHistory.push({ role: "assistant", content: answer });
         enclaveAIHistory = enclaveAIHistory.slice(-12);
     } catch (error) {
