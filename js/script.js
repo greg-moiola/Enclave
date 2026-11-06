@@ -122,6 +122,10 @@ let incomingCallIndicators = new Map();
 let incomingVoiceCallUserUid = null;
 let unsubscribeCallCandidates = [];
 let voiceCallModal = null;
+// Evita che una chiamata appena chiusa riappaia mentre il telefono si risveglia.
+let silencedIncomingCallIds = new Map();
+// Invalida un accesso al microfono ancora in corso se la chiamata viene chiusa.
+let voiceCallSession = 0;
 
 const homeMain =
     document.querySelector(".home-main");
@@ -902,6 +906,39 @@ function updateRememberConnectedSwitchUI() {
     switchButton.title = isEnabled ? "Disattiva Rimani connesso" : "Attiva Rimani connesso";
 }
 
+const MICROPHONE_READY_KEY = "enclaveMicrophoneReady";
+let microphonePermissionState = "unknown";
+
+function isMicrophoneReadyEnabled() {
+    return localStorage.getItem(MICROPHONE_READY_KEY) === "true";
+}
+
+function updateMicrophoneSwitchUI() {
+    const switchButton = document.querySelector("#enclaveSettingsOverlay .microphone-ready-switch");
+    if (!switchButton) return;
+    const isEnabled = isMicrophoneReadyEnabled() && microphonePermissionState === "granted";
+    switchButton.setAttribute("aria-checked", String(isEnabled));
+    switchButton.classList.toggle("is-on", isEnabled);
+    switchButton.title = isEnabled ? "Disattiva accesso al microfono" : "Attiva accesso al microfono";
+}
+
+async function refreshMicrophonePermissionState() {
+    if (!navigator.permissions?.query) return;
+    try {
+        const status = await navigator.permissions.query({ name: "microphone" });
+        microphonePermissionState = status.state || "unknown";
+        status.onchange = () => {
+            microphonePermissionState = status.state || "unknown";
+            if (microphonePermissionState !== "granted") {
+                localStorage.setItem(MICROPHONE_READY_KEY, "false");
+            }
+            updateMicrophoneSwitchUI();
+        };
+    } catch (error) {
+        console.warn("Stato microfono non disponibile:", error);
+    }
+}
+
 function saveChatWallpaper(wallpaperId) {
     const user = auth.currentUser;
     const status = document.querySelector("#enclaveSettingsOverlay .settings-wallpaper-status");
@@ -1176,7 +1213,31 @@ function createEnclaveSettingsPanel() {
     rememberStatus.textContent = "La preferenza vale solo per questo dispositivo. Se premi Esci, dovrai accedere di nuovo.";
 
     normalSection.append(nicknameButton, themeButton, themeSection, wallpaperButton, wallpaperSection);
-    advancedSection.append(notificationsOption, notificationsStatus, rememberOption, rememberStatus);
+    const microphoneOption = document.createElement("div");
+    microphoneOption.className = "settings-option notifications-settings-option";
+    microphoneOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">🎙</span><span class="settings-option-text"><span class="settings-option-title">Microfono</span><span class="settings-option-description">Se attivo, le chiamate usano il microfono senza richiederlo ogni volta</span></span>';
+    const microphoneSwitch = document.createElement("button");
+    microphoneSwitch.type = "button";
+    microphoneSwitch.className = "notification-switch microphone-ready-switch";
+    microphoneSwitch.setAttribute("role", "switch");
+    microphoneSwitch.setAttribute("aria-label", "Attiva o disattiva l’accesso al microfono per le chiamate");
+    microphoneSwitch.setAttribute("aria-checked", "false");
+    microphoneSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
+    microphoneOption.appendChild(microphoneSwitch);
+
+    const microphoneStatus = document.createElement("p");
+    microphoneStatus.className = "settings-notifications-status microphone-ready-status";
+    microphoneStatus.setAttribute("role", "status");
+    microphoneStatus.textContent = "Se disattivo, il telefono può chiedere il microfono quando inizi o accetti una chiamata.";
+
+    advancedSection.append(
+        notificationsOption,
+        notificationsStatus,
+        microphoneOption,
+        microphoneStatus,
+        rememberOption,
+        rememberStatus
+    );
     content.append(tabs, normalSection, advancedSection);
     panel.append(header, content);
     overlay.appendChild(panel);
@@ -1234,6 +1295,7 @@ function createEnclaveSettingsPanel() {
         if (showAdvanced) {
             updateNotificationsSwitchUI();
             updateRememberConnectedSwitchUI();
+            void refreshMicrophonePermissionState().finally(updateMicrophoneSwitchUI);
         }
     };
     normalTab.addEventListener("click", () => activateSettingsTab("normal"));
@@ -1263,6 +1325,43 @@ function createEnclaveSettingsPanel() {
     };
     tabs.addEventListener("pointercancel", resetSettingsSwipe);
     tabs.addEventListener("lostpointercapture", resetSettingsSwipe);
+
+    microphoneSwitch.addEventListener("click", async () => {
+        microphoneSwitch.disabled = true;
+        microphoneStatus.textContent = "Salvataggio…";
+        try {
+            const turningOn = microphoneSwitch.getAttribute("aria-checked") !== "true";
+            if (!turningOn) {
+                localStorage.setItem(MICROPHONE_READY_KEY, "false");
+                microphoneStatus.textContent = microphonePermissionState === "granted"
+                    ? "Microfono disattivato in Enclave. Se il telefono ha già memorizzato il permesso, la richiesta di sistema non ricompare finché non lo togli dalle impostazioni del browser."
+                    : "Microfono disattivato. Enclave lo richiederà quando inizi o accetti una chiamata.";
+                return;
+            }
+
+            if (!navigator.mediaDevices?.getUserMedia) {
+                localStorage.setItem(MICROPHONE_READY_KEY, "false");
+                microphoneStatus.textContent = "Questo dispositivo non permette l’accesso al microfono.";
+                return;
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            stream.getTracks().forEach(track => track.stop());
+            microphonePermissionState = "granted";
+            localStorage.setItem(MICROPHONE_READY_KEY, "true");
+            microphoneStatus.textContent = "Microfono attivo. Le prossime chiamate non chiederanno di nuovo l’accesso su questo dispositivo.";
+        } catch (error) {
+            console.error("Errore attivazione microfono:", error);
+            localStorage.setItem(MICROPHONE_READY_KEY, "false");
+            microphonePermissionState = error?.name === "NotAllowedError" ? "denied" : microphonePermissionState;
+            microphoneStatus.textContent = error?.name === "NotAllowedError"
+                ? "Permesso negato. Attiva il microfono dalle impostazioni del telefono e riprova."
+                : "Non è stato possibile attivare il microfono. Riprova.";
+        } finally {
+            microphoneSwitch.disabled = false;
+            updateMicrophoneSwitchUI();
+        }
+    });
 
     rememberSwitch.addEventListener("click", async () => {
         rememberSwitch.disabled = true;
@@ -1355,14 +1454,111 @@ function createVoiceCallModal() {
 
 function showVoiceCallModal(status, title = "Chiamata vocale", incoming = false) {
     const modal = createVoiceCallModal();
-    modal.querySelector("#voiceCallTitle").textContent = title;
-    modal.querySelector("#voiceCallAvatar").textContent = (title.trim().charAt(0) || "?").toLocaleUpperCase("it-IT");
+    const safeTitle = (title || "").trim() || "Chiamata vocale";
+    const isGenericTitle = safeTitle === "Chiamata in arrivo" || safeTitle === "Chiamata vocale";
+    modal.querySelector("#voiceCallTitle").textContent = safeTitle;
+    modal.querySelector("#voiceCallAvatar").textContent = (isGenericTitle ? "?" : safeTitle.charAt(0)).toLocaleUpperCase("it-IT");
     modal.querySelector("#voiceCallStatus").textContent = status;
+    modal.querySelector(".voice-call-controls")?.classList.toggle("hidden", incoming);
+    modal.querySelector(".voice-call-incoming-actions")?.classList.toggle("hidden", !incoming);
     modal.querySelector("#voiceCallAcceptButton").classList.toggle("hidden", !incoming);
     modal.querySelector("#voiceCallDeclineButton").classList.toggle("hidden", !incoming);
     modal.querySelector("#voiceCallEndButton").classList.toggle("hidden", incoming);
     modal.querySelector("#voiceCallMuteButton").classList.toggle("hidden", incoming);
+    const acceptButton = modal.querySelector("#voiceCallAcceptButton");
+    if (acceptButton) acceptButton.disabled = false;
     modal.classList.remove("hidden");
+}
+
+function setVoiceCallIdentity(name) {
+    const safeName = (name || "").trim();
+    if (!safeName || !voiceCallModal) return;
+    const title = voiceCallModal.querySelector("#voiceCallTitle");
+    const avatar = voiceCallModal.querySelector("#voiceCallAvatar");
+    if (title) title.textContent = safeName;
+    if (avatar) avatar.textContent = safeName.charAt(0).toLocaleUpperCase("it-IT");
+}
+
+function silenceIncomingCall(callId) {
+    if (!callId) return;
+    silencedIncomingCallIds.set(callId, Date.now() + 20000);
+}
+
+function isIncomingCallSilenced(callId) {
+    const expiresAt = silencedIncomingCallIds.get(callId);
+    if (!expiresAt) return false;
+    if (expiresAt <= Date.now()) {
+        silencedIncomingCallIds.delete(callId);
+        return false;
+    }
+    return true;
+}
+
+function findKnownContactName(callerUid, chatId) {
+    const escapeValue = value => window.CSS?.escape ? CSS.escape(value) : String(value).replace(/["\\]/g, "\\$&");
+    const readName = selector => document.querySelector(selector)?.textContent?.trim() || "";
+
+    if (callerUid) {
+        const fromContact = readName(`.conversation-item[data-contact-uid="${escapeValue(callerUid)}"] .conversation-nickname`);
+        if (fromContact) return fromContact;
+    }
+    if (chatId) {
+        const fromChat = readName(`.conversation-item[data-chat-id="${escapeValue(chatId)}"] .conversation-nickname`);
+        if (fromChat) return fromChat;
+    }
+    if (callerUid && currentChatUserUid === callerUid) {
+        const openChatName = chatUserNickname?.textContent?.trim();
+        if (openChatName && openChatName !== "—") return openChatName;
+    }
+    return "";
+}
+
+async function resolveCallerDisplayName(callerUid, localName) {
+    try {
+        const callerDocument = await getCachedPublicUserSnapshot(callerUid);
+        const originalNickname = callerDocument.exists()
+            ? (callerDocument.data().nickname || "")
+            : "";
+        const resolved = await getContactNickname(callerUid, originalNickname || localName || "");
+        return (resolved || localName || "").trim();
+    } catch (error) {
+        console.error("Impossibile caricare il nome del chiamante:", error);
+        return localName || "";
+    }
+}
+
+function requestMicrophoneStream(sessionToken) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+        return Promise.reject(Object.assign(new Error("Microfono non disponibile"), { name: "NotSupportedError" }));
+    }
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const timeoutId = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(Object.assign(new Error("Il microfono non risponde. Riprova."), { name: "TimeoutError" }));
+        }, 8000);
+
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
+            clearTimeout(timeoutId);
+            if (settled || sessionToken !== voiceCallSession) {
+                stream.getTracks().forEach(track => track.stop());
+                if (!settled) {
+                    settled = true;
+                    reject(Object.assign(new Error("Chiamata chiusa"), { name: "AbortError" }));
+                }
+                return;
+            }
+            settled = true;
+            resolve(stream);
+        }).catch(error => {
+            clearTimeout(timeoutId);
+            if (settled) return;
+            settled = true;
+            reject(error);
+        });
+    });
 }
 
 function updateVoiceCallStatus(status) {
@@ -1439,7 +1635,7 @@ async function startVoiceCall() {
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        const stream = await requestMicrophoneStream(voiceCallSession);
         const callRef = doc(collection(db, "chats", currentChatId, "calls"));
         const remoteAudio = document.createElement("audio");
         remoteAudio.autoplay = true;
@@ -1547,36 +1743,35 @@ function stopGlobalIncomingVoiceCallListener() {
 }
 
 async function showIncomingVoiceCall(callRef, chatId, callData) {
-    if (activeVoiceCall || !auth.currentUser) return;
+    if (activeVoiceCall || !auth.currentUser || isIncomingCallSilenced(callRef.id)) return;
     if (callData.calleeId !== auth.currentUser.uid || callData.status !== "ringing") return;
+    if (!callData.offer) return;
 
     const createdAtMs = callData.createdAt?.toMillis?.();
     if (createdAtMs && Date.now() - createdAtMs > 2 * 60 * 1000) return;
 
     const callerUid = callData.callerId;
+    const localName = findKnownContactName(callerUid, chatId);
     activeVoiceCall = {
         callRef, chatId, callerUid, peerUid: callerUid,
         isCaller: false, stream: null, peer: null, remoteAudio: null,
-        offer: callData.offer, displayName: "Contatto"
+        offer: callData.offer, displayName: localName, accepting: false
     };
 
-    try {
-        const callerDocument = await getDoc(doc(db, "users", callerUid));
-        const originalNickname = callerDocument.exists()
-            ? (callerDocument.data().nickname || "Contatto")
-            : "Contatto";
-        const displayName = await getContactNickname(callerUid, originalNickname);
-        if (!activeVoiceCall || activeVoiceCall.callRef.id !== callRef.id) return;
-        activeVoiceCall.displayName = displayName;
-        showVoiceCallModal("Ti sta chiamando…", displayName, true);
-        updateVoiceCallStatus("Chiamata in arrivo da " + displayName);
-    } catch (error) {
-        console.error("Impossibile caricare il nome del chiamante:", error);
-        if (activeVoiceCall?.callRef.id === callRef.id) {
-            showVoiceCallModal("Ti sta chiamando…", "Contatto", true);
-            updateVoiceCallStatus("Chiamata in arrivo");
-        }
-    }
+    const visibleName = localName || "Chiamata in arrivo";
+    showVoiceCallModal(
+        localName ? "Chiamata in arrivo da " + localName : "Chiamata in arrivo",
+        visibleName,
+        true
+    );
+
+    if (localName) return;
+
+    const displayName = await resolveCallerDisplayName(callerUid, "");
+    if (!activeVoiceCall || activeVoiceCall.callRef.id !== callRef.id || !displayName) return;
+    activeVoiceCall.displayName = displayName;
+    setVoiceCallIdentity(displayName);
+    updateVoiceCallStatus("Chiamata in arrivo da " + displayName);
 }
 
 function listenForIncomingVoiceCalls() {
@@ -1637,15 +1832,16 @@ function listenForIncomingVoiceCalls() {
                         (a.data.createdAt?.toMillis?.() || 0)
                     );
 
-                if (!ringingCalls.length) {
+                const incoming = ringingCalls.find(call => !isIncomingCallSilenced(call.ref.id));
+                if (!incoming) {
                     updateIncomingCallIndicator(chatId, null, false);
                     return;
                 }
 
-                const incoming = ringingCalls[0];
                 updateIncomingCallIndicator(chatId, incoming.data.callerId, true);
-                // Anche se la scheda è in background, prepara la schermata:
-                // sarà visibile appena l'utente torna su Enclave.
+                if (activeVoiceCall?.callRef?.id === incoming.ref.id) return;
+                // Prepara la schermata anche se Enclave è in standby:
+                // resta pronta quando il telefono viene riaperto, senza ricreare la chiamata.
                 if (!activeVoiceCall) {
                     void showIncomingVoiceCall(incoming.ref, chatId, incoming.data);
                 }
@@ -1657,10 +1853,24 @@ function listenForIncomingVoiceCalls() {
 }
 
 async function acceptVoiceCall() {
-    if (!activeVoiceCall || activeVoiceCall.isCaller || !activeVoiceCall.offer) return;
     const call = activeVoiceCall;
+    if (!call || call.isCaller || !call.offer || call.accepting) return;
+    if (document.visibilityState === "hidden") return;
+
+    call.accepting = true;
+    const sessionToken = voiceCallSession;
+    const acceptButton = voiceCallModal?.querySelector("#voiceCallAcceptButton");
+    if (acceptButton) acceptButton.disabled = true;
+    updateVoiceCallStatus("Connessione al microfono…");
+
+    let stream = null;
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        stream = await requestMicrophoneStream(sessionToken);
+        if (sessionToken !== voiceCallSession || activeVoiceCall !== call) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+        }
+
         const remoteAudio = document.createElement("audio");
         remoteAudio.autoplay = true;
         remoteAudio.playsInline = true;
@@ -1668,23 +1878,51 @@ async function acceptVoiceCall() {
         call.stream = stream;
         call.remoteAudio = remoteAudio;
         const peer = await createVoicePeerConnection(call.callRef, stream, remoteAudio);
+        if (sessionToken !== voiceCallSession || activeVoiceCall !== call) {
+            stream.getTracks().forEach(track => track.stop());
+            peer.close();
+            remoteAudio.remove();
+            return;
+        }
         call.peer = peer;
         await peer.setRemoteDescription(new RTCSessionDescription(call.offer));
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        await updateDoc(call.callRef, { answer: { type: answer.type, sdp: answer.sdp }, status: "accepted" });
+        await updateDoc(call.callRef, {
+            answer: { type: answer.type, sdp: answer.sdp },
+            status: "accepted"
+        });
+        if (sessionToken !== voiceCallSession || activeVoiceCall !== call) return;
         await attachVoiceCallCandidateListener(call.callRef, "callerCandidates", peer);
         call.unsubscribeCall = onSnapshot(call.callRef, snapshot => {
             const data = snapshot.data();
-            if (activeVoiceCall && data && ["ended", "declined", "missed"].includes(data.status)) {
+            if (activeVoiceCall === call && data && ["ended", "declined", "missed"].includes(data.status)) {
                 void endVoiceCall(data.status, false);
             }
         });
-        showVoiceCallModal("Connessione audio…", call.displayName || "Contatto");
+        showVoiceCallModal("Connessione audio…", call.displayName || "Chiamata in arrivo");
     } catch (error) {
         console.error("Accettazione chiamata non riuscita:", error);
-        await endVoiceCall("ended");
-        alert("Non è stato possibile accettare la chiamata. Controlla il permesso del microfono.");
+        if (sessionToken !== voiceCallSession || activeVoiceCall !== call) return;
+        stream?.getTracks().forEach(track => track.stop());
+        if (call.peer) {
+            call.peer.close();
+            call.peer = null;
+        }
+        if (call.remoteAudio) {
+            call.remoteAudio.remove();
+            call.remoteAudio = null;
+        }
+        call.stream = null;
+        call.accepting = false;
+        if (acceptButton) acceptButton.disabled = false;
+        showVoiceCallModal(
+            error?.name === "NotAllowedError"
+                ? "Permesso microfono negato. Attivalo e tocca di nuovo Accetta."
+                : "Microfono non disponibile. Tocca di nuovo Accetta.",
+            call.displayName || "Chiamata in arrivo",
+            true
+        );
     }
 }
 
@@ -1702,22 +1940,33 @@ function toggleVoiceCallMute() {
 
 async function endVoiceCall(status = "ended", updateRemote = true) {
     const call = activeVoiceCall;
+    voiceCallSession += 1;
     if (!call) {
         voiceCallModal?.classList.add("hidden");
         return;
     }
     activeVoiceCall = null;
+    silenceIncomingCall(call.callRef?.id);
     if (call.chatId) updateIncomingCallIndicator(call.chatId, call.callerUid, false);
     stopVoiceCallListeners();
     if (call.unsubscribeCall) call.unsubscribeCall();
     if (call.stream) call.stream.getTracks().forEach(track => track.stop());
     if (call.peer) call.peer.close();
     if (call.remoteAudio) call.remoteAudio.remove();
-    if (updateRemote && call.callRef) {
-        try { await updateDoc(call.callRef, { status }); }
-        catch (error) { console.warn("Aggiornamento stato chiamata:", error); }
-    }
     voiceCallModal?.classList.add("hidden");
+    if (updateRemote && call.callRef) {
+        try {
+            await updateDoc(call.callRef, { status });
+        } catch (error) {
+            console.warn("Aggiornamento stato chiamata:", error);
+            try {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await updateDoc(call.callRef, { status });
+            } catch (retryError) {
+                console.warn("Secondo aggiornamento stato chiamata non riuscito:", retryError);
+            }
+        }
+    }
 }
 
 if (startVoiceCallButton) {
