@@ -5,12 +5,16 @@ self.addEventListener("notificationclick", event => {
     event.waitUntil((async () => {
         const targetUrl = new URL("/Enclave/", self.location.origin).href;
         const windows = await clients.matchAll({ type: "window", includeUncontrolled: true });
-        for (const client of windows) {
-            if ("focus" in client) {
-                await client.focus();
-                if ("navigate" in client) await client.navigate(targetUrl);
-                return;
+        const alreadyOpen = windows.find(client => {
+            try {
+                return new URL(client.url).pathname.startsWith("/Enclave");
+            } catch (error) {
+                return false;
             }
+        });
+        if (alreadyOpen && "focus" in alreadyOpen) {
+            await alreadyOpen.focus();
+            return;
         }
         if (clients.openWindow) await clients.openWindow(targetUrl);
     })());
