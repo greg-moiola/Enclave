@@ -158,6 +158,8 @@ const ENCLAVE_STORAGE_WORKER_URL =
     "https://enclave-storage.gpvyw7wnf8.workers.dev";
 
 const activeMediaObjectUrls = new Set();
+const protectedMediaObjectUrlCache = new Map();
+const MAX_CACHED_MEDIA_OBJECT_URLS = 40;
 
 const mediaFileInput = document.createElement("input");
 mediaFileInput.type = "file";
@@ -5979,12 +5981,9 @@ async function loadMessages(chatId) {
                 const currentUser = auth.currentUser;
 
                 // Costruisce il nuovo DOM fuori dallo schermo e lo applica in un unico passaggio.
-                // Libera anche gli URL blob dei media della precedente versione del DOM.
+                // Gli URL dei media restano in cache tra i render: evita download R2 ripetuti
+                // quando Firestore aggiorna la conversazione. La cache è limitata a 40 elementi.
                 closeMessageMenus();
-                for (const objectUrl of activeMediaObjectUrls) {
-                    URL.revokeObjectURL(objectUrl);
-                }
-                activeMediaObjectUrls.clear();
                 const renderedMessagesFragment = document.createDocumentFragment();
 
                 messages.forEach(
@@ -6304,9 +6303,11 @@ async function loadMessages(chatId) {
                         }
 
 
-                        bubble.appendChild(
-                            textElement
-                        );
+                        // I messaggi multimediali mostrano solo il contenuto, senza
+                        // le vecchie etichette "Immagine" / "Messaggio vocale".
+                        if (!message.media && message.text) {
+                            bubble.appendChild(textElement);
+                        }
 
 
                         // =========================
@@ -7120,7 +7121,17 @@ async function sendMessage() {
 // =========================
 
 async function loadProtectedMediaIntoElement(element, chatId, objectKey, loadVersion) {
+    const cacheKey = `${chatId}/${objectKey}`;
     try {
+        const cachedUrl = protectedMediaObjectUrlCache.get(cacheKey);
+        if (cachedUrl) {
+            // Aggiorna l'ordine LRU senza richiedere nuovamente il file a R2.
+            protectedMediaObjectUrlCache.delete(cacheKey);
+            protectedMediaObjectUrlCache.set(cacheKey, cachedUrl);
+            element.src = cachedUrl;
+            return;
+        }
+
         const currentUser = auth.currentUser;
         if (!currentUser) throw new Error("Sessione non disponibile.");
 
@@ -7152,7 +7163,15 @@ async function loadProtectedMediaIntoElement(element, chatId, objectKey, loadVer
             return;
         }
 
+        protectedMediaObjectUrlCache.set(cacheKey, objectUrl);
         activeMediaObjectUrls.add(objectUrl);
+        while (protectedMediaObjectUrlCache.size > MAX_CACHED_MEDIA_OBJECT_URLS) {
+            const oldestKey = protectedMediaObjectUrlCache.keys().next().value;
+            const oldestUrl = protectedMediaObjectUrlCache.get(oldestKey);
+            protectedMediaObjectUrlCache.delete(oldestKey);
+            activeMediaObjectUrls.delete(oldestUrl);
+            URL.revokeObjectURL(oldestUrl);
+        }
         element.src = objectUrl;
     } catch (error) {
         console.error("Errore caricamento media Enclave:", error);
@@ -7204,9 +7223,14 @@ async function uploadEnclaveMedia(chatId, type, blob, durationSeconds = null) {
     if (!currentUser) throw new Error("Devi accedere a Enclave.");
 
     const formData = new FormData();
+    const normalizedMimeType = String(blob.type || "").toLowerCase().split(";")[0].trim();
     const extension = type === "image"
-        ? (blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : blob.type === "image/gif" ? "gif" : blob.type === "image/avif" ? "avif" : "jpg")
-        : (blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm");
+        ? (normalizedMimeType === "image/png" ? "png" : normalizedMimeType === "image/webp" ? "webp" : normalizedMimeType === "image/gif" ? "gif" : normalizedMimeType === "image/avif" ? "avif" : "jpg")
+        : (normalizedMimeType === "audio/mp4" || normalizedMimeType === "audio/x-m4a" ? "m4a"
+            : normalizedMimeType === "audio/aac" ? "aac"
+            : normalizedMimeType === "audio/ogg" ? "ogg"
+            : normalizedMimeType === "audio/wav" || normalizedMimeType === "audio/x-wav" ? "wav"
+            : normalizedMimeType === "audio/mpeg" ? "mp3" : "webm");
 
     formData.append("chatId", chatId);
     formData.append("type", type);
@@ -7286,7 +7310,7 @@ async function sendEnclaveMediaMessage(type, blob, durationSeconds = null) {
 
         const previewText = type === "image" ? "📷 Immagine" : "🎙 Messaggio vocale";
         const messageData = {
-            text: previewText,
+            text: "",
             senderId: currentUser.uid,
             createdAt: serverTimestamp(),
             edited: false,
@@ -7370,6 +7394,9 @@ let voiceRecorderCancelled = false;
 
 function openVoiceRecorderPanel() {
     if (!chatInputArea) return;
+    // Ogni nuova sessione parte pulita: dopo Annulla/Invia il flag viene
+    // impostato a true per ignorare l'evento onstop della sessione precedente.
+    voiceRecorderCancelled = false;
     if (voiceRecorderPanel) {
         voiceRecorderPanel.remove();
         voiceRecorderPanel = null;
@@ -7485,10 +7512,12 @@ function openVoiceRecorderPanel() {
 
         try {
             voiceRecorderStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Safari/iOS registra normalmente in MP4; Chromium/Android in WebM.
+            // Si sceglie un formato realmente dichiarato supportato dal browser.
             const mimeCandidates = [
+                "audio/mp4",
                 "audio/webm;codecs=opus",
                 "audio/webm",
-                "audio/mp4",
                 "audio/ogg;codecs=opus",
                 "audio/ogg"
             ];
@@ -7496,24 +7525,25 @@ function openVoiceRecorderPanel() {
                 MediaRecorder.isTypeSupported?.(type)
             );
 
-            voiceRecorder = selectedMime
+            const recorderInstance = selectedMime
                 ? new MediaRecorder(voiceRecorderStream, { mimeType: selectedMime })
                 : new MediaRecorder(voiceRecorderStream);
+            voiceRecorder = recorderInstance;
 
             voiceRecorderChunks = [];
-            voiceRecorder.ondataavailable = event => {
+            recorderInstance.ondataavailable = event => {
                 if (event.data && event.data.size > 0) {
                     voiceRecorderChunks.push(event.data);
                 }
             };
 
-            voiceRecorder.onerror = event => {
+            recorderInstance.onerror = event => {
                 console.error("Errore MediaRecorder:", event.error);
                 status.textContent = "Errore durante la registrazione.";
                 stopRecording();
             };
 
-            voiceRecorder.onstop = () => {
+            recorderInstance.onstop = () => {
                 if (voiceRecordingTimer) {
                     clearInterval(voiceRecordingTimer);
                     voiceRecordingTimer = null;
@@ -7529,8 +7559,16 @@ function openVoiceRecorderPanel() {
                     return;
                 }
 
-                const mimeType = voiceRecorder?.mimeType || voiceRecorderChunks[0]?.type || "audio/webm";
+                const rawMimeType = String(
+                    recorderInstance.mimeType || voiceRecorderChunks.find(chunk => chunk.type)?.type || "audio/webm"
+                ).toLowerCase();
+                let mimeType = rawMimeType.split(";")[0].trim();
+                // Il Worker riceve il MIME canonico (senza parametri codecs),
+                // mentre i byte registrati restano esattamente quelli originali.
+                if (mimeType === "audio/x-m4a") mimeType = "audio/mp4";
+                if (mimeType === "audio/x-wav") mimeType = "audio/wav";
                 voiceRecordedBlob = new Blob(voiceRecorderChunks, { type: mimeType });
+                if (voiceRecorder === recorderInstance) voiceRecorder = null;
                 voiceRecordedDuration = Math.max(
                     1,
                     Math.min(60, Math.ceil((Date.now() - voiceRecordingStartedAt) / 1000))
@@ -7541,8 +7579,14 @@ function openVoiceRecorderPanel() {
 
                 const audioPreview = document.createElement("audio");
                 audioPreview.controls = true;
-                audioPreview.preload = "metadata";
+                audioPreview.preload = "auto";
+                audioPreview.loop = false;
+                audioPreview.playsInline = true;
                 audioPreview.src = voicePreviewObjectUrl;
+                audioPreview.load();
+                audioPreview.addEventListener("ended", () => {
+                    previewButton.textContent = "Anteprima";
+                });
                 previewHolder.replaceChildren(audioPreview);
 
                 timer.textContent = `00:${String(voiceRecordedDuration).padStart(2, "0")}`;
@@ -7557,7 +7601,7 @@ function openVoiceRecorderPanel() {
             voiceRecordingStartedAt = Date.now();
             status.textContent = "Registrazione in corso…";
             stopButton.disabled = false;
-            voiceRecorder.start();
+            recorderInstance.start();
             voiceRecordingTimer = setInterval(updateTimer, 250);
         } catch (error) {
             console.error("Accesso al microfono non riuscito:", error);
@@ -7575,8 +7619,14 @@ function openVoiceRecorderPanel() {
     previewButton.addEventListener("click", () => {
         const audio = previewHolder.querySelector("audio");
         if (audio) {
-            audio.currentTime = 0;
-            void audio.play().catch(error => console.warn("Anteprima audio:", error));
+            if (audio.paused) {
+                if (audio.ended) audio.currentTime = 0;
+                void audio.play().catch(error => console.warn("Anteprima audio:", error));
+                previewButton.textContent = "Pausa";
+            } else {
+                audio.pause();
+                previewButton.textContent = "Anteprima";
+            }
         }
     });
 
