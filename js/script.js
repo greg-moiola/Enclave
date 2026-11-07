@@ -24,8 +24,7 @@ import {
     where,
     onSnapshot,
     serverTimestamp,
-    arrayUnion,
-    arrayRemove
+    arrayUnion
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 
 import {
@@ -37,7 +36,6 @@ import {
     getMessaging,
     getToken,
     onMessage,
-    deleteToken,
     isSupported
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-messaging.js";
 
@@ -321,84 +319,6 @@ window.addEventListener("focus", clearNotificationsWhenEnclaveIsOpened);
 window.addEventListener("pageshow", clearNotificationsWhenEnclaveIsOpened);
 
 
-const ENCLAVE_NOTIFICATION_WORKER_URL =
-    "https://enclave-notification.gpvyw7wnf8.workers.dev/";
-
-// Token FCM di questo dispositivo, tenuto in memoria per poterlo rimuovere al logout.
-let currentFcmToken = null;
-
-// Invia una richiesta al Worker delle notifiche.
-// - ritenta in caso di errore di rete o risposta 429/502/503/504 (tipico con
-//   passaggi wifi <-> dati mobili o rete debole);
-// - la prima richiesta usa keepalive, così non viene annullata se l'utente
-//   blocca il telefono o cambia app subito dopo aver premuto Invia.
-async function postToNotificationWorker(payload) {
-    const delaysMs = [0, 1000, 3000];
-    let lastError = null;
-
-    for (let attempt = 0; attempt < delaysMs.length; attempt++) {
-        if (delaysMs[attempt]) {
-            await new Promise(resolve => setTimeout(resolve, delaysMs[attempt]));
-        }
-
-        try {
-            const user = auth.currentUser;
-            if (!user) return null;
-
-            const idToken = await user.getIdToken();
-            const response = await fetch(ENCLAVE_NOTIFICATION_WORKER_URL, {
-                method: "POST",
-                keepalive: attempt === 0,
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${idToken}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if ([429, 502, 503, 504].includes(response.status)) {
-                lastError = new Error(`Worker notifiche: risposta ${response.status}`);
-                continue;
-            }
-
-            const result = await response.json().catch(() => ({}));
-            return { ok: response.ok, status: response.status, result };
-        } catch (error) {
-            lastError = error;
-        }
-    }
-
-    throw lastError || new Error("Notifica non inviata.");
-}
-
-// Rimuove da Firestore (e invalida) il token di QUESTO dispositivo.
-// Va chiamata prima del logout: altrimenti il telefono continua a ricevere
-// le notifiche dell'account appena chiuso.
-async function removeThisDeviceFcmToken() {
-    const user = auth.currentUser;
-
-    if (user && currentFcmToken) {
-        try {
-            await updateDoc(doc(db, "users", user.uid), {
-                fcmTokens: arrayRemove(currentFcmToken),
-                updatedAt: serverTimestamp()
-            });
-        } catch (error) {
-            console.warn("Rimozione token FCM dal profilo non riuscita:", error);
-        }
-    }
-
-    try {
-        if (await isSupported()) {
-            await deleteToken(getMessaging(app));
-        }
-    } catch (error) {
-        console.warn("Invalidazione token FCM non riuscita:", error);
-    }
-
-    currentFcmToken = null;
-}
-
 async function enableEnclaveNotifications(requestPermission = true) {
     try {
         const currentUser = auth.currentUser;
@@ -494,8 +414,6 @@ async function enableEnclaveNotifications(requestPermission = true) {
         if (!token) {
             throw new Error("Token FCM non generato.");
         }
-
-        currentFcmToken = token;
 
         // Salva il token nel profilo dell'utente autenticato.
         await updateDoc(
@@ -1750,20 +1668,32 @@ async function startVoiceCall() {
         showVoiceCallModal("Chiamata in corso…", chatUserNickname.textContent);
 
         // Push al destinatario tramite il Worker già pubblicato.
-        // Non blocca l'avvio della chiamata e ritenta in caso di rete instabile.
-        void postToNotificationWorker({
-            action: "call",
-            chatId: activeVoiceCall.chatId,
-            callId: callRef.id
-        }).then(outcome => {
-            if (outcome && !outcome.ok) {
-                console.error("Notifica chiamata non inviata:", outcome.result);
-            } else if (outcome) {
-                console.log("Risultato notifica chiamata:", outcome.result);
+        try {
+            const idToken = await auth.currentUser.getIdToken();
+            const notificationResponse = await fetch(
+                "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        action: "call",
+                        chatId: activeVoiceCall.chatId,
+                        callId: callRef.id
+                    })
+                }
+            );
+            const notificationResult = await notificationResponse.json().catch(() => ({}));
+            if (!notificationResponse.ok) {
+                console.error("Notifica chiamata non inviata:", notificationResult);
+            } else {
+                console.log("Risultato notifica chiamata:", notificationResult);
             }
-        }).catch(error => {
-            console.error("Errore invio notifica chiamata:", error);
-        });
+        } catch (notificationError) {
+            console.error("Errore invio notifica chiamata:", notificationError);
+        }
 
         await attachVoiceCallCandidateListener(callRef, "calleeCandidates", peer);
         const unsubscribe = onSnapshot(callRef, async snapshot => {
@@ -2423,7 +2353,6 @@ document
             try {
                 // Esci chiude sempre la sessione Firebase e cancella il marcatore della scheda.
                 sessionStorage.removeItem("enclaveSessionAuthMarker");
-                await removeThisDeviceFcmToken();
                 await signOut(auth);
             } catch (error) {
                 console.error("Errore durante la disconnessione:", error);
@@ -7118,20 +7047,49 @@ async function sendMessage() {
         clearReply();
 
         // Notifica al destinatario tramite il Worker.
-        // Il messaggio è già stato salvato in Firestore. La richiesta non blocca
-        // l'interfaccia e ritenta in caso di rete instabile.
-        void postToNotificationWorker({
-            chatId: chatId,
-            messageId: messageReference.id
-        }).then(outcome => {
-            if (outcome && !outcome.ok) {
-                console.error("Notifica non inviata:", outcome.result);
-            } else if (outcome) {
-                console.log("Risultato notifiche:", outcome.result);
+        // Il messaggio è già stato salvato in Firestore.
+        try {
+
+            const idToken = await currentUser.getIdToken();
+
+            const notificationResponse = await fetch(
+                "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${idToken}`
+                    },
+                    body: JSON.stringify({
+                        chatId: chatId,
+                        messageId: messageReference.id
+                    })
+                }
+            );
+
+            const notificationResult =
+                await notificationResponse.json();
+
+            if (!notificationResponse.ok) {
+                console.error(
+                    "Notifica non inviata:",
+                    notificationResult
+                );
+            } else {
+                console.log(
+                    "Risultato notifiche:",
+                    notificationResult
+                );
             }
-        }).catch(error => {
-            console.error("Errore collegamento notifiche:", error);
-        });
+
+        } catch (notificationError) {
+
+            console.error(
+                "Errore collegamento notifiche:",
+                notificationError
+            );
+
+        }
 
         console.log("INVIO COMPLETATO ✅");
 
@@ -7298,12 +7256,24 @@ async function uploadEnclaveMedia(chatId, type, blob, durationSeconds = null) {
 
 async function notifyEnclaveMediaMessage(chatId, messageId) {
     try {
-        const outcome = await postToNotificationWorker({ chatId, messageId });
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
 
-        if (outcome && !outcome.ok) {
-            console.error("Notifica allegato non inviata:", outcome.result);
-        } else if (outcome) {
-            console.log("Risultato notifica allegato:", outcome.result);
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch(
+            "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ chatId, messageId })
+            }
+        );
+
+        if (!response.ok) {
+            console.error("Notifica allegato non inviata:", await response.text());
         }
     } catch (error) {
         console.error("Errore notifica allegato:", error);
