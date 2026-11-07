@@ -151,6 +151,21 @@ const messageAttachButton =
 const messageAttachMenu =
     document.getElementById("messageAttachMenu");
 
+const chatInputArea =
+    document.querySelector(".chat-input-area");
+
+const ENCLAVE_STORAGE_WORKER_URL =
+    "https://enclave-storage.gpvyw7wnf8.workers.dev";
+
+const activeMediaObjectUrls = new Set();
+
+const mediaFileInput = document.createElement("input");
+mediaFileInput.type = "file";
+mediaFileInput.accept = "image/jpeg,image/png,image/webp,image/gif,image/avif";
+mediaFileInput.hidden = true;
+mediaFileInput.setAttribute("aria-label", "Seleziona un'immagine");
+document.body.appendChild(mediaFileInput);
+
 const chatSearch =
     document.getElementById("chatSearch");
 
@@ -5964,8 +5979,12 @@ async function loadMessages(chatId) {
                 const currentUser = auth.currentUser;
 
                 // Costruisce il nuovo DOM fuori dallo schermo e lo applica in un unico passaggio.
-                // Così il mobile non mostra per un frame la chat vuota durante il rendering.
+                // Libera anche gli URL blob dei media della precedente versione del DOM.
                 closeMessageMenus();
+                for (const objectUrl of activeMediaObjectUrls) {
+                    URL.revokeObjectURL(objectUrl);
+                }
+                activeMediaObjectUrls.clear();
                 const renderedMessagesFragment = document.createDocumentFragment();
 
                 messages.forEach(
@@ -6209,7 +6228,42 @@ async function loadMessages(chatId) {
 
 
                         textElement.textContent =
-                            message.text;
+                            message.text || "";
+
+
+                        // =========================
+                        // CONTENUTO MULTIMEDIALE PRIVATO
+                        // =========================
+
+                        if (
+                            message.media &&
+                            message.media.objectKey &&
+                            ["image", "audio"].includes(message.media.type)
+                        ) {
+                            const mediaElement = document.createElement(
+                                message.media.type === "image" ? "img" : "audio"
+                            );
+
+                            if (message.media.type === "image") {
+                                mediaElement.className = "message-media-image";
+                                mediaElement.alt = "Immagine condivisa";
+                                mediaElement.loading = "lazy";
+                            } else {
+                                mediaElement.className = "message-media-audio";
+                                mediaElement.controls = true;
+                                mediaElement.preload = "metadata";
+                                mediaElement.setAttribute("aria-label", "Messaggio vocale");
+                            }
+
+                            bubble.appendChild(mediaElement);
+
+                            void loadProtectedMediaIntoElement(
+                                mediaElement,
+                                chatId,
+                                message.media.objectKey,
+                                loadVersion
+                            );
+                        }
 
 
                         // =========================
@@ -7060,7 +7114,499 @@ async function sendMessage() {
 
 
 
-// Menu allegati: per ora mostra le opzioni, senza avviare ancora upload o registrazione.
+
+// =========================
+// STORAGE MULTIMEDIALE R2
+// =========================
+
+async function loadProtectedMediaIntoElement(element, chatId, objectKey, loadVersion) {
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) throw new Error("Sessione non disponibile.");
+
+        const idToken = await currentUser.getIdToken();
+        const mediaUrl = new URL(`${ENCLAVE_STORAGE_WORKER_URL}/media`);
+        mediaUrl.searchParams.set("chatId", chatId);
+        mediaUrl.searchParams.set("key", objectKey);
+
+        const response = await fetch(mediaUrl.toString(), {
+            method: "GET",
+            headers: { "Authorization": `Bearer ${idToken}` },
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || `Download non riuscito (${response.status}).`);
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+
+        if (
+            !element.isConnected ||
+            currentChatId !== chatId ||
+            loadVersion !== messagesLoadVersion
+        ) {
+            URL.revokeObjectURL(objectUrl);
+            return;
+        }
+
+        activeMediaObjectUrls.add(objectUrl);
+        element.src = objectUrl;
+    } catch (error) {
+        console.error("Errore caricamento media Enclave:", error);
+        const errorLabel = document.createElement("span");
+        errorLabel.className = "message-media-error";
+        errorLabel.textContent = "Contenuto non disponibile";
+        element.replaceWith(errorLabel);
+    }
+}
+
+async function ensureCurrentMediaChat(currentUser) {
+    let chatId = currentChatId;
+
+    if (!chatId && currentChatUserUid) {
+        chatId = createChatId(currentUser.uid, currentChatUserUid);
+    }
+
+    if (!chatId) {
+        throw new Error("Apri prima una conversazione.");
+    }
+
+    const chatReference = doc(db, "chats", chatId);
+    const chatSnapshot = await getDoc(chatReference);
+
+    if (!chatSnapshot.exists()) {
+        if (!currentChatUserUid || currentChatUserUid === currentUser.uid) {
+            throw new Error("La conversazione non è disponibile.");
+        }
+
+        await setDoc(chatReference, {
+            participants: [currentUser.uid, currentChatUserUid]
+        });
+    } else {
+        const participants = chatSnapshot.data().participants || [];
+        if (!participants.includes(currentUser.uid)) {
+            throw new Error("Non fai parte di questa conversazione.");
+        }
+    }
+
+    if (currentChatId === chatId) {
+        currentChatDocumentExists = true;
+    }
+
+    return chatId;
+}
+
+async function uploadEnclaveMedia(chatId, type, blob, durationSeconds = null) {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error("Devi accedere a Enclave.");
+
+    const formData = new FormData();
+    const extension = type === "image"
+        ? (blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : blob.type === "image/gif" ? "gif" : blob.type === "image/avif" ? "avif" : "jpg")
+        : (blob.type.includes("mp4") ? "m4a" : blob.type.includes("ogg") ? "ogg" : "webm");
+
+    formData.append("chatId", chatId);
+    formData.append("type", type);
+    if (durationSeconds !== null) {
+        formData.append("durationSeconds", String(durationSeconds));
+    }
+    formData.append("file", blob, `enclave-${type}.${extension}`);
+
+    const idToken = await currentUser.getIdToken();
+    const response = await fetch(`${ENCLAVE_STORAGE_WORKER_URL}/upload`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${idToken}` },
+        body: formData
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.ok) {
+        throw new Error(result.error || `Upload non riuscito (${response.status}).`);
+    }
+
+    return result;
+}
+
+async function notifyEnclaveMediaMessage(chatId, messageId) {
+    try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+
+        const idToken = await currentUser.getIdToken();
+        const response = await fetch(
+            "https://enclave-notification.gpvyw7wnf8.workers.dev/",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${idToken}`
+                },
+                body: JSON.stringify({ chatId, messageId })
+            }
+        );
+
+        if (!response.ok) {
+            console.error("Notifica allegato non inviata:", await response.text());
+        }
+    } catch (error) {
+        console.error("Errore notifica allegato:", error);
+    }
+}
+
+let mediaUploadInProgress = false;
+
+async function sendEnclaveMediaMessage(type, blob, durationSeconds = null) {
+    if (mediaUploadInProgress) return;
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+        alert("Devi accedere a Enclave.");
+        return;
+    }
+
+    if (!currentChatId && !currentChatUserUid) {
+        alert("Apri prima una conversazione.");
+        return;
+    }
+
+    mediaUploadInProgress = true;
+    if (messageAttachButton) messageAttachButton.disabled = true;
+
+    try {
+        const chatId = await ensureCurrentMediaChat(currentUser);
+        const uploaded = await uploadEnclaveMedia(
+            chatId,
+            type,
+            blob,
+            durationSeconds
+        );
+
+        const previewText = type === "image" ? "📷 Immagine" : "🎙 Messaggio vocale";
+        const messageData = {
+            text: previewText,
+            senderId: currentUser.uid,
+            createdAt: serverTimestamp(),
+            edited: false,
+            readBy: [currentUser.uid],
+            media: {
+                type,
+                objectKey: uploaded.objectKey,
+                mimeType: uploaded.mimeType,
+                size: uploaded.size,
+                durationSeconds: uploaded.durationSeconds
+            }
+        };
+
+        const messageReference = await addDoc(
+            collection(db, "chats", chatId, "messages"),
+            messageData
+        );
+
+        await updateDoc(doc(db, "chats", chatId), {
+            lastMessage: previewText,
+            lastMessageAt: serverTimestamp(),
+            lastSenderId: currentUser.uid
+        });
+
+        if (currentChatId === chatId) {
+            currentChatDocumentExists = true;
+        }
+
+        clearReply();
+        void notifyEnclaveMediaMessage(chatId, messageReference.id);
+        console.log(`MESSAGGIO ${type.toUpperCase()} INVIATO ✅`);
+    } catch (error) {
+        console.error("Errore invio allegato Enclave:", error);
+        alert("Impossibile inviare l'allegato:\n" + error.message);
+        throw error;
+    } finally {
+        mediaUploadInProgress = false;
+        if (messageAttachButton) messageAttachButton.disabled = false;
+    }
+}
+
+mediaFileInput.addEventListener("change", async () => {
+    const file = mediaFileInput.files?.[0];
+    mediaFileInput.value = "";
+    if (!file) return;
+
+    const allowedTypes = [
+        "image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"
+    ];
+    if (!allowedTypes.includes(file.type)) {
+        alert("Formato immagine non supportato. Usa JPG, PNG, WebP, GIF o AVIF.");
+        return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+        alert("L'immagine supera il limite massimo di 10 MB.");
+        return;
+    }
+
+    try {
+        await sendEnclaveMediaMessage("image", file);
+    } catch {
+        // L'errore è già mostrato all'utente dalla funzione di invio.
+    }
+});
+
+
+// =========================
+// REGISTRAZIONE MESSAGGIO VOCALE (MAX 60 SECONDI)
+// =========================
+
+let voiceRecorderPanel = null;
+let voiceRecorder = null;
+let voiceRecorderStream = null;
+let voiceRecorderChunks = [];
+let voiceRecordedBlob = null;
+let voicePreviewObjectUrl = null;
+let voiceRecordingStartedAt = 0;
+let voiceRecordingTimer = null;
+let voiceRecordedDuration = 0;
+let voiceRecorderCancelled = false;
+
+function openVoiceRecorderPanel() {
+    if (!chatInputArea) return;
+    if (voiceRecorderPanel) {
+        voiceRecorderPanel.remove();
+        voiceRecorderPanel = null;
+    }
+
+    const panel = document.createElement("div");
+    panel.className = "voice-recording-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "Registrazione messaggio vocale");
+
+    const title = document.createElement("strong");
+    title.className = "voice-recording-title";
+    title.textContent = "Messaggio vocale";
+
+    const status = document.createElement("div");
+    status.className = "voice-recording-status";
+    status.textContent = "Premi Registra per iniziare (massimo 60 secondi).";
+
+    const timer = document.createElement("div");
+    timer.className = "voice-recording-timer";
+    timer.textContent = "00:00";
+
+    const controls = document.createElement("div");
+    controls.className = "voice-recording-controls";
+
+    const startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.textContent = "● Registra";
+
+    const stopButton = document.createElement("button");
+    stopButton.type = "button";
+    stopButton.textContent = "Ferma";
+    stopButton.disabled = true;
+
+    const previewButton = document.createElement("button");
+    previewButton.type = "button";
+    previewButton.textContent = "Anteprima";
+    previewButton.disabled = true;
+
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.textContent = "Annulla";
+
+    const sendButton = document.createElement("button");
+    sendButton.type = "button";
+    sendButton.textContent = "Invia";
+    sendButton.disabled = true;
+
+    const previewHolder = document.createElement("div");
+    previewHolder.className = "voice-recording-preview";
+
+    controls.append(startButton, stopButton, previewButton, cancelButton, sendButton);
+    panel.append(title, status, timer, previewHolder, controls);
+    chatInputArea.appendChild(panel);
+    voiceRecorderPanel = panel;
+
+    const updateTimer = () => {
+        const elapsed = Math.min(60, Math.floor((Date.now() - voiceRecordingStartedAt) / 1000));
+        timer.textContent = `00:${String(elapsed).padStart(2, "0")}`;
+        if (elapsed >= 60 && voiceRecorder?.state === "recording") {
+            stopRecording();
+        }
+    };
+
+    const stopRecording = () => {
+        if (voiceRecordingTimer) {
+            clearInterval(voiceRecordingTimer);
+            voiceRecordingTimer = null;
+        }
+        if (voiceRecorder && voiceRecorder.state === "recording") {
+            voiceRecorder.stop();
+        }
+        stopButton.disabled = true;
+        startButton.disabled = true;
+        status.textContent = "Elaborazione registrazione…";
+    };
+
+    const cleanupRecording = () => {
+        voiceRecorderCancelled = true;
+        if (voiceRecordingTimer) {
+            clearInterval(voiceRecordingTimer);
+            voiceRecordingTimer = null;
+        }
+        if (voiceRecorder && voiceRecorder.state === "recording") {
+            try { voiceRecorder.stop(); } catch {}
+        }
+        if (voiceRecorderStream) {
+            voiceRecorderStream.getTracks().forEach(track => track.stop());
+        }
+        voiceRecorder = null;
+        voiceRecorderStream = null;
+        voiceRecorderChunks = [];
+        voiceRecordedBlob = null;
+        voiceRecordedDuration = 0;
+        if (voicePreviewObjectUrl) {
+            URL.revokeObjectURL(voicePreviewObjectUrl);
+            voicePreviewObjectUrl = null;
+        }
+        if (voiceRecorderPanel) {
+            voiceRecorderPanel.remove();
+            voiceRecorderPanel = null;
+        }
+    };
+
+    startButton.addEventListener("click", async () => {
+        if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+            status.textContent = "Registrazione audio non supportata da questo browser.";
+            return;
+        }
+
+        startButton.disabled = true;
+        status.textContent = "Richiesta accesso al microfono…";
+
+        try {
+            voiceRecorderStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mimeCandidates = [
+                "audio/webm;codecs=opus",
+                "audio/webm",
+                "audio/mp4",
+                "audio/ogg;codecs=opus",
+                "audio/ogg"
+            ];
+            const selectedMime = mimeCandidates.find(type =>
+                MediaRecorder.isTypeSupported?.(type)
+            );
+
+            voiceRecorder = selectedMime
+                ? new MediaRecorder(voiceRecorderStream, { mimeType: selectedMime })
+                : new MediaRecorder(voiceRecorderStream);
+
+            voiceRecorderChunks = [];
+            voiceRecorder.ondataavailable = event => {
+                if (event.data && event.data.size > 0) {
+                    voiceRecorderChunks.push(event.data);
+                }
+            };
+
+            voiceRecorder.onerror = event => {
+                console.error("Errore MediaRecorder:", event.error);
+                status.textContent = "Errore durante la registrazione.";
+                stopRecording();
+            };
+
+            voiceRecorder.onstop = () => {
+                if (voiceRecordingTimer) {
+                    clearInterval(voiceRecordingTimer);
+                    voiceRecordingTimer = null;
+                }
+                if (voiceRecorderStream) {
+                    voiceRecorderStream.getTracks().forEach(track => track.stop());
+                    voiceRecorderStream = null;
+                }
+
+                if (voiceRecorderCancelled || !voiceRecorderPanel) {
+                    voiceRecorder = null;
+                    voiceRecorderChunks = [];
+                    return;
+                }
+
+                const mimeType = voiceRecorder?.mimeType || voiceRecorderChunks[0]?.type || "audio/webm";
+                voiceRecordedBlob = new Blob(voiceRecorderChunks, { type: mimeType });
+                voiceRecordedDuration = Math.max(
+                    1,
+                    Math.min(60, Math.ceil((Date.now() - voiceRecordingStartedAt) / 1000))
+                );
+
+                if (voicePreviewObjectUrl) URL.revokeObjectURL(voicePreviewObjectUrl);
+                voicePreviewObjectUrl = URL.createObjectURL(voiceRecordedBlob);
+
+                const audioPreview = document.createElement("audio");
+                audioPreview.controls = true;
+                audioPreview.preload = "metadata";
+                audioPreview.src = voicePreviewObjectUrl;
+                previewHolder.replaceChildren(audioPreview);
+
+                timer.textContent = `00:${String(voiceRecordedDuration).padStart(2, "0")}`;
+                status.textContent = voiceRecordedBlob.size
+                    ? "Anteprima pronta. Puoi ascoltare, annullare oppure inviare."
+                    : "Registrazione vuota. Riprova.";
+                previewButton.disabled = !voiceRecordedBlob.size;
+                sendButton.disabled = !voiceRecordedBlob.size;
+                cancelButton.disabled = false;
+            };
+
+            voiceRecordingStartedAt = Date.now();
+            status.textContent = "Registrazione in corso…";
+            stopButton.disabled = false;
+            voiceRecorder.start();
+            voiceRecordingTimer = setInterval(updateTimer, 250);
+        } catch (error) {
+            console.error("Accesso al microfono non riuscito:", error);
+            status.textContent = "Impossibile accedere al microfono. Controlla i permessi del browser.";
+            startButton.disabled = false;
+            if (voiceRecorderStream) {
+                voiceRecorderStream.getTracks().forEach(track => track.stop());
+                voiceRecorderStream = null;
+            }
+        }
+    });
+
+    stopButton.addEventListener("click", stopRecording);
+
+    previewButton.addEventListener("click", () => {
+        const audio = previewHolder.querySelector("audio");
+        if (audio) {
+            audio.currentTime = 0;
+            void audio.play().catch(error => console.warn("Anteprima audio:", error));
+        }
+    });
+
+    cancelButton.addEventListener("click", cleanupRecording);
+
+    sendButton.addEventListener("click", async () => {
+        if (!voiceRecordedBlob) return;
+        sendButton.disabled = true;
+        cancelButton.disabled = true;
+        startButton.disabled = true;
+        stopButton.disabled = true;
+        previewButton.disabled = true;
+        status.textContent = "Caricamento del messaggio vocale…";
+
+        const blobToSend = voiceRecordedBlob;
+        const durationToSend = voiceRecordedDuration;
+        try {
+            await sendEnclaveMediaMessage("audio", blobToSend, durationToSend);
+            cleanupRecording();
+        } catch (error) {
+            console.error(error);
+            status.textContent = "Invio non riuscito. Puoi riprovare o annullare.";
+            sendButton.disabled = false;
+            cancelButton.disabled = false;
+        }
+    });
+}
+
+
+// Menu allegati: ora apre le funzioni reali di immagini e vocali.
 function setMessageAttachMenuOpen(isOpen) {
     if (!messageAttachButton || !messageAttachMenu) return;
 
@@ -7075,9 +7621,20 @@ if (messageAttachButton && messageAttachMenu) {
         setMessageAttachMenuOpen(!isOpen);
     });
 
-    // Le opzioni sono volutamente solo visuali in questa prima fase.
     messageAttachMenu.addEventListener("click", (event) => {
         event.stopPropagation();
+
+        const option = event.target.closest("[data-attach-option]");
+        if (!option) return;
+
+        const selectedOption = option.dataset.attachOption;
+        setMessageAttachMenuOpen(false);
+
+        if (selectedOption === "image") {
+            mediaFileInput.click();
+        } else if (selectedOption === "voice") {
+            openVoiceRecorderPanel();
+        }
     });
 
     document.addEventListener("click", (event) => {
