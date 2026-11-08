@@ -253,7 +253,12 @@ let conversationsRenderVersion = 0;
 // nickname a ogni aggiornamento della lista chat. Scade automaticamente e viene
 // invalidata subito quando l'utente cambia il proprio nickname.
 const publicUserSnapshotCache = new Map();
-const PUBLIC_USER_CACHE_TTL_MS = 30_000;
+const PUBLIC_USER_CACHE_TTL_MS = 5 * 60_000;
+
+// Cache dei soprannomi personali: la lista chat viene aggiornata spesso, ma i
+// nickname cambiano raramente. Evita una lettura Firestore per ogni render.
+const contactNicknameCache = new Map();
+const CONTACT_NICKNAME_CACHE_TTL_MS = 5 * 60_000;
 
 async function getCachedPublicUserSnapshot(uid) {
     const now = Date.now();
@@ -283,6 +288,10 @@ function invalidatePublicUserSnapshot(uid) {
 let unsubscribeReadStates = [];
 
 let unreadMessageListeners = new Map();
+
+// Stato locale dei badge: il conteggio completo viene letto una sola volta per
+// chat/sessione e poi aggiornato in memoria quando arriva un nuovo messaggio.
+const unreadBadgeStateCache = new Map();
 
 let unreadTrackingStartUid = null;
 
@@ -930,19 +939,6 @@ function applyConversationTheme() {
     const validTheme = ENCLAVE_CHAT_THEMES.find(theme => theme.color.toLowerCase() === String(currentUserChatTheme || "#111111").toLowerCase());
     const ownColor = validTheme ? validTheme.color : "#111111";
     const otherColor = lightenThemeColor(ownColor);
-
-    // EnclaveAI riprende automaticamente il colore scelto per le bolle.
-    // Il tema nero usa un accento argento, mantenendo l'interfaccia scura.
-    const aiAccent = ownColor.toLowerCase() === "#111111" ? "#9ba6b8" : ownColor;
-    const aiChannels = [0, 2, 4].map(index => parseInt(aiAccent.slice(1).slice(index, index + 2), 16));
-    const aiAccentRgb = aiChannels.join(", ");
-    const aiAccentLight = lightenThemeColor(aiAccent, 0.42);
-    const aiAccentDark = "#" + aiChannels.map(channel => Math.round(channel * 0.48).toString(16).padStart(2, "0")).join("");
-
-    document.documentElement.style.setProperty("--enclave-ai-accent", aiAccent);
-    document.documentElement.style.setProperty("--enclave-ai-accent-light", aiAccentLight);
-    document.documentElement.style.setProperty("--enclave-ai-accent-dark", aiAccentDark);
-    document.documentElement.style.setProperty("--enclave-ai-accent-rgb", aiAccentRgb);
 
     // Le variabili globali aggiornano sia le bolle dei messaggi sia i due pulsanti
     // dell'area di scrittura, in tutte le chat private e nei gruppi.
@@ -1889,9 +1885,14 @@ function listenForIncomingVoiceCalls() {
             const chatId = chatDocument.id;
             if (incomingVoiceCallListeners.has(chatId)) return;
 
+            // Non scaricare tutta la cronologia delle chiamate a ogni accesso:
+            // ascolta solo le chiamate create negli ultimi 2 minuti (massimo 10).
+            // createdAt è già presente nei documenti chiamata.
             const callsReference = query(
                 collection(db, "chats", chatId, "calls"),
-                where("calleeId", "==", currentUser.uid)
+                where("createdAt", ">=", new Date(Date.now() - 2 * 60 * 1000)),
+                orderBy("createdAt", "desc"),
+                limit(10)
             );
             const unsubscribe = onSnapshot(callsReference, callsSnapshot => {
                 if (activeVoiceCall?.chatId === chatId) {
@@ -2409,6 +2410,18 @@ document
 
             stopGlobalIncomingVoiceCallListener();
             incomingVoiceCallUserUid = null;
+
+            // Ogni chat aveva un listener separato per il badge. Chiuderli tutti
+            // al logout evita letture realtime anche quando l'utente è disconnesso.
+            for (const listenerEntry of unreadMessageListeners.values()) {
+                try { listenerEntry.unsubscribe?.(); } catch (error) {
+                    console.warn("Chiusura listener badge:", error);
+                }
+            }
+            unreadMessageListeners.clear();
+            unreadBadgeStateCache.clear();
+            contactNicknameCache.clear();
+            publicUserSnapshotCache.clear();
             if (activeVoiceCall) await endVoiceCall("ended", false);
 
             currentChatUserUid = null;
@@ -2512,6 +2525,16 @@ async function markChatAsRead(chatId, lastReadAt = serverTimestamp()) {
         return;
     }
 
+    const badgeStateKey = `${currentUser.uid}:${chatId}`;
+    const cachedBadgeState = unreadBadgeStateCache.get(badgeStateKey);
+    if (cachedBadgeState) {
+        cachedBadgeState.count = 0;
+        cachedBadgeState.initialized = true;
+        cachedBadgeState.lastReadAt = lastReadAt;
+        cachedBadgeState.pendingRefresh = false;
+        renderUnreadBadgeState(cachedBadgeState);
+    }
+
     try {
         await setDoc(
             doc(
@@ -2601,70 +2624,170 @@ async function getUnreadTrackingStart(userUid) {
 }
 
 
-async function updateUnreadBadge(chatId, badge, userUid) {
-    try {
-        const readStateRef = doc(
-            db,
-            "users",
-            userUid,
-            "chatReadState",
-            chatId
-        );
+function renderUnreadBadgeState(state) {
+    if (!state?.badge) return;
+    if (state.count > 0) {
+        state.badge.textContent = state.count > 99 ? "99+" : String(state.count);
+        state.badge.classList.add("visible");
+    } else {
+        state.badge.textContent = "";
+        state.badge.classList.remove("visible");
+    }
+}
 
-        let readStateSnapshot = await getDoc(readStateRef);
+function getUnreadBadgeStateKey(chatId, userUid) {
+    return `${userUid}:${chatId}`;
+}
+
+async function updateUnreadBadge(chatId, badge, userUid) {
+    const stateKey = getUnreadBadgeStateKey(chatId, userUid);
+    let state = unreadBadgeStateCache.get(stateKey);
+
+    if (!state) {
+        state = {
+            chatId,
+            userUid,
+            badge,
+            count: 0,
+            initialized: false,
+            initializing: null,
+            lastReadAt: null,
+            pendingRefresh: false
+        };
+        unreadBadgeStateCache.set(stateKey, state);
+    } else {
+        state.badge = badge;
+    }
+
+    // Durante i render successivi riutilizza il valore in memoria: niente
+    // getDoc/getDocs ripetuti a ogni aggiornamento della lista conversazioni.
+    if (state.initialized) {
+        renderUnreadBadgeState(state);
+        return;
+    }
+
+    if (state.initializing) {
+        try {
+            await state.initializing;
+        } catch (error) {
+            // L'invocazione principale registra già l'errore e lascia il badge
+            // in stato neutro; evita rejection non gestite nei render concorrenti.
+        }
+        renderUnreadBadgeState(state);
+        return;
+    }
+
+    state.initializing = (async () => {
+        const readStateRef = doc(db, "users", userUid, "chatReadState", chatId);
+        const readStateSnapshot = await getDoc(readStateRef);
         let lastReadAt = readStateSnapshot.exists()
             ? readStateSnapshot.data().lastReadAt
             : null;
 
         if (!lastReadAt) {
             lastReadAt = await getUnreadTrackingStart(userUid);
-
             if (!lastReadAt) {
-                badge.classList.remove("visible");
+                state.count = 0;
+                state.initialized = true;
                 return;
             }
-
-            await setDoc(
-                readStateRef,
-                { lastReadAt },
-                { merge: true }
-            );
+            await setDoc(readStateRef, { lastReadAt }, { merge: true });
         }
 
-        // Se la conversazione è aperta, non mostrare messaggi non letti.
-        if (currentChatId === chatId) {
-                badge.classList.remove("visible");
-            
-                try {
-                    await markChatAsRead(chatId);
-                } catch (error) {
-                    console.error("Errore azzeramento badge:", error);
-                }
-            
-                return;
-            }
+        state.lastReadAt = lastReadAt;
 
+        if (currentChatId === chatId) {
+            state.count = 0;
+            state.initialized = true;
+            void markChatAsRead(chatId);
+            return;
+        }
+
+        // Questa query completa viene eseguita una sola volta per chat/sessione.
+        // Gli aggiornamenti successivi sono incrementali tramite il listener
+        // limit(1) sottostante, anziché riscaricare tutti i messaggi non letti.
         const unreadQuery = query(
             collection(db, "chats", chatId, "messages"),
             where("createdAt", ">", lastReadAt)
         );
-
         const unreadSnapshot = await getDocs(unreadQuery);
+        state.count = currentChatId === chatId
+            ? 0
+            : unreadSnapshot.docs.filter(
+                messageDocument => messageDocument.data().senderId !== userUid
+            ).length;
+        state.initialized = true;
+    })();
 
-        const unreadCount = unreadSnapshot.docs.filter(
-            messageDocument =>
-                messageDocument.data().senderId !== userUid
-        ).length;
-
-        if (unreadCount > 0) {
-            badge.textContent = unreadCount > 99 ? "99+" : unreadCount;
-            badge.classList.add("visible");
-        } else {
-            badge.classList.remove("visible");
-        }
+    try {
+        await state.initializing;
     } catch (error) {
+        // Se Firestore è temporaneamente in quota, non cancellare il listener.
+        // Il badge resta neutro e un successivo evento potrà riprovare.
+        state.initialized = false;
         console.error("Errore conteggio messaggi non letti:", error);
+    } finally {
+        state.initializing = null;
     }
+
+    renderUnreadBadgeState(state);
+
+    // Se è arrivato un nuovo messaggio mentre il conteggio iniziale era in corso,
+    // esegui al massimo un aggiornamento aggiuntivo per riallineare il badge.
+    if (state.pendingRefresh && state.initialized && currentChatId !== chatId) {
+        state.pendingRefresh = false;
+        state.initialized = false;
+        void updateUnreadBadge(chatId, state.badge, userUid);
+    }
+}
+
+function handleUnreadLatestMessageSnapshot(chatId, snapshot, userUid) {
+    const listenerEntry = unreadMessageListeners.get(chatId);
+    if (!listenerEntry || listenerEntry.userUid !== userUid) return;
+
+    const latestDocument = snapshot.docs[0] || null;
+    const latestId = latestDocument?.id || null;
+    const latestData = latestDocument?.data?.() || null;
+    const latestCreatedAt = latestData?.createdAt?.toMillis?.() || 0;
+
+    if (!listenerEntry.hasReceivedInitialSnapshot) {
+        listenerEntry.hasReceivedInitialSnapshot = true;
+        listenerEntry.lastMessageId = latestId;
+        listenerEntry.lastMessageCreatedAt = latestCreatedAt;
+        void updateUnreadBadge(chatId, listenerEntry.badge, userUid);
+        return;
+    }
+
+    const isNewerMessage = !!latestId && latestId !== listenerEntry.lastMessageId &&
+        latestCreatedAt >= (listenerEntry.lastMessageCreatedAt || 0);
+
+    if (latestId !== listenerEntry.lastMessageId) {
+        listenerEntry.lastMessageId = latestId;
+        listenerEntry.lastMessageCreatedAt = latestCreatedAt;
+    }
+
+    if (!isNewerMessage || !latestData || latestData.senderId === userUid) return;
+
+    const state = unreadBadgeStateCache.get(getUnreadBadgeStateKey(chatId, userUid));
+    if (!state) {
+        void updateUnreadBadge(chatId, listenerEntry.badge, userUid);
+        return;
+    }
+
+    if (currentChatId === chatId) {
+        state.count = 0;
+        state.initialized = true;
+    } else if (state.initialized) {
+        state.count += 1;
+    } else {
+        state.pendingRefresh = true;
+        if (!state.initializing) {
+            state.pendingRefresh = false;
+            void updateUnreadBadge(chatId, listenerEntry.badge, userUid);
+        }
+    }
+
+    renderUnreadBadgeState(state);
 }
 
 
@@ -7250,6 +7373,13 @@ async function ensureCurrentMediaChat(currentUser) {
         throw new Error("Apri prima una conversazione.");
     }
 
+    // loadMessages ha già verificato e caricato il documento della chat aperta.
+    // Riutilizza quel controllo: non serve una nuova lettura Firestore per ogni
+    // foto o vocale inviato nella stessa conversazione.
+    if (currentChatId === chatId && currentChatDocumentExists) {
+        return chatId;
+    }
+
     const chatReference = doc(db, "chats", chatId);
     const chatSnapshot = await getDoc(chatReference);
 
@@ -7773,8 +7903,13 @@ messageInput.addEventListener(
 
 async function getContactNickname(contactUid, originalNickname) {
     const currentUser = auth.currentUser;
-
     if (!currentUser) return originalNickname;
+
+    const cacheKey = `${currentUser.uid}:${contactUid}`;
+    const cached = contactNicknameCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.value;
+    }
 
     try {
         const nicknameReference = doc(
@@ -7784,21 +7919,25 @@ async function getContactNickname(contactUid, originalNickname) {
             "contactNicknames",
             contactUid
         );
-
         const nicknameDocument = await getDoc(nicknameReference);
+        let value = originalNickname;
 
         if (nicknameDocument.exists()) {
             const customNickname = nicknameDocument.data().nickname;
-
             if (typeof customNickname === "string" && customNickname.trim()) {
-                return customNickname.trim();
+                value = customNickname.trim();
             }
         }
+
+        contactNicknameCache.set(cacheKey, {
+            value,
+            expiresAt: Date.now() + CONTACT_NICKNAME_CACHE_TTL_MS
+        });
+        return value;
     } catch (error) {
         console.error("Errore recupero soprannome personale:", error);
+        return originalNickname;
     }
-
-    return originalNickname;
 }
 
 async function saveContactNickname(contactUid, nickname) {
@@ -7824,6 +7963,7 @@ async function saveContactNickname(contactUid, nickname) {
 
     if (!cleanNickname) {
         await deleteDoc(nicknameReference);
+        contactNicknameCache.delete(`${currentUser.uid}:${contactUid}`);
         return;
     }
 
@@ -7835,6 +7975,7 @@ async function saveContactNickname(contactUid, nickname) {
         nickname: cleanNickname,
         updatedAt: serverTimestamp()
     });
+    contactNicknameCache.delete(`${currentUser.uid}:${contactUid}`);
 }
 
 
@@ -7861,6 +8002,7 @@ function loadConversations() {
         if (!currentUser || listenerEntry.userUid !== currentUser.uid) {
             listenerEntry.unsubscribe();
             unreadMessageListeners.delete(chatId);
+            unreadBadgeStateCache.delete(getUnreadBadgeStateKey(chatId, listenerEntry.userUid));
         }
     }
 
@@ -8134,6 +8276,7 @@ function loadConversations() {
                     ) {
                         listenerEntry.unsubscribe();
                         unreadMessageListeners.delete(chatId);
+                        unreadBadgeStateCache.delete(getUnreadBadgeStateKey(chatId, currentUser.uid));
                     }
                 }
 
@@ -8320,11 +8463,19 @@ function loadConversations() {
                                     existingUnreadListener.userUid === currentUser.uid
                                 ) {
                                     existingUnreadListener.badge = unreadBadge;
-                                    updateUnreadBadge(
-                                        conversationIdForBadge,
-                                        unreadBadge,
-                                        currentUser.uid
+                                    const cachedBadgeState = unreadBadgeStateCache.get(
+                                        getUnreadBadgeStateKey(conversationIdForBadge, currentUser.uid)
                                     );
+                                    if (cachedBadgeState) {
+                                        cachedBadgeState.badge = unreadBadge;
+                                        renderUnreadBadgeState(cachedBadgeState);
+                                    } else {
+                                        void updateUnreadBadge(
+                                            conversationIdForBadge,
+                                            unreadBadge,
+                                            currentUser.uid
+                                        );
+                                    }
                                 } else {
                                     if (existingUnreadListener) {
                                         existingUnreadListener.unsubscribe();
@@ -8333,7 +8484,10 @@ function loadConversations() {
                                     const listenerEntry = {
                                         badge: unreadBadge,
                                         userUid: currentUser.uid,
-                                        unsubscribe: null
+                                        unsubscribe: null,
+                                        hasReceivedInitialSnapshot: false,
+                                        lastMessageId: null,
+                                        lastMessageCreatedAt: 0
                                     };
 
                                     // Ascolta soltanto l'ultimo messaggio della chat: serve solo a
@@ -8345,15 +8499,12 @@ function loadConversations() {
                                             orderBy("createdAt", "desc"),
                                             limit(1)
                                         ),
-                                        () => {
-                                            const activeListener = unreadMessageListeners.get(conversationIdForBadge);
-                                            if (activeListener && activeListener.userUid === currentUser.uid) {
-                                                updateUnreadBadge(
-                                                    conversationIdForBadge,
-                                                    activeListener.badge,
-                                                    currentUser.uid
-                                                );
-                                            }
+                                        snapshot => {
+                                            handleUnreadLatestMessageSnapshot(
+                                                conversationIdForBadge,
+                                                snapshot,
+                                                currentUser.uid
+                                            );
                                         },
                                         error => {
                                             console.error("ERRORE BADGE - DETTAGLI:", {
