@@ -931,6 +931,19 @@ function applyConversationTheme() {
     const ownColor = validTheme ? validTheme.color : "#111111";
     const otherColor = lightenThemeColor(ownColor);
 
+    // EnclaveAI riprende automaticamente il colore scelto per le bolle.
+    // Il tema nero usa un accento argento, mantenendo l'interfaccia scura.
+    const aiAccent = ownColor.toLowerCase() === "#111111" ? "#9ba6b8" : ownColor;
+    const aiChannels = [0, 2, 4].map(index => parseInt(aiAccent.slice(1).slice(index, index + 2), 16));
+    const aiAccentRgb = aiChannels.join(", ");
+    const aiAccentLight = lightenThemeColor(aiAccent, 0.42);
+    const aiAccentDark = "#" + aiChannels.map(channel => Math.round(channel * 0.48).toString(16).padStart(2, "0")).join("");
+
+    document.documentElement.style.setProperty("--enclave-ai-accent", aiAccent);
+    document.documentElement.style.setProperty("--enclave-ai-accent-light", aiAccentLight);
+    document.documentElement.style.setProperty("--enclave-ai-accent-dark", aiAccentDark);
+    document.documentElement.style.setProperty("--enclave-ai-accent-rgb", aiAccentRgb);
+
     // Le variabili globali aggiornano sia le bolle dei messaggi sia i due pulsanti
     // dell'area di scrittura, in tutte le chat private e nei gruppi.
     document.documentElement.style.setProperty("--enclave-own-bubble", ownColor);
