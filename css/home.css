@@ -647,6 +647,54 @@
 }
 
 
+/* Indicatore flottante del giorno nella cronologia chat. */
+.chat-day-indicator {
+    position: sticky;
+    top: 10px;
+    z-index: 5;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 27px;
+    padding: 5px 13px;
+    margin: 0 auto -27px;
+    border: 1px solid rgba(120, 120, 120, .18);
+    border-radius: 999px;
+    background: rgba(245, 245, 245, .82);
+    color: #555;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, .10);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    font-size: 11px;
+    font-weight: 650;
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.chat-day-indicator.hidden {
+    display: none;
+}
+
+.chat-history-boundary {
+    align-self: center;
+    flex: 0 0 auto;
+    max-width: calc(100% - 24px);
+    margin: 22px auto 18px;
+    padding: 8px 13px;
+    border: 1px solid rgba(130, 130, 130, .18);
+    border-radius: 999px;
+    background: rgba(145, 145, 145, .10);
+    color: #888;
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.35;
+    text-align: center;
+    pointer-events: none;
+}
+
+
 /* ========================= */
 /* INPUT MESSAGGIO */
 /* ========================= */
