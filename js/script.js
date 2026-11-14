@@ -143,6 +143,64 @@ const chatSidebar =
 const chatMessages =
     document.getElementById("chatMessages");
 
+// Indicatore del giorno attivo nella cronologia della chat.
+let activeChatDayIndicator = null;
+
+function formatChatDayLabel(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const messageDay = new Date(date);
+    messageDay.setHours(0, 0, 0, 0);
+
+    if (messageDay.getTime() === today.getTime()) return "Oggi";
+    if (messageDay.getTime() === yesterday.getTime()) return "Ieri";
+
+    return messageDay.toLocaleDateString("it-IT", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    }).replace(/\./g, "");
+}
+
+function updateChatDayIndicator() {
+    if (!activeChatDayIndicator || !chatMessages) return;
+
+    const messageElements = Array.from(
+        chatMessages.querySelectorAll(":scope > .message")
+    );
+
+    if (!messageElements.length) {
+        activeChatDayIndicator.textContent = "";
+        activeChatDayIndicator.classList.add("hidden");
+        return;
+    }
+
+    const containerTop = chatMessages.getBoundingClientRect().top;
+    const visibleThreshold = containerTop + 48;
+    let currentMessage = messageElements.find(element =>
+        element.getBoundingClientRect().bottom >= visibleThreshold
+    );
+
+    if (!currentMessage) currentMessage = messageElements[messageElements.length - 1];
+
+    const timestamp = currentMessage?._enclaveMessage?.createdAt;
+    const messageDate = timestamp?.toDate?.() || (timestamp instanceof Date ? timestamp : null);
+    const label = formatChatDayLabel(messageDate);
+
+    activeChatDayIndicator.textContent = label;
+    activeChatDayIndicator.classList.toggle("hidden", !label);
+}
+
+if (chatMessages) {
+    chatMessages.addEventListener("scroll", updateChatDayIndicator, { passive: true });
+}
+
 const messageInput =
     document.getElementById("messageInput");
 
@@ -2091,6 +2149,7 @@ function returnToChatList() {
     }
 
     chatMessages.replaceChildren();
+    activeChatDayIndicator = null;
     currentChatUserUid = null;
     currentChatId = null;
     currentChatDocumentExists = false;
@@ -5850,6 +5909,7 @@ async function loadMessages(chatId) {
     clearReply();
 
     // Non lasciare visibile lo storico della conversazione precedente.
+    activeChatDayIndicator = null;
     chatMessages.replaceChildren();
 
     const loadingMessage = document.createElement("div");
@@ -5888,9 +5948,18 @@ async function loadMessages(chatId) {
         );
 
 
+    // Carica soltanto i tre giorni di calendario correnti:
+    // oggi, ieri e il giorno precedente. I messaggi più vecchi restano
+    // conservati in Firestore ma non vengono letti da questa chat.
+    const messagesCutoff = new Date();
+    messagesCutoff.setHours(0, 0, 0, 0);
+    messagesCutoff.setDate(messagesCutoff.getDate() - 2);
+
     const messagesQuery =
         query(
-            messagesReference
+            messagesReference,
+            where("createdAt", ">=", messagesCutoff),
+            orderBy("createdAt", "asc")
         );
 
 
@@ -5932,7 +6001,7 @@ async function loadMessages(chatId) {
 
 
                     emptyMessage.textContent =
-                        "Nessun messaggio";
+                        "Nessun messaggio negli ultimi 3 giorni";
 
 
                     chatMessages.appendChild(
@@ -6071,6 +6140,18 @@ async function loadMessages(chatId) {
                 // quando Firestore aggiorna la conversazione. La cache è limitata a 40 elementi.
                 closeMessageMenus();
                 const renderedMessagesFragment = document.createDocumentFragment();
+
+                const dayIndicator = document.createElement("div");
+                dayIndicator.className = "chat-day-indicator";
+                dayIndicator.setAttribute("aria-live", "polite");
+                dayIndicator.setAttribute("aria-label", "Giorno dei messaggi visualizzati");
+                activeChatDayIndicator = dayIndicator;
+                renderedMessagesFragment.appendChild(dayIndicator);
+
+                const historyBoundary = document.createElement("div");
+                historyBoundary.className = "chat-history-boundary";
+                historyBoundary.textContent = "Impossibile visualizzare messaggi precedenti";
+                renderedMessagesFragment.appendChild(historyBoundary);
 
                 messages.forEach(
                     (message) => {
@@ -6657,6 +6738,7 @@ async function loadMessages(chatId) {
 
                 chatMessages.scrollTop =
                     chatMessages.scrollHeight;
+                updateChatDayIndicator();
 
                 // Le conferme sono asincrone e non impediscono il rendering.
                 if (currentUser && currentChatId === chatId) {
