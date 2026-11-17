@@ -1,0 +1,56 @@
+
+/* NEXUS — GLOBAL RESET */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: #080f19;
+  scroll-behavior: smooth;
+}
+
+body {
+  width: 100%;
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: block;
+  background: #080f19;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+}
+
+::selection {
+  color: #ffffff;
+  background: rgba(57, 217, 245, 0.35);
+}

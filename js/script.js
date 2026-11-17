@@ -2693,13 +2693,13 @@ async function updateUnreadBadge(chatId, badge, userUid) {
         // Se la conversazione è aperta, non mostrare messaggi non letti.
         if (currentChatId === chatId) {
                 badge.classList.remove("visible");
-            
+
                 try {
                     await markChatAsRead(chatId);
                 } catch (error) {
                     console.error("Errore azzeramento badge:", error);
                 }
-            
+
                 return;
             }
 
@@ -4189,7 +4189,7 @@ function createContactInfoPanel() {
         }
     });
 
-    
+
 editButton.addEventListener("click", async () => {
     if (!currentContactData) return;
 
@@ -6204,7 +6204,7 @@ async function loadMessages(chatId) {
                             message.id;
 
                         if (isGroupChat) {
-                            
+
                             const senderName =
                                 document.createElement("div");
 
@@ -8000,63 +8000,63 @@ function loadConversations() {
                                 const chatData =
                                     chatDocument.data();
 
-                                
+
                                   if (chatData.type === "group") {
 
                                             let lastMessage = chatData.lastMessage || "";
-                                        
+
                                             if (lastMessage && chatData.lastSenderId) {
-                                        
+
                                                 try {
-                                        
+
                                                     const senderDocument = await getPublicUserSnapshot(
                                                         chatData.lastSenderId
                                                     );
-                                        
+
                                                     if (senderDocument.exists()) {
-                                        
+
                                                         const senderNickname =
                                                             senderDocument.data().nickname || "Utente";
-                                        
+
                                                         lastMessage =
                                                             `${senderNickname}: ${lastMessage}`;
-                                        
+
                                                     }
-                                        
+
                                                 } catch (error) {
-                                        
+
                                                     console.error(
                                                         "Errore recupero nickname ultimo mittente:",
                                                         error
                                                     );
-                                        
+
                                                 }
-                                        
+
                                             }
-                                        
+
                                             return {
-                                        
+
                                                 chatId: chatDocument.id,
-                                        
+
                                                 type: "group",
-                                        
+
                                                 uid: null,
-                                        
+
                                                 nickname: chatData.name,
-                                        
+
                                                 enclaveId:
                                                     `${chatData.participants.length} partecipanti`,
-                                        
+
                                                 lastMessage: lastMessage,
-                                        
+
                                                 lastMessageAt:
                                                     chatData.lastMessageAt || null,
-                                        
+
                                                 participants:
                                                     chatData.participants
-                                        
+
                                             };
-                                        
+
                                         }
 
 
@@ -8086,14 +8086,14 @@ function loadConversations() {
                                 }
 
 
-                                
+
                             const userData = userDocument.data();
-                                
+
                                 const displayedNickname = await getContactNickname(
                                     otherUserUid,
                                     userData.nickname || "Utente"
                                 );
-                                
+
                                 return {
                                     chatId: chatDocument.id,
                                     uid: otherUserUid,
@@ -8133,27 +8133,27 @@ function loadConversations() {
 
 
                 conversations.forEach(
-                    
+
                     (conversation) => {
-                
+
                         const conversationKey =
                             conversation.type === "group"
                                 ? conversation.chatId
                                 : conversation.uid;
-                
+
                         const existing =
                             uniqueConversations.get(
                                 conversationKey
                             );
-                        
-                               if (!existing) { 
-                                   
+
+                               if (!existing) {
+
                                    uniqueConversations.set(
                                         conversationKey,
                                         conversation
                                     );
-                            
-                                   
+
+
                             return;
 
                         }
@@ -8264,7 +8264,7 @@ function loadConversations() {
                         conversationElement.dataset.chatId = conversation.chatId;
 
                         if (conversation.type !== "group" && conversation.uid) {
-                            
+
                                     conversationElement.dataset.contactUid = conversation.uid;
                                 }
 
@@ -8370,13 +8370,13 @@ function loadConversations() {
 
                             const meta = document.createElement("div");
                             meta.className = "conversation-meta";
-                            
-                            
+
+
                                 const unreadBadge = document.createElement("span");
                                 unreadBadge.className = "unread-badge";
 
                                 unreadBadge.dataset.chatId = conversation.chatId;
-                                
+
                                 meta.appendChild(time);
                                 meta.appendChild(unreadBadge);
 
@@ -8499,70 +8499,70 @@ function loadConversations() {
 
                                         chatUserNickname.textContent =
                                             conversation.nickname;
-                                    
+
                                         chatUserId.textContent =
                                             conversation.enclaveId;
-                                    
+
                                         chatUserAvatar.textContent =
                                             "👥";
-                                    
+
                                         currentChatUserUid =
                                             null;
                                         if (startVoiceCallButton) startVoiceCallButton.classList.add("hidden");
                                         // Il listener globale delle chiamate resta attivo anche nei gruppi.
-                                    
+
                                         currentChatId =
                                             conversation.chatId;
-                                    
-                                    
+
+
                                         chatUserInfo.classList.add(
                                             "group-chat-clickable"
                                         );
-                                    
+
                                         chatUserInfo.onclick =
                                             () => {
-                                    
+
                                                 openGroupInfo(
                                                     conversation.chatId
                                                 );
-                                    
+
                                             };
-                                    
-                                    
+
+
                                         loadMessages(
                                             currentChatId
                                         );
-                                    
-                                    
+
+
                                         markChatViewOpen();
-                                    
-                                    
+
+
                                         if (
                                             window.innerWidth <=
                                             700
                                         ) {
-                                    
+
                                             chatSidebar.style.display =
                                                 "none";
-                                    
+
                                             chatArea.style.display =
                                                 "flex";
-                                    
+
                                             chatArea.style.width =
                                                 "100%";
-                                    
+
                                         }
-                                    
-                                    
+
+
                                         return;
-                                    
+
                                     }
 
 
                                 chatUserNickname.textContent = conversation.nickname;
-                                
+
                                     chatUserInfo.classList.remove("group-chat-clickable");
-                                    
+
                                     chatUserInfo.onclick = () => {
                                         openContactInfo(
                                             conversation.uid,
@@ -8761,6 +8761,27 @@ function loadConversations() {
 // ENCLAVEAI — SESSIONE TEMPORANEA
 // =========================
 const ENCLAVE_AI_WORKER_URL = "https://enclave-notification.gpvyw7wnf8.workers.dev/";
+
+// NEXUS Engine - caricamento dinamico
+let nexusEnginePromise = null;
+
+function loadNexusEngine() {
+  if (!nexusEnginePromise) {
+    nexusEnginePromise = import("../nexus-engine/nexus-engine.js")
+      .catch(error => {
+        nexusEnginePromise = null;
+        throw error;
+      });
+  }
+
+  return nexusEnginePromise;
+}
+
+// Allegato temporaneo di EnclaveAI
+let enclaveAIAttachment = null;
+let enclaveAIAttachmentUrl = null;
+let enclaveAIAnalysisContext = "";
+
 let enclaveAIHistory = [];
 let enclaveAIOverlay = null;
 let enclaveAIWaiting = false;
@@ -8797,11 +8818,50 @@ function buildEnclaveAIPanel() {
           </div>
           <div class="enclave-ai-messages" id="enclaveAIMessages" aria-live="polite"></div>
         </div>
-        <form class="enclave-ai-composer" id="enclaveAIForm">
-          <textarea id="enclaveAIInput" rows="1" maxlength="4000" placeholder="Chiedi qualcosa a EnclaveAI…" aria-label="Messaggio per EnclaveAI"></textarea>
-          <button type="submit" id="enclaveAISend" aria-label="Invia messaggio"><span>↑</span></button>
-          <div class="enclave-ai-disclaimer">Le conversazioni non vengono salvate da Enclave. Evita di inserire dati sensibili.</div>
-        </form>
+
+<form class="enclave-ai-composer" id="enclaveAIForm">
+
+<div class="enclave-ai-attachment" id="enclaveAIAttachmentPreview" hidden>
+  <div class="enclave-ai-attachment-thumbnail" id="enclaveAIAttachmentThumbnail"></div>
+  <span id="enclaveAIAttachmentName"></span>
+  <button type="button" id="enclaveAIAttachmentRemove" aria-label="Rimuovi allegato">×</button>
+</div>
+
+
+  <div class="enclave-ai-composer-row">
+    <button
+      type="button"
+      class="enclave-ai-attach"
+      id="enclaveAIAttach"
+      aria-label="Allega immagine o video"
+      title="Allega immagine o video"
+    >+</button>
+
+    <input
+      type="file"
+      id="enclaveAIFile"
+      accept="image/*,video/*"
+      hidden
+    >
+
+    <textarea
+      id="enclaveAIInput"
+      rows="1"
+      maxlength="4000"
+      placeholder="Chiedi qualcosa a EnclaveAI…"
+      aria-label="Messaggio per EnclaveAI"
+    ></textarea>
+
+    <button type="submit" id="enclaveAISend" aria-label="Invia messaggio">
+      <span>↑</span>
+    </button>
+  </div>
+
+  <div class="enclave-ai-disclaimer">
+    Le conversazioni non vengono salvate da Enclave. Evita di inserire dati sensibili.
+  </div>
+</form>
+
       </section>`;
     document.body.appendChild(overlay);
     enclaveAIOverlay = overlay;
@@ -8814,6 +8874,79 @@ function buildEnclaveAIPanel() {
         overlay.querySelector("#enclaveAIForm").requestSubmit();
     }));
     overlay.querySelector("#enclaveAIForm").addEventListener("submit", sendEnclaveAIMessage);
+
+    // Gestione allegati temporanei di EnclaveAI
+    const attachButton = overlay.querySelector("#enclaveAIAttach");
+    const fileInput = overlay.querySelector("#enclaveAIFile");
+    const attachmentPreview = overlay.querySelector("#enclaveAIAttachmentPreview");
+    const attachmentName = overlay.querySelector("#enclaveAIAttachmentName");
+    const attachmentRemove = overlay.querySelector("#enclaveAIAttachmentRemove");
+    const attachmentThumbnail = overlay.querySelector("#enclaveAIAttachmentThumbnail");
+
+    attachButton.addEventListener("click", () => {
+        fileInput.value = "";
+        fileInput.click();
+    });
+
+    fileInput.addEventListener("change", () => {
+        const file = fileInput.files?.[0];
+        if (!file) return;
+
+        const isImage = file.type.startsWith("image/");
+        const isVideo = file.type.startsWith("video/");
+
+        if (!isImage && !isVideo) {
+            alert("Formato non supportato. Seleziona un'immagine o un video.");
+            fileInput.value = "";
+            return;
+        }
+
+        if (enclaveAIAttachmentUrl) {
+            URL.revokeObjectURL(enclaveAIAttachmentUrl);
+            enclaveAIAttachmentUrl = null;
+        }
+
+        enclaveAIAttachment = file;
+        enclaveAIAnalysisContext = "";
+
+        attachmentName.textContent =
+            `${isImage ? "Immagine" : "Video"}: ${file.name}`;
+
+        attachmentThumbnail.replaceChildren();
+
+enclaveAIAttachmentUrl = URL.createObjectURL(file);
+
+const previewElement = document.createElement(
+    isImage ? "img" : "video"
+);
+
+previewElement.src = enclaveAIAttachmentUrl;
+previewElement.alt = isImage ? "Anteprima immagine" : "Anteprima video";
+
+if (isVideo) {
+    previewElement.muted = true;
+    previewElement.playsInline = true;
+    previewElement.controls = true;
+}
+
+attachmentThumbnail.appendChild(previewElement);
+attachmentPreview.hidden = false;
+    });
+
+    attachmentRemove.addEventListener("click", () => {
+        if (enclaveAIAttachmentUrl) {
+            URL.revokeObjectURL(enclaveAIAttachmentUrl);
+            enclaveAIAttachmentUrl = null;
+        }
+
+        enclaveAIAttachment = null;
+        enclaveAIAnalysisContext = "";
+        fileInput.value = "";
+        attachmentPreview.hidden = true;
+        attachmentName.textContent = "";
+        attachmentThumbnail.replaceChildren();
+    });
+
     overlay.querySelector("#enclaveAIInput").addEventListener("keydown", e => {
         if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); overlay.querySelector("#enclaveAIForm").requestSubmit(); }
     });
@@ -8828,42 +8961,60 @@ function openEnclaveAI() {
     setTimeout(() => overlay.querySelector("#enclaveAIInput")?.focus(), 220);
 }
 
+
+function clearEnclaveAIAttachment() {
+    if (enclaveAIAttachmentUrl) {
+        URL.revokeObjectURL(enclaveAIAttachmentUrl);
+        enclaveAIAttachmentUrl = null;
+    }
+
+    enclaveAIAttachment = null;
+    enclaveAIAnalysisContext = "";
+
+    if (!enclaveAIOverlay) return;
+
+    const fileInput = enclaveAIOverlay.querySelector("#enclaveAIFile");
+    const preview = enclaveAIOverlay.querySelector("#enclaveAIAttachmentPreview");
+    const name = enclaveAIOverlay.querySelector("#enclaveAIAttachmentName");
+    const thumbnail = enclaveAIOverlay.querySelector("#enclaveAIAttachmentThumbnail");
+
+    if (fileInput) fileInput.value = "";
+    if (preview) preview.hidden = true;
+    if (name) name.textContent = "";
+    if (thumbnail) thumbnail.replaceChildren();
+}
+
 function closeEnclaveAI() {
     if (!enclaveAIOverlay) return;
+
+    clearEnclaveAIAttachment();
+
     enclaveAIOverlay.classList.remove("is-open");
     document.body.classList.remove("enclave-ai-active");
-    enclaveAIHistory = []; // nessuna memoria oltre la sessione aperta
-    setTimeout(() => { if (enclaveAIOverlay) enclaveAIOverlay.remove(); enclaveAIOverlay = null; }, 260);
+    enclaveAIHistory = [];
+
+    setTimeout(() => {
+        if (enclaveAIOverlay) {
+            enclaveAIOverlay.remove();
+            enclaveAIOverlay = null;
+        }
+    }, 260);
 }
 
 function resetEnclaveAI() {
+    if (!enclaveAIOverlay) return;
+
+    clearEnclaveAIAttachment();
+
     enclaveAIHistory = [];
+
     const messages = enclaveAIOverlay.querySelector("#enclaveAIMessages");
     messages.replaceChildren();
+
     enclaveAIOverlay.querySelector("#enclaveAIWelcome").hidden = false;
     enclaveAIOverlay.querySelector("#enclaveAIInput").focus();
 }
 
-const ENCLAVE_AI_GUIDE = [
-    "Sei EnclaveAI, l'assistente dentro Enclave. Rispondi in italiano.",
-    "Ogni risposta sta in un solo messaggio, entro 400 parole, ed è completa. Non interrompere una frase o un elenco a metà. L'ultima frase finisce con un punto.",
-    "Non lasciare asterischi aperti.",
-    "Puoi usare il grassetto markdown scrivendo le parole importanti tra doppi asterischi.",
-    "Se ti chiedono cosa sai fare, descrivi tutte le funzionalità che puoi effettivamente offrire e spiega che rispondi a domande generali e che aiuti a usare Enclave, che è una PWA. Puoi inoltre anticipare che è in fase di sviluppo NEXUS, un nuovo progetto software indipendente realizzato dallo sviluppatore di Enclave, la cui integrazione futura in EnclaveAI è prevista per ampliare le tue capacità.",
-    "Se ti chiedono cos'è Enclave, rispondi in modo oggettivo usando solo i fatti qui sotto. Non inventare funzioni.",
-    "Enclave è una PWA di messaggistica privata. Il motto mostrato in accesso è Private. Connected. La descrizione dell'app è: la tua area privata di messaggistica.",
-    "Si usa dal browser e si può installare sulla schermata Home. Su iPhone: Condividi, poi Aggiungi a Home. Su Android: menu del browser, poi Installa app oppure Aggiungi a schermata Home. Installata, si apre a tutto schermo, senza la barra del browser.",
-    "Per creare un account servono email, password e nickname. L'email va verificata prima di entrare. Dalla schermata di accesso si entra con email e password.",
-    "In Impostazioni, scheda Avanzate, Rimani connesso mantiene l'accesso su quel dispositivo. Il pulsante Esci chiude la sessione e al ritorno chiede di nuovo l'accesso.",
-    "Ogni account ha un nickname e un Enclave ID. Una chat privata si inizia cercando l'Enclave ID dell'altra persona. Dalle informazioni di un contatto si può impostare un soprannome visibile solo a chi lo imposta.",
-    "Nelle chat private si scrivono messaggi, si può rispondere a un messaggio e compare la conferma di lettura. Il pulsante della cornetta in alto avvia una chiamata vocale solo in una chat privata, non in un gruppo.",
-    "In Impostazioni, scheda Avanzate, la levetta Microfono riguarda le chiamate. Accesa, Enclave usa il permesso già concesso e non richiede il microfono a ogni chiamata. Spenta, il telefono può chiedere il microfono quando si inizia o si accetta una chiamata.",
-    "I gruppi si creano dal pulsante +. Un gruppo può avere fino a 20 partecipanti. Si possono vedere i partecipanti, aggiungerne se c'è posto, e uscire dal gruppo.",
-    "In Impostazioni, scheda Avanzate, la levetta Notifiche attiva o disattiva le notifiche dell'account. Il telefono deve comunque concedere il permesso. Mentre Enclave è aperto e in uso, la notifica di sistema non viene mostrata.",
-    "In Impostazioni, scheda Generali, si modificano il proprio nickname, il colore delle bolle e lo sfondo. Colore e sfondo valgono per tutte le chat private e i gruppi.",
-    "EnclaveAI si apre dal pulsante +. La conversazione dura solo finché il pannello è aperto e Enclave non la salva. Non va usata per dati sensibili.",
-    "Il menu allegati con Immagine e Messaggio vocale non è una funzione attiva: non dire che si possono inviare foto o vocali."
-].join(" ");
 
 function renderEnclaveAIText(text) {
     const escaped = String(text)
@@ -8897,14 +9048,17 @@ function addEnclaveAIMessage(role, text) {
 }
 
 function messagesForEnclaveAI(messages) {
-    const conversation = messages
-        .filter(message => message && (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
-        .map(message => ({ role: message.role, content: message.content }));
-    const firstUser = conversation.find(message => message.role === "user");
-    if (firstUser) {
-        firstUser.content = "Contesto per rispondere, da non ripetere all'utente:\n" + ENCLAVE_AI_GUIDE + "\n\nMessaggio dell'utente:\n" + firstUser.content;
-    }
-    return conversation;
+    return messages
+        .filter(message =>
+            message &&
+            (message.role === "user" || message.role === "assistant") &&
+            typeof message.content === "string" &&
+            message.content.trim().length > 0
+        )
+        .map(message => ({
+            role: message.role,
+            content: message.content.trim()
+        }));
 }
 
 async function requestEnclaveAIAnswer(idToken, messages) {
@@ -8921,37 +9075,386 @@ async function requestEnclaveAIAnswer(idToken, messages) {
     return typeof result.answer === "string" ? result.answer.trim() : "";
 }
 
+
+
+function setEnclaveAINexusStage(container, stage, detail, progress) {
+    if (!container) return;
+    const stageLabel = container.querySelector("[data-nexus-stage]");
+    const detailLabel = container.querySelector("[data-nexus-detail]");
+    const progressBar = container.querySelector("[data-nexus-progress]");
+    const progressValue = container.querySelector("[data-nexus-progress-value]");
+    if (stageLabel) stageLabel.textContent = stage;
+    if (detailLabel) detailLabel.textContent = detail;
+    if (progressBar) progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
+    if (progressValue) progressValue.textContent = `${Math.max(0, Math.min(100, Math.round(progress)))}%`;
+}
+
+function createEnclaveAINexusActivity() {
+    const activity = document.createElement("div");
+    activity.className = "enclave-ai-nexus-activity";
+    activity.innerHTML = `
+      <div class="enclave-ai-nexus-activity-top">
+        <span class="enclave-ai-nexus-chip"><i></i> NEXUS ENGINE</span>
+        <span class="enclave-ai-nexus-live">LOCAL PROCESSING</span>
+      </div>
+      <div class="enclave-ai-nexus-activity-title">Inizializzazione dei motori visivi</div>
+      <div class="enclave-ai-nexus-activity-detail" data-nexus-detail>Preparazione del modulo di analisi locale…</div>
+      <div class="enclave-ai-nexus-progress"><i data-nexus-progress></i></div>
+      <div class="enclave-ai-nexus-activity-foot"><span data-nexus-stage>BOOT SEQUENCE</span><b data-nexus-progress-value>4%</b></div>`;
+    return activity;
+}
+
+function renderEnclaveAINexusReport(visualData) {
+    if (!visualData || !Array.isArray(visualData.frames)) return null;
+
+    const report = document.createElement("section");
+    report.className = "enclave-ai-nexus-report";
+    report.setAttribute("aria-label", "Risultati visivi NEXUS");
+
+    const totalFaces = visualData.frames.reduce((sum, frame) => sum + (frame.faces?.length || 0), 0);
+    const expressionNames = {
+        happy: "Felicità", sad: "Tristezza", angry: "Rabbia", fearful: "Paura",
+        disgusted: "Disgusto", surprised: "Sorpresa", neutral: "Neutrale"
+    };
+
+    const header = document.createElement("div");
+    header.className = "enclave-ai-nexus-report-header";
+    header.innerHTML = `<div><span class="enclave-ai-nexus-overline">NEXUS / VISUAL INTELLIGENCE</span><strong>Rapporto di analisi</strong></div><span class="enclave-ai-nexus-verified"><i></i> COMPLETATA</span>`;
+    report.appendChild(header);
+
+    const stats = document.createElement("div");
+    stats.className = "enclave-ai-nexus-stats";
+    const statsData = [
+        [String(totalFaces), visualData.type === "video" ? "RILEVAMENTI TOTALI" : "VOLTI RILEVATI"],
+        [String(visualData.frames.length), visualData.type === "video" ? "FRAME ANALIZZATI" : "IMMAGINE ANALIZZATA"],
+        [visualData.durationMs ? `${visualData.durationMs} ms` : "LOCALE", "TEMPO / ELABORAZIONE"]
+    ];
+    statsData.forEach(([value, label]) => {
+        const stat = document.createElement("div");
+        stat.className = "enclave-ai-nexus-stat";
+        const strong = document.createElement("strong"); strong.textContent = value;
+        const small = document.createElement("span"); small.textContent = label;
+        stat.append(strong, small); stats.appendChild(stat);
+    });
+    report.appendChild(stats);
+
+    const frames = document.createElement("div");
+    frames.className = `enclave-ai-nexus-frames${visualData.type === "video" ? " is-video" : ""}`;
+
+    visualData.frames.forEach((frame, frameIndex) => {
+        const frameCard = document.createElement("article");
+        frameCard.className = "enclave-ai-nexus-frame";
+        const frameHeading = document.createElement("div");
+        frameHeading.className = "enclave-ai-nexus-frame-heading";
+        const frameName = document.createElement("span");
+        frameName.textContent = visualData.type === "video" ? `FRAME 0${frameIndex + 1} · ${(frame.timestamp || 0).toFixed(1)}s` : "SOURCE IMAGE";
+        const faceCount = document.createElement("b");
+        faceCount.textContent = `${frame.faces?.length || 0} ${frame.faces?.length === 1 ? "VOLTO" : "VOLTI"}`;
+        frameHeading.append(frameName, faceCount);
+
+        const stage = document.createElement("div");
+        stage.className = "enclave-ai-nexus-image-stage";
+        const image = document.createElement("img");
+        image.src = frame.src;
+        image.alt = visualData.type === "video" ? `Fotogramma ${frameIndex + 1} analizzato da NEXUS` : "Immagine analizzata da NEXUS";
+        image.loading = "lazy";
+        stage.appendChild(image);
+
+        (frame.faces || []).forEach((face, faceIndex) => {
+            if (!Array.isArray(face.box) || face.box.length < 4 || !frame.width || !frame.height) return;
+            const [x, y, width, height] = face.box;
+            const box = document.createElement("div");
+            box.className = "enclave-ai-nexus-face-box";
+            box.style.left = `${Math.max(0, x / frame.width * 100)}%`;
+            box.style.top = `${Math.max(0, y / frame.height * 100)}%`;
+            box.style.width = `${Math.max(0, Math.min(100, width / frame.width * 100))}%`;
+            box.style.height = `${Math.max(0, Math.min(100, height / frame.height * 100))}%`;
+            const marker = document.createElement("span");
+            marker.textContent = `FACE ${String(faceIndex + 1).padStart(2, "0")}`;
+            box.appendChild(marker);
+            stage.appendChild(box);
+        });
+        frameCard.append(frameHeading, stage);
+
+        if (frame.faces?.length) {
+            const faceList = document.createElement("div");
+            faceList.className = "enclave-ai-nexus-face-list";
+            frame.faces.forEach((face, faceIndex) => {
+                const faceItem = document.createElement("div");
+                faceItem.className = "enclave-ai-nexus-face-item";
+                const faceTitle = document.createElement("span");
+                faceTitle.textContent = `SOGGETTO ${String(faceIndex + 1).padStart(2, "0")}`;
+                const expression = document.createElement("b");
+                expression.textContent = face.mainExpression
+                    ? `${expressionNames[face.mainExpression.toLowerCase()] || face.mainExpression} · ${face.confidence}%`
+                    : "Espressione non determinata";
+                faceItem.append(faceTitle, expression);
+                faceList.appendChild(faceItem);
+            });
+            frameCard.appendChild(faceList);
+        } else {
+            const empty = document.createElement("div");
+            empty.className = "enclave-ai-nexus-empty";
+            empty.textContent = "Nessun volto rilevato in questo fotogramma";
+            frameCard.appendChild(empty);
+        }
+        frames.appendChild(frameCard);
+    });
+    report.appendChild(frames);
+
+    const footer = document.createElement("div");
+    footer.className = "enclave-ai-nexus-report-footer";
+    footer.textContent = "Elaborazione eseguita sul dispositivo. Le espressioni sono stime del modello e non identificano le persone.";
+    report.appendChild(footer);
+    return report;
+}
+
+async function analyzeEnclaveAIAttachment(onProgress = () => {}) {
+    if (!enclaveAIAttachment) return { context: "", visualData: null };
+
+    const file = enclaveAIAttachment;
+    const startedAt = performance.now();
+    onProgress("CARICAMENTO NEXUS", "Caricamento dei moduli di visione artificiale sul dispositivo…", 12);
+    const nexus = await loadNexusEngine();
+    onProgress("INIZIALIZZAZIONE MOTORE", "Modello facciale e rete di stima delle espressioni pronti per l'inferenza…", 38);
+
+    if (file.type.startsWith("image/")) {
+        const image = new Image();
+        image.src = enclaveAIAttachmentUrl;
+        await image.decode();
+        onProgress("SCANSIONE IMMAGINE", "NEXUS sta analizzando i pixel e cercando volti…", 64);
+        const result = await nexus.analyzeImage(image);
+        const durationMs = Math.round(performance.now() - startedAt);
+        onProgress("MAPPATURA RILEVAMENTI", `${result.faceCount} volti rilevati. Preparazione della mappa visiva…`, 92);
+        const previewCanvas = document.createElement("canvas");
+        const previewScale = Math.min(1, 1200 / image.naturalWidth);
+        previewCanvas.width = Math.max(1, Math.round(image.naturalWidth * previewScale));
+        previewCanvas.height = Math.max(1, Math.round(image.naturalHeight * previewScale));
+        const previewContext = previewCanvas.getContext("2d");
+        previewContext.drawImage(image, 0, 0, previewCanvas.width, previewCanvas.height);
+        const previewSource = previewCanvas.toDataURL("image/jpeg", 0.82);
+
+        const faces = result.faces.map((face, index) => {
+            const expression = face.mainExpression
+                ? `${face.mainExpression} (${face.confidence}%)`
+                : "Espressione non determinata con sufficiente sicurezza";
+            return `Volto ${index + 1}: espressione prevalente ${expression}.`;
+        });
+        const context = [
+            "Analisi NEXUS dell'immagine:",
+            `Volti rilevati: ${result.faceCount}.`,
+            ...faces
+        ].join("\n");
+        return {
+            context,
+            visualData: {
+                type: "image", durationMs,
+                frames: [{ src: previewSource, width: image.naturalWidth, height: image.naturalHeight, faces: result.faces }]
+            }
+        };
+    }
+
+    if (file.type.startsWith("video/")) {
+        const video = document.createElement("video");
+        video.src = enclaveAIAttachmentUrl;
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = "auto";
+
+        try {
+            await new Promise((resolve, reject) => {
+                video.onloadedmetadata = resolve;
+                video.onerror = () => reject(new Error("Impossibile caricare il video selezionato."));
+            });
+            if (!video.duration || !video.videoWidth) throw new Error("Il video non è pronto per l'analisi.");
+            if (video.readyState < 2) {
+                await new Promise((resolve, reject) => {
+                    video.onloadeddata = resolve;
+                    video.onerror = () => reject(new Error("Impossibile leggere il primo fotogramma del video."));
+                });
+            }
+
+            const timestamps = [0, video.duration / 2, Math.max(0, video.duration - 0.1)];
+            const canvas = document.createElement("canvas");
+            const context2d = canvas.getContext("2d");
+            if (!context2d) throw new Error("Impossibile preparare l'analisi video.");
+            const frames = [];
+            const results = [];
+
+            for (let index = 0; index < timestamps.length; index++) {
+                const timestamp = timestamps[index];
+                onProgress(`ANALISI FRAME 0${index + 1}/03`, `Esame del fotogramma a ${timestamp.toFixed(1)} secondi…`, 48 + index * 16);
+                if (Math.abs(video.currentTime - timestamp) > 0.01) {
+                    await new Promise((resolve, reject) => {
+                        video.onseeked = resolve;
+                        video.onerror = () => reject(new Error("Errore durante la lettura del video."));
+                        video.currentTime = timestamp;
+                    });
+                }
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context2d.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const result = await nexus.analyzeImage(canvas);
+                results.push({ timestamp, faceCount: result.faceCount, faces: result.faces });
+                const previewCanvas = document.createElement("canvas");
+                const previewScale = Math.min(1, 960 / canvas.width);
+                previewCanvas.width = Math.max(1, Math.round(canvas.width * previewScale));
+                previewCanvas.height = Math.max(1, Math.round(canvas.height * previewScale));
+                const previewContext = previewCanvas.getContext("2d");
+                previewContext.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+                frames.push({ src: previewCanvas.toDataURL("image/jpeg", 0.76), width: canvas.width, height: canvas.height, timestamp, faces: result.faces });
+            }
+
+            const totalFaces = results.reduce((total, frame) => total + frame.faceCount, 0);
+            const details = results.map((frame, index) => {
+                const expressions = frame.faces.filter(face => face.mainExpression).map(face => face.mainExpression);
+                return `Fotogramma ${index + 1} (${frame.timestamp.toFixed(1)}s): ${frame.faceCount} volti rilevati. ${expressions.length ? "Espressioni: " + expressions.join(", ") + "." : "Nessuna espressione determinata."}`;
+            });
+            return {
+                context: [
+                    "Analisi NEXUS del video completata.",
+                    `Durata: ${video.duration.toFixed(1)} secondi.`,
+                    "Fotogrammi analizzati: 3.",
+                    `Rilevamenti complessivi di volti nei fotogrammi: ${totalFaces}.`,
+                    ...details
+                ].join("\n"),
+                visualData: { type: "video", durationMs: Math.round(performance.now() - startedAt), frames }
+            };
+        } finally {
+            video.removeAttribute("src");
+            video.load();
+        }
+    }
+
+    throw new Error("Formato allegato non supportato.");
+}
+
+
 async function sendEnclaveAIMessage(event) {
     event.preventDefault();
+
     if (enclaveAIWaiting) return;
+
     const input = enclaveAIOverlay.querySelector("#enclaveAIInput");
     const text = input.value.trim();
-    if (!text) return;
+    const hasAttachment = Boolean(enclaveAIAttachment);
+
+    if (!text && !hasAttachment) return;
+
     const user = auth.currentUser;
-    if (!user || !user.emailVerified) { addEnclaveAIMessage("assistant", "Devi accedere a Enclave per utilizzare EnclaveAI."); return; }
+
+    if (!user || !user.emailVerified) {
+        addEnclaveAIMessage("assistant", "Devi accedere a Enclave per utilizzare EnclaveAI.");
+        return;
+    }
+
     input.value = "";
+
     enclaveAIOverlay.querySelector("#enclaveAIWelcome").hidden = true;
-    addEnclaveAIMessage("user", text);
-    enclaveAIHistory.push({ role: "user", content: text });
-    // Il contesto è limitato alla sessione aperta e agli ultimi 12 messaggi.
-    enclaveAIHistory = enclaveAIHistory.slice(-12);
+
+    addEnclaveAIMessage(
+        "user",
+        text || "Analizza l'allegato selezionato."
+    );
+
     enclaveAIWaiting = true;
-    const send = enclaveAIOverlay.querySelector("#enclaveAISend"); send.disabled = true;
-    const typing = addEnclaveAIMessage("assistant", "Sto elaborando…"); typing.classList.add("is-typing");
+
+    const send = enclaveAIOverlay.querySelector("#enclaveAISend");
+    send.disabled = true;
+
+    const typing = addEnclaveAIMessage(
+        "assistant",
+        hasAttachment ? "Analizzo il file con NEXUS…" : "Sto elaborando…"
+    );
+
+    typing.classList.add("is-typing");
+
+    let userMessageAdded = false;
+
     try {
-        const idToken = await user.getIdToken();
-        let answer = await requestEnclaveAIAnswer(idToken, enclaveAIHistory);
-        if (!answer) answer = "Non sono riuscito a generare una risposta.";
-        typing.remove();
-        addEnclaveAIMessage("assistant", answer);
-        enclaveAIHistory.push({ role: "assistant", content: answer });
+        let analysisContext = "";
+
+        if (hasAttachment) {
+            const activity = createEnclaveAINexusActivity();
+            typing.querySelector(".enclave-ai-bubble")?.replaceChildren(activity);
+            const analysis = await analyzeEnclaveAIAttachment((stage, detail, progress) => {
+                setEnclaveAINexusStage(activity, stage, detail, progress);
+            });
+            analysisContext = analysis.context;
+            enclaveAIAnalysisContext = analysisContext;
+
+            const report = renderEnclaveAINexusReport(analysis.visualData);
+            if (report && typing.isConnected) {
+                enclaveAIOverlay.querySelector("#enclaveAIMessages").insertBefore(report, typing);
+            }
+            setEnclaveAINexusStage(activity, "ANALISI COMPLETATA", "Risultati locali pronti. EnclaveAI sta elaborando la risposta…", 100);
+            activity.classList.add("is-complete");
+        }
+
+        const userContent = [
+            text || "Analizza l'allegato selezionato.",
+            analysisContext
+                ? "\n\nRisultati dell'analisi locale NEXUS:\n" + analysisContext
+                : ""
+        ].join("");
+
+        enclaveAIHistory.push({
+            role: "user",
+            content: userContent
+        });
+
+        userMessageAdded = true;
+
         enclaveAIHistory = enclaveAIHistory.slice(-12);
+
+        const idToken = await user.getIdToken();
+
+
+
+        let answer = await requestEnclaveAIAnswer(
+    idToken,
+    enclaveAIHistory
+);
+
+        if (!answer) {
+            answer = "Non sono riuscito a generare una risposta.";
+        }
+
+        typing.remove();
+
+        addEnclaveAIMessage("assistant", answer);
+
+        enclaveAIHistory.push({
+            role: "assistant",
+            content: answer
+        });
+
+        enclaveAIHistory = enclaveAIHistory.slice(-12);
+
+        if (hasAttachment) {
+            clearEnclaveAIAttachment();
+        }
+
     } catch (error) {
-        console.error("EnclaveAI non raggiungibile:", error);
-        typing.remove(); addEnclaveAIMessage("assistant", error.message || "Non riesco a raggiungere EnclaveAI in questo momento.");
-        enclaveAIHistory.pop();
+        console.error("EnclaveAI/NEXUS:", error);
+
+        typing.remove();
+
+        addEnclaveAIMessage(
+            "assistant",
+            error.message || "Non riesco a completare l'analisi in questo momento."
+        );
+
+        if (userMessageAdded) {
+            enclaveAIHistory.pop();
+        }
+
     } finally {
         enclaveAIWaiting = false;
-        if (enclaveAIOverlay?.isConnected) { send.disabled = false; input.focus(); }
+
+        if (enclaveAIOverlay?.isConnected) {
+            send.disabled = false;
+            input.focus();
+        }
     }
 }

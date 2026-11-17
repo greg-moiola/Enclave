@@ -2671,7 +2671,7 @@
     .contact-nickname-value {
         font-size: 18px;
     }
-}
+
 
 
 /* =========================
@@ -3818,6 +3818,102 @@ button:focus-visible,
     }
 }
 
+
+
+/* EnclaveAI - Allegati e barra di composizione */
+
+.enclave-ai-composer {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.enclave-ai-composer-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+}
+
+.enclave-ai-attachment {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.enclave-ai-attachment[hidden] {
+    display: none;
+}
+
+.enclave-ai-attachment-thumbnail {
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.enclave-ai-attachment-thumbnail img,
+.enclave-ai-attachment-thumbnail video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.enclave-ai-attachment > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    color: #ddd;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.enclave-ai-composer .enclave-ai-attach {
+    flex: 0 0 47px;
+    width: 47px;
+    height: 47px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    font-size: 27px;
+    box-shadow: none;
+}
+
+.enclave-ai-composer .enclave-ai-attachment-remove,
+.enclave-ai-attachment button {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ccc;
+    font-size: 19px;
+    box-shadow: none;
+}
+
+.enclave-ai-composer-row textarea {
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .enclave-ai-composer-row {
+        gap: 8px;
+    }
+
+    .enclave-ai-attachment {
+        padding: 8px;
+    }
+}
+
+
 /* Composer */
 
 .enclave-ai-composer {
@@ -4660,4 +4756,211 @@ select:focus {
 .voice-recording-controls button:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+}
+
+
+/* EnclaveAI - correzione finale layout allegati */
+
+.enclave-ai-composer {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.enclave-ai-composer-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    width: 100%;
+}
+
+.enclave-ai-composer .enclave-ai-attach {
+    flex: 0 0 47px;
+    width: 47px;
+    height: 47px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    font-size: 27px;
+    box-shadow: none;
+}
+
+.enclave-ai-composer .enclave-ai-attachment button {
+    flex: 0 0 30px;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ccc;
+    font-size: 19px;
+    box-shadow: none;
+}
+
+.enclave-ai-composer-row textarea {
+    min-width: 0;
+}
+
+@media (max-width: 600px) {
+    .enclave-ai-composer-row {
+        gap: 8px;
+    }
+}
+
+/* =========================
+   ENCLAVEAI / NEXUS VISUAL INTERFACE
+   HUD e report basati sui risultati reali del motore locale
+========================= */
+.enclave-ai-panel {
+    isolation: isolate;
+    background:
+        radial-gradient(ellipse at 50% 0%, rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .20), transparent 48%),
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(145deg, #101522, #080b13 72%);
+    background-size: auto, 34px 34px, 34px 34px, auto;
+    border-color: rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .27);
+}
+
+.enclave-ai-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 0 47%, rgba(255,255,255,.018) 50%, transparent 53% 100%);
+    opacity: .8;
+}
+
+.enclave-ai-header {
+    position: relative;
+    background: rgba(7, 10, 18, .56);
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+}
+
+.enclave-ai-symbol {
+    position: relative;
+    border: 1px solid rgba(255,255,255,.24);
+    box-shadow: 0 0 0 5px rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .08), 0 0 30px rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .38);
+}
+
+.enclave-ai-eyebrow { text-shadow: 0 0 14px rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .45); }
+.enclave-ai-status { letter-spacing: .035em; }
+.enclave-ai-content { scrollbar-color: rgba(var(--enclave-ai-accent-rgb, 128, 89, 201), .35) transparent; }
+
+.enclave-ai-nexus-activity {
+    width: min(100%, 470px);
+    padding: 14px 15px 12px;
+    overflow: hidden;
+    border: 1px solid rgba(96, 224, 255, .24);
+    border-radius: 13px;
+    background: linear-gradient(135deg, rgba(9, 31, 45, .88), rgba(10, 16, 30, .94));
+    box-shadow: inset 0 1px rgba(255,255,255,.055), 0 0 28px rgba(43, 184, 230, .08);
+}
+
+.enclave-ai-nexus-activity-top,
+.enclave-ai-nexus-activity-foot,
+.enclave-ai-nexus-report-header,
+.enclave-ai-nexus-frame-heading,
+.enclave-ai-nexus-face-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.enclave-ai-nexus-chip,
+.enclave-ai-nexus-live,
+.enclave-ai-nexus-activity-foot,
+.enclave-ai-nexus-overline,
+.enclave-ai-nexus-verified,
+.enclave-ai-nexus-frame-heading,
+.enclave-ai-nexus-face-item > span {
+    font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    letter-spacing: .11em;
+}
+
+.enclave-ai-nexus-chip { color: #8beaff; font-size: 9px; font-weight: 800; }
+.enclave-ai-nexus-chip i,
+.enclave-ai-nexus-verified i {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background: #60e7ff;
+    box-shadow: 0 0 10px #60e7ff;
+}
+
+.enclave-ai-nexus-live { color: #6c9aa9; font-size: 8px; }
+.enclave-ai-nexus-activity-title { margin-top: 13px; color: #f1fbff; font-size: 12px; font-weight: 750; letter-spacing: .015em; }
+.enclave-ai-nexus-activity-detail { min-height: 17px; margin-top: 5px; color: #91aeba; font-size: 10px; line-height: 1.5; }
+.enclave-ai-nexus-progress { height: 3px; margin-top: 13px; overflow: hidden; border-radius: 10px; background: rgba(255,255,255,.09); }
+.enclave-ai-nexus-progress i { display: block; width: 4%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #318bff, #65f0ff); box-shadow: 0 0 13px #47cfff; transition: width .35s ease; }
+.enclave-ai-nexus-activity-foot { margin-top: 8px; color: #5e8e9d; font-size: 8px; }
+.enclave-ai-nexus-activity-foot b { color: #8beaff; font-size: 9px; }
+.enclave-ai-nexus-activity.is-complete .enclave-ai-nexus-chip i { background: #76f0b0; box-shadow: 0 0 10px #76f0b0; }
+.enclave-ai-nexus-activity.is-complete .enclave-ai-nexus-progress i { background: linear-gradient(90deg, #20bf91, #8bffc7); box-shadow: 0 0 13px #4dffc0; }
+
+.enclave-ai-nexus-report {
+    width: min(100%, 650px);
+    margin: 4px 0 5px;
+    padding: 15px;
+    overflow: hidden;
+    border: 1px solid rgba(90, 218, 245, .23);
+    border-radius: 17px;
+    background: linear-gradient(145deg, rgba(12, 28, 42, .96), rgba(9, 14, 25, .97));
+    box-shadow: 0 16px 42px rgba(0,0,0,.2), inset 0 1px rgba(255,255,255,.055), 0 0 30px rgba(45, 180, 220, .055);
+    animation: enclaveAINexusReportIn .45s cubic-bezier(.2,.8,.2,1) both;
+}
+
+@keyframes enclaveAINexusReportIn {
+    from { opacity: 0; transform: translateY(12px) scale(.985); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.enclave-ai-nexus-report-header { padding-bottom: 12px; border-bottom: 1px solid rgba(125, 218, 239, .13); }
+.enclave-ai-nexus-report-header > div { display: flex; flex-direction: column; gap: 4px; }
+.enclave-ai-nexus-overline { color: #64cfe8; font-size: 8px; font-weight: 800; }
+.enclave-ai-nexus-report-header strong { color: #edfaff; font-size: 14px; letter-spacing: -.02em; }
+.enclave-ai-nexus-verified { color: #77e6b2; font-size: 8px; font-weight: 800; white-space: nowrap; }
+.enclave-ai-nexus-verified i { width: 5px; height: 5px; background: #77e6b2; box-shadow: 0 0 8px #77e6b2; }
+
+.enclave-ai-nexus-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; margin: 12px 0; }
+.enclave-ai-nexus-stat { min-width: 0; padding: 10px 9px; border: 1px solid rgba(125, 218, 239, .11); border-radius: 10px; background: rgba(255,255,255,.025); }
+.enclave-ai-nexus-stat strong { display: block; overflow: hidden; color: #e4faff; font-size: 17px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.enclave-ai-nexus-stat span { display: block; margin-top: 4px; color: #6e9aa8; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 7px; letter-spacing: .07em; line-height: 1.4; }
+
+.enclave-ai-nexus-frames { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.enclave-ai-nexus-frames.is-video { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.enclave-ai-nexus-frame { min-width: 0; overflow: hidden; border: 1px solid rgba(125, 218, 239, .12); border-radius: 11px; background: rgba(0,0,0,.2); }
+.enclave-ai-nexus-frame-heading { min-height: 30px; padding: 7px 9px; color: #78aab8; font-size: 8px; }
+.enclave-ai-nexus-frame-heading b { color: #b4d9e2; font-size: 8px; white-space: nowrap; }
+.enclave-ai-nexus-image-stage { position: relative; width: 100%; overflow: hidden; background: #050a11; line-height: 0; }
+.enclave-ai-nexus-image-stage > img { display: block; width: 100%; max-height: 310px; object-fit: contain; }
+.enclave-ai-nexus-face-box { position: absolute; border: 1.5px solid #5ff1ff; box-shadow: 0 0 0 1px rgba(0,0,0,.35), 0 0 13px rgba(66,225,255,.28); pointer-events: none; }
+.enclave-ai-nexus-face-box::before,
+.enclave-ai-nexus-face-box::after { content: ""; position: absolute; width: 9px; height: 9px; border-color: #b4fbff; border-style: solid; }
+.enclave-ai-nexus-face-box::before { top: -2px; left: -2px; border-width: 2px 0 0 2px; }
+.enclave-ai-nexus-face-box::after { right: -2px; bottom: -2px; border-width: 0 2px 2px 0; }
+.enclave-ai-nexus-face-box > span { position: absolute; top: -17px; left: -1px; padding: 2px 4px; color: #04131a; background: #75efff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 7px; font-weight: 900; letter-spacing: .04em; white-space: nowrap; }
+.enclave-ai-nexus-face-list { display: grid; gap: 1px; padding: 5px 8px 7px; }
+.enclave-ai-nexus-face-item { min-width: 0; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.055); }
+.enclave-ai-nexus-face-item:last-child { border-bottom: 0; }
+.enclave-ai-nexus-face-item > span { color: #6c9aa8; font-size: 7px; white-space: nowrap; }
+.enclave-ai-nexus-face-item > b { overflow: hidden; color: #a7e8f2; font-size: 9px; font-weight: 700; text-align: right; text-overflow: ellipsis; }
+.enclave-ai-nexus-empty { padding: 10px; color: #8299a5; font-size: 9px; text-align: center; }
+.enclave-ai-nexus-report-footer { margin-top: 11px; padding-top: 9px; border-top: 1px solid rgba(125,218,239,.1); color: #6d8995; font-size: 9px; line-height: 1.5; }
+
+@media (max-width: 600px) {
+    .enclave-ai-nexus-report { padding: 11px; border-radius: 13px; }
+    .enclave-ai-nexus-frames.is-video { grid-template-columns: 1fr; }
+    .enclave-ai-nexus-frames.is-video .enclave-ai-nexus-image-stage > img { max-height: 230px; }
+    .enclave-ai-nexus-stat { padding: 8px 6px; }
+    .enclave-ai-nexus-stat strong { font-size: 15px; }
+    .enclave-ai-nexus-stat span { font-size: 6px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .enclave-ai-nexus-report { animation: none !important; }
+    .enclave-ai-nexus-progress i { transition: none !important; }
 }

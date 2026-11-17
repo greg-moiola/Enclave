@@ -1,0 +1,1047 @@
+/* =========================================
+   NEXUS — IMAGE ANALYSIS VISUAL SYSTEM
+========================================= */
+
+.nexus-image-analysis {
+  width: 100%;
+  animation: nexusImageEnter 0.45s ease both;
+}
+
+@keyframes nexusImageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nexus-image-analysis button {
+  font: inherit;
+}
+
+.nexus-image-analysis .image-file-input {
+  display: none;
+}
+
+/* EMPTY STATE */
+
+.nexus-image-empty {
+  min-height: 420px;
+  margin-top: 30px;
+  padding: 45px 25px;
+  border: 1px dashed rgba(76, 190, 255, 0.3);
+  border-radius: 17px;
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(25, 139, 220, 0.12),
+      transparent 45%
+    ),
+    rgba(8, 19, 34, 0.72);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.nexus-image-empty-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 22px;
+  display: grid;
+  place-items: center;
+  color: #55caff;
+  background: rgba(43, 166, 255, 0.1);
+  border: 1px solid rgba(75, 194, 255, 0.3);
+  box-shadow: 0 0 35px rgba(0, 156, 255, 0.12);
+  margin-bottom: 25px;
+}
+
+.nexus-image-empty .panel-kicker {
+  color: #58c9ff;
+  letter-spacing: 0.18em;
+  font-size: 0.7rem;
+}
+
+.nexus-image-empty h2 {
+  margin: 13px 0 9px;
+  color: #f0f7ff;
+  font-size: clamp(1.35rem, 3vw, 1.8rem);
+}
+
+.nexus-image-empty p {
+  max-width: 470px;
+  color: #8295aa;
+  font-size: 0.92rem;
+  line-height: 1.7;
+  margin-bottom: 25px;
+}
+
+.nexus-image-supported {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  color: #61768e;
+  font-size: 0.65rem;
+  letter-spacing: 0.13em;
+}
+
+.nexus-image-supported span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #36bfff;
+}
+
+/* BUTTONS */
+
+.nexus-image-primary-button,
+.nexus-image-secondary-button {
+  min-height: 43px;
+  padding: 0 18px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.nexus-image-primary-button {
+  color: #041321;
+  background: linear-gradient(110deg, #53d2ff, #65aaff);
+  border: 1px solid rgba(121, 219, 255, 0.65);
+  font-size: 0.83rem;
+  font-weight: 700;
+  box-shadow: 0 5px 22px rgba(35, 170, 255, 0.15);
+}
+
+.nexus-image-primary-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(35, 170, 255, 0.3);
+}
+
+.nexus-image-primary-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.nexus-image-secondary-button {
+  color: #9cb4ca;
+  background: rgba(19, 37, 58, 0.75);
+  border: 1px solid rgba(93, 143, 185, 0.22);
+  font-size: 0.82rem;
+}
+
+.nexus-image-secondary-button:hover {
+  color: #e5f6ff;
+  border-color: rgba(75, 194, 255, 0.45);
+  background: rgba(29, 64, 94, 0.65);
+}
+
+/* IMAGE TOOLBAR */
+
+.nexus-image-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin: 25px 0 17px;
+  padding: 13px 16px;
+  border: 1px solid rgba(94, 147, 191, 0.16);
+  border-radius: 10px;
+  background: rgba(10, 24, 40, 0.78);
+}
+
+.nexus-image-file {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nexus-image-file-icon {
+  flex-shrink: 0;
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  color: #55caff;
+  background: rgba(39, 161, 255, 0.1);
+  border-radius: 8px;
+}
+
+.nexus-image-file > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nexus-image-file strong {
+  color: #dceafa;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 500px;
+}
+
+.nexus-image-file span {
+  color: #71869d;
+  font-size: 0.7rem;
+}
+
+.nexus-image-remove {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 103, 115, 0.17);
+  border-radius: 7px;
+  color: #d78b96;
+  background: rgba(255, 85, 105, 0.055);
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.nexus-image-remove:hover {
+  background: rgba(255, 85, 105, 0.13);
+}
+
+/* SUMMARY */
+
+.nexus-image-summary {
+  margin: 0 0 18px;
+  padding: 20px;
+  border: 1px solid rgba(65, 185, 255, 0.25);
+  border-radius: 12px;
+  background:
+    linear-gradient(
+      120deg,
+      rgba(21, 92, 139, 0.16),
+      transparent 60%
+    ),
+    rgba(8, 22, 38, 0.92);
+  box-shadow: inset 0 1px rgba(117, 210, 255, 0.04);
+  animation: nexusSummaryEnter 0.45s ease both;
+}
+
+@keyframes nexusSummaryEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nexus-summary-heading,
+.nexus-image-visual-heading,
+.nexus-face-results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.nexus-summary-heading h2,
+.nexus-image-visual-heading h2,
+.nexus-face-results-heading h2 {
+  margin: 6px 0 0;
+  color: #e6f3ff;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.nexus-summary-heading .panel-kicker,
+.nexus-image-visual-heading .panel-kicker,
+.nexus-face-results-heading .panel-kicker {
+  color: #55bfff;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+}
+
+.nexus-summary-complete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #69e1b4;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.nexus-summary-metric {
+  min-width: 0;
+  min-height: 76px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(105, 160, 202, 0.13);
+  border-radius: 8px;
+  background: rgba(7, 18, 32, 0.58);
+}
+
+.nexus-summary-icon {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #5ccaff;
+  border-radius: 8px;
+  background: rgba(50, 167, 255, 0.1);
+}
+
+.nexus-summary-metric > div:last-child {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.nexus-summary-metric span {
+  color: #718ba5;
+  font-size: 0.59rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-summary-metric strong {
+  color: #e6f5ff;
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+
+.nexus-summary-metric .nexus-summary-expression {
+  font-size: 0.91rem;
+  overflow-wrap: anywhere;
+}
+
+.nexus-no-faces {
+  margin-top: 14px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: #9cb4ca;
+  border: 1px solid rgba(95, 155, 200, 0.18);
+  border-radius: 8px;
+  background: rgba(7, 18, 32, 0.6);
+  font-size: 0.8rem;
+}
+
+/* IMAGE VIEWPORT */
+
+.nexus-image-visual-panel {
+  overflow: hidden;
+  padding: 19px;
+  border: 1px solid rgba(87, 149, 195, 0.18);
+  border-radius: 12px;
+  background: rgba(7, 19, 34, 0.86);
+}
+
+.nexus-viewport-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #8ba8c0;
+  font-size: 0.63rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-image-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 180px;
+  margin-top: 18px;
+  padding: 22px;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background:
+    linear-gradient(rgba(55, 139, 190, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(55, 139, 190, 0.045) 1px, transparent 1px),
+    #050d18;
+  background-size: 26px 26px;
+  border: 1px solid rgba(69, 153, 210, 0.14);
+  border-radius: 8px;
+}
+
+.nexus-image-frame {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nexus-image-frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 650px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+
+.nexus-detection-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.nexus-face-box {
+  fill: rgba(32, 194, 255, 0.045);
+  stroke: #4dd7ff;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 5px rgba(40, 199, 255, 0.75));
+}
+
+.nexus-face-point-glow {
+  fill: rgba(50, 200, 255, 0.18);
+  stroke: rgba(67, 213, 255, 0.5);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.nexus-face-point {
+  fill: #d5faff;
+  stroke: #35cfff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 4px #27caff);
+}
+
+.nexus-face-label {
+  fill: #8deaff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  paint-order: stroke;
+  stroke: rgba(2, 13, 25, 0.9);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.nexus-face-detection {
+  animation: nexusDetectionPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes nexusDetectionPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.nexus-image-corners {
+  position: absolute;
+  z-index: 2;
+  inset: 10px;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    linear-gradient(#39caff, #39caff) left top / 19px 1px no-repeat,
+    linear-gradient(#39caff, #39caff) left top / 1px 19px no-repeat,
+    linear-gradient(#39caff, #39caff) right top / 19px 1px no-repeat,
+    linear-gradient(#39caff, #39caff) right top / 1px 19px no-repeat,
+    linear-gradient(#39caff, #39caff) left bottom / 19px 1px no-repeat,
+    linear-gradient(#39caff, #39caff) left bottom / 1px 19px no-repeat,
+    linear-gradient(#39caff, #39caff) right bottom / 19px 1px no-repeat,
+    linear-gradient(#39caff, #39caff) right bottom / 1px 19px no-repeat;
+}
+
+.nexus-viewport-crosshair {
+  position: absolute;
+  z-index: 0;
+  width: 40px;
+  height: 40px;
+  opacity: 0.3;
+}
+
+.nexus-viewport-crosshair span:first-child {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: #39caff;
+}
+
+.nexus-viewport-crosshair span:last-child {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #39caff;
+}
+
+.nexus-viewport-caption {
+  position: absolute;
+  z-index: 4;
+  bottom: 8px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: rgba(160, 202, 230, 0.65);
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+.nexus-image-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-top: 15px;
+}
+
+.nexus-image-legend span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #7d93a9;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+}
+
+.nexus-legend-dot,
+.nexus-legend-outline,
+.nexus-legend-center {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.nexus-legend-dot {
+  background: #48d8ff;
+  box-shadow: 0 0 7px #35caff;
+}
+
+.nexus-legend-outline {
+  width: 12px;
+  height: 8px;
+  border: 1px solid #48d8ff;
+  border-radius: 2px;
+}
+
+.nexus-legend-center {
+  background: #d5faff;
+  border: 1px solid #35caff;
+}
+
+/* SUBJECT BREAKDOWN */
+
+.nexus-face-results {
+  margin-top: 20px;
+}
+
+.nexus-face-count {
+  color: #69d5ff;
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+}
+
+.nexus-face-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.nexus-face-card {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid rgba(85, 155, 201, 0.18);
+  border-radius: 10px;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(22, 77, 111, 0.12),
+      transparent 65%
+    ),
+    rgba(9, 22, 37, 0.9);
+  animation: nexusSummaryEnter 0.4s ease both;
+}
+
+.nexus-face-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nexus-face-number {
+  color: #51caff;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.nexus-face-detected {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #75d9b8;
+  font-size: 0.59rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-face-card-label {
+  display: block;
+  margin-top: 17px;
+  color: #728ca5;
+  font-size: 0.62rem;
+  letter-spacing: 0.13em;
+}
+
+.nexus-face-card h3 {
+  margin: 6px 0 17px;
+  color: #e6f5ff;
+  font-size: 1.2rem;
+}
+
+.nexus-face-confidence > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.nexus-face-confidence span {
+  color: #7890a8;
+  font-size: 0.59rem;
+  letter-spacing: 0.07em;
+}
+
+.nexus-face-confidence strong {
+  color: #61d5ff;
+  font-size: 0.76rem;
+}
+
+.nexus-confidence-track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: rgba(105, 148, 183, 0.16);
+}
+
+.nexus-confidence-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #168fdb, #5ee1ff);
+  box-shadow: 0 0 9px rgba(62, 196, 255, 0.4);
+}
+
+.nexus-expression-list {
+  margin-top: 15px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(105, 148, 183, 0.13);
+}
+
+.nexus-expression-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  color: #9aadc0;
+  font-size: 0.72rem;
+}
+
+.nexus-expression-row strong {
+  color: #b8d9ed;
+  font-weight: 600;
+}
+
+/* ACTIONS */
+
+.nexus-image-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.nexus-button-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(3, 20, 34, 0.25);
+  border-top-color: #062037;
+  border-radius: 50%;
+  animation: nexusSpinner 0.7s linear infinite;
+}
+
+@keyframes nexusSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nexus-analysis-progress {
+  margin-top: 18px;
+  padding: 13px 15px;
+  border: 1px solid rgba(62, 179, 242, 0.18);
+  border-radius: 8px;
+  background: rgba(14, 54, 82, 0.2);
+}
+
+.nexus-analysis-progress > div:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #70cfff;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-progress-line {
+  height: 2px;
+  margin-bottom: 11px;
+  overflow: hidden;
+  background: rgba(83, 161, 207, 0.15);
+}
+
+.nexus-progress-line span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: #50d0ff;
+  box-shadow: 0 0 10px #35baff;
+  animation: nexusProgress 1.4s ease-in-out infinite;
+}
+
+@keyframes nexusProgress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(320%);
+  }
+}
+
+.nexus-image-error {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 15px;
+  padding: 12px 14px;
+  color: #ff9ba7;
+  border: 1px solid rgba(255, 107, 124, 0.2);
+  border-radius: 8px;
+  background: rgba(111, 30, 45, 0.16);
+  font-size: 0.8rem;
+}
+
+/* FOOTER */
+
+.nexus-image-analysis .image-analysis-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(91, 139, 177, 0.15);
+}
+
+.nexus-image-analysis .image-analysis-footer > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #71869b;
+  font-size: 0.61rem;
+  letter-spacing: 0.1em;
+}
+
+.nexus-image-analysis .image-analysis-footer .nexus-image-engine-status {
+  color: #77c9ed;
+}
+
+.nexus-image-analysis .image-analysis-footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: #7fa8c5;
+  background: transparent;
+  border: 1px solid rgba(92, 151, 190, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.65rem;
+  letter-spacing: 0.07em;
+}
+
+.nexus-image-analysis .image-analysis-footer button:hover {
+  color: #d4f3ff;
+  border-color: rgba(77, 195, 255, 0.4);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 900px) {
+  .nexus-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .nexus-image-viewport {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 600px) {
+  .nexus-image-empty {
+    min-height: 360px;
+    padding: 30px 18px;
+  }
+
+  .nexus-image-toolbar {
+    padding: 10px;
+  }
+
+  .nexus-image-file strong {
+    max-width: 190px;
+  }
+
+  .nexus-image-remove span {
+    display: none;
+  }
+
+  .nexus-image-summary,
+  .nexus-image-visual-panel {
+    padding: 14px;
+  }
+
+  .nexus-summary-heading,
+  .nexus-image-visual-heading {
+    align-items: flex-start;
+  }
+
+  .nexus-summary-complete {
+    font-size: 0;
+  }
+
+  .nexus-summary-complete svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .nexus-summary-grid {
+    gap: 8px;
+  }
+
+  .nexus-summary-metric {
+    min-height: 68px;
+    padding: 9px;
+    gap: 8px;
+  }
+
+  .nexus-summary-icon {
+    width: 29px;
+    height: 29px;
+  }
+
+  .nexus-summary-icon svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .nexus-summary-metric span {
+    font-size: 0.52rem;
+  }
+
+  .nexus-summary-metric strong {
+    font-size: 1rem;
+  }
+
+  .nexus-summary-metric .nexus-summary-expression {
+    font-size: 0.77rem;
+  }
+
+  .nexus-image-viewport {
+    min-height: 140px;
+    padding: 12px;
+  }
+
+  .nexus-viewport-caption {
+    font-size: 0.46rem;
+  }
+
+  .nexus-image-legend {
+    gap: 11px;
+  }
+
+  .nexus-image-legend span {
+    font-size: 0.53rem;
+  }
+
+  .nexus-face-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nexus-image-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .nexus-image-actions button {
+    width: 100%;
+  }
+
+  .nexus-image-analysis .image-analysis-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .nexus-image-analysis .image-analysis-footer button {
+    align-self: flex-end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-image-analysis *,
+  .nexus-image-analysis *::before,
+  .nexus-image-analysis *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+/* =========================================
+   NEXUS — REFINED DETECTION OVERLAY
+========================================= */
+
+/* Contorni più sottili e discreti */
+.nexus-face-box {
+  fill: rgba(49, 197, 255, 0.018);
+  stroke: rgba(91, 213, 255, 0.88);
+  stroke-width: 1;
+  stroke-dasharray: 7 4;
+  vector-effect: non-scaling-stroke;
+  filter: none;
+}
+
+/* Elimina l'alone esterno dei punti */
+.nexus-face-point-glow {
+  display: none;
+}
+
+/* Punti di riferimento più piccoli */
+.nexus-face-point {
+  fill: #c9f5ff;
+  stroke: rgba(57, 202, 255, 0.9);
+  stroke-width: 1;
+  filter: none;
+}
+
+/* Etichette meno invasive */
+.nexus-face-label {
+  fill: rgba(167, 231, 255, 0.92);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 1.5px;
+  stroke: rgba(2, 13, 25, 0.82);
+  stroke-width: 2.5px;
+  paint-order: stroke;
+}
+
+/* Animazione quasi impercettibile */
+.nexus-face-detection {
+  animation: nexusRefinedDetection 3.5s ease-in-out infinite;
+}
+
+@keyframes nexusRefinedDetection {
+  0%,
+  100% {
+    opacity: 0.88;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/* Barra di confidenza più elegante */
+.nexus-confidence-track {
+  height: 3px;
+  background: rgba(105, 148, 183, 0.12);
+}
+
+.nexus-confidence-track span {
+  background: linear-gradient(
+    90deg,
+    rgba(37, 151, 211, 0.85),
+    rgba(102, 216, 255, 0.95)
+  );
+  box-shadow: none;
+}
+
+/* Card dei soggetti più leggere */
+.nexus-face-card {
+  border-color: rgba(85, 155, 201, 0.13);
+  background: rgba(9, 22, 37, 0.72);
+  box-shadow: none;
+}
+
+.nexus-face-card:hover {
+  border-color: rgba(85, 195, 235, 0.28);
+}
+
+/* Scanner più pulito */
+.nexus-image-corners {
+  opacity: 0.32;
+}
+
+.nexus-viewport-crosshair {
+  opacity: 0.16;
+}
+
+/* Rispetta sempre la preferenza di movimento ridotto */
+@media (prefers-reduced-motion: reduce) {
+  .nexus-face-detection {
+    animation: none;
+  }
+}
