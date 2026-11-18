@@ -8,7 +8,8 @@ import {
     browserLocalPersistence,
     browserSessionPersistence,
     setPersistence,
-    signOut
+    signOut,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 
 import {
@@ -47,6 +48,11 @@ import { app } from "./firebase.js";
 
 
 console.log("Enclave avviato correttamente.");
+
+if (localStorage.getItem("enclaveFutureMode") === "true") {
+    document.body.classList.add("enclave-future-mode");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#07111d");
+}
 
 
 // =========================
@@ -1080,6 +1086,51 @@ function updateRememberConnectedSwitchUI() {
 
 const MICROPHONE_READY_KEY = "enclaveMicrophoneReady";
 let microphonePermissionState = "unknown";
+let microphoneReadyStream = null;
+let microphoneResumeInProgress = false;
+
+function stopMicrophoneReadyStream() {
+    if (microphoneReadyStream) {
+        microphoneReadyStream.getTracks().forEach(track => track.stop());
+        microphoneReadyStream = null;
+    }
+}
+
+async function resumePersistentMicrophone() {
+    if (!auth.currentUser || !isMicrophoneReadyEnabled() || microphoneReadyStream?.getAudioTracks().some(track => track.readyState === "live") || microphoneResumeInProgress) return;
+    if (!navigator.mediaDevices?.getUserMedia || document.visibilityState === "hidden") return;
+    microphoneResumeInProgress = true;
+    try {
+        microphoneReadyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        microphonePermissionState = "granted";
+    } catch (error) {
+        console.warn("Riattivazione automatica del microfono non riuscita:", error);
+        if (error?.name === "NotAllowedError" || error?.name === "NotFoundError" || error?.name === "NotReadableError") {
+            microphonePermissionState = error.name === "NotAllowedError" ? "denied" : microphonePermissionState;
+        }
+    } finally {
+        microphoneResumeInProgress = false;
+        updateMicrophoneSwitchUI();
+    }
+}
+
+function getPersistentMicrophoneClone() {
+    const tracks = microphoneReadyStream?.getAudioTracks().filter(track => track.readyState === "live") || [];
+    if (!tracks.length) return null;
+    return new MediaStream(tracks.map(track => track.clone()));
+}
+
+// Il permesso resta memorizzato; lo stream viene riaperto quando Enclave torna visibile.
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") stopMicrophoneReadyStream();
+    else void resumePersistentMicrophone();
+});
+window.addEventListener("pageshow", () => void resumePersistentMicrophone());
+window.addEventListener("pagehide", stopMicrophoneReadyStream);
+onAuthStateChanged(auth, user => {
+    if (user && document.visibilityState !== "hidden") void resumePersistentMicrophone();
+    else stopMicrophoneReadyStream();
+});
 
 function isMicrophoneReadyEnabled() {
     return localStorage.getItem(MICROPHONE_READY_KEY) === "true";
@@ -1397,10 +1448,24 @@ function createEnclaveSettingsPanel() {
     microphoneSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
     microphoneOption.appendChild(microphoneSwitch);
 
+    const futureOption = document.createElement("div");
+    futureOption.className = "settings-option notifications-settings-option future-mode-option";
+    futureOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">✧</span><span class="settings-option-text"><span class="settings-option-title">Modalità FUTURE</span><span class="settings-option-description">Trasforma Enclave in un ambiente sci-fi ispirato al NEXUS originale</span></span>';
+    const futureSwitch = document.createElement("button");
+    futureSwitch.type = "button";
+    futureSwitch.className = "notification-switch future-mode-switch";
+    futureSwitch.setAttribute("role", "switch");
+    futureSwitch.setAttribute("aria-label", "Attiva o disattiva la modalità FUTURE");
+    futureSwitch.setAttribute("aria-checked", String(localStorage.getItem("enclaveFutureMode") === "true"));
+    futureSwitch.classList.toggle("is-on", localStorage.getItem("enclaveFutureMode") === "true");
+    futureSwitch.innerHTML = '<span class="notification-switch-knob"></span>';
+    futureOption.appendChild(futureSwitch);
+
     advancedSection.append(
         notificationsOption,
         notificationsStatus,
         microphoneOption,
+        futureOption,
         rememberOption,
         rememberStatus
     );
@@ -1498,26 +1563,40 @@ function createEnclaveSettingsPanel() {
             const turningOn = microphoneSwitch.getAttribute("aria-checked") !== "true";
             if (!turningOn) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
+                stopMicrophoneReadyStream();
                 return;
             }
 
             if (!navigator.mediaDevices?.getUserMedia) {
                 localStorage.setItem(MICROPHONE_READY_KEY, "false");
+                stopMicrophoneReadyStream();
                 return;
             }
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-            stream.getTracks().forEach(track => track.stop());
+            stopMicrophoneReadyStream();
+            microphoneReadyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             microphonePermissionState = "granted";
             localStorage.setItem(MICROPHONE_READY_KEY, "true");
         } catch (error) {
             console.error("Errore attivazione microfono:", error);
             localStorage.setItem(MICROPHONE_READY_KEY, "false");
+            stopMicrophoneReadyStream();
             microphonePermissionState = error?.name === "NotAllowedError" ? "denied" : microphonePermissionState;
         } finally {
             microphoneSwitch.disabled = false;
             updateMicrophoneSwitchUI();
         }
+    });
+
+    futureSwitch.addEventListener("click", () => {
+        const enabled = futureSwitch.getAttribute("aria-checked") !== "true";
+        localStorage.setItem("enclaveFutureMode", String(enabled));
+        document.body.classList.toggle("enclave-future-mode", enabled);
+        const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeColorMeta) themeColorMeta.setAttribute("content", enabled ? "#07111d" : "#f2f2f2");
+        futureSwitch.setAttribute("aria-checked", String(enabled));
+        futureSwitch.classList.toggle("is-on", enabled);
+        document.documentElement.dataset.enclaveMode = enabled ? "future" : "classic";
     });
 
     rememberSwitch.addEventListener("click", async () => {
@@ -1688,6 +1767,9 @@ function requestMicrophoneStream(sessionToken) {
     if (!navigator.mediaDevices?.getUserMedia) {
         return Promise.reject(Object.assign(new Error("Microfono non disponibile"), { name: "NotSupportedError" }));
     }
+
+    const persistentClone = getPersistentMicrophoneClone();
+    if (persistentClone) return Promise.resolve(persistentClone);
 
     return new Promise((resolve, reject) => {
         let settled = false;
