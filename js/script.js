@@ -1450,7 +1450,7 @@ function createEnclaveSettingsPanel() {
 
     const futureOption = document.createElement("div");
     futureOption.className = "settings-option notifications-settings-option future-mode-option";
-    futureOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">✧</span><span class="settings-option-text"><span class="settings-option-title">Modalità FUTURE</span><span class="settings-option-description">Trasforma Enclave in un ambiente sci-fi ispirato al NEXUS originale</span></span>';
+    futureOption.innerHTML = '<span class="settings-option-icon" aria-hidden="true">✧</span><span class="settings-option-text"><span class="settings-option-title">Modalità FUTURE</span></span>';
     const futureSwitch = document.createElement("button");
     futureSwitch.type = "button";
     futureSwitch.className = "notification-switch future-mode-switch";
