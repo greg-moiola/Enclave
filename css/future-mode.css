@@ -1,0 +1,158 @@
+/* ENCLAVE FUTURE MODE — visual layer only; preserves the existing DOM and layout. */
+html[data-enclave-mode="future"] body,
+body.enclave-future-mode {
+  --future-cyan: #65eaff;
+  --future-blue: #559bff;
+  --future-violet: #a78bfa;
+  --future-ink: #07111d;
+  --future-panel: rgba(9, 22, 37, .88);
+  --future-line: rgba(101, 234, 255, .24);
+  --future-text: #e8f8ff;
+  color-scheme: dark;
+  background: #050b13 !important;
+  color: var(--future-text) !important;
+}
+html[data-enclave-mode="future"] body::before,
+body.enclave-future-mode::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(35, 131, 190, .18), transparent 38%),
+    radial-gradient(ellipse at 88% 82%, rgba(103, 72, 190, .15), transparent 40%),
+    linear-gradient(rgba(79, 177, 220, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 177, 220, .025) 1px, transparent 1px);
+  background-size: auto, auto, 34px 34px, 34px 34px;
+}
+html[data-enclave-mode="future"] body > *,
+body.enclave-future-mode > * { position: relative; z-index: 1; }
+html[data-enclave-mode="future"] .screen,
+body.enclave-future-mode .screen { background-color: #07111d; color: var(--future-text); }
+html[data-enclave-mode="future"] .auth-container,
+html[data-enclave-mode="future"] .settings-panel,
+html[data-enclave-mode="future"] .enclave-settings-panel,
+html[data-enclave-mode="future"] .settings-content,
+html[data-enclave-mode="future"] .settings-modal,
+html[data-enclave-mode="future"] .settings-overlay .settings-panel,
+html[data-enclave-mode="future"] .chat-sidebar,
+html[data-enclave-mode="future"] .chat-area,
+html[data-enclave-mode="future"] .home-main,
+html[data-enclave-mode="future"] .conversation-item,
+html[data-enclave-mode="future"] .voice-call-modal,
+body.enclave-future-mode .auth-container,
+body.enclave-future-mode .settings-panel,
+body.enclave-future-mode .enclave-settings-panel,
+body.enclave-future-mode .settings-content,
+body.enclave-future-mode .settings-modal,
+body.enclave-future-mode .chat-sidebar,
+body.enclave-future-mode .chat-area,
+body.enclave-future-mode .home-main,
+body.enclave-future-mode .conversation-item,
+body.enclave-future-mode .voice-call-modal {
+  color: var(--future-text);
+  background-color: var(--future-panel);
+  border-color: var(--future-line) !important;
+  box-shadow: 0 14px 45px rgba(0, 0, 0, .28), inset 0 1px rgba(210, 247, 255, .045), 0 0 22px rgba(56, 190, 235, .055);
+  backdrop-filter: blur(16px) saturate(135%);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+}
+html[data-enclave-mode="future"] h1,
+html[data-enclave-mode="future"] h2,
+html[data-enclave-mode="future"] h3,
+body.enclave-future-mode h1,
+body.enclave-future-mode h2,
+body.enclave-future-mode h3 {
+  color: #e8faff;
+  text-shadow: 0 0 18px rgba(86, 218, 255, .19);
+  letter-spacing: .035em;
+}
+html[data-enclave-mode="future"] button,
+body.enclave-future-mode button {
+  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .2s ease;
+}
+html[data-enclave-mode="future"] button:not(.notification-switch):hover,
+body.enclave-future-mode button:not(.notification-switch):hover {
+  border-color: rgba(101, 234, 255, .58);
+  box-shadow: 0 0 17px rgba(65, 201, 245, .14);
+}
+html[data-enclave-mode="future"] input,
+html[data-enclave-mode="future"] textarea,
+html[data-enclave-mode="future"] select,
+body.enclave-future-mode input,
+body.enclave-future-mode textarea,
+body.enclave-future-mode select {
+  color: #e9faff;
+  background: rgba(3, 13, 24, .82);
+  border-color: rgba(101, 234, 255, .23);
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, .22);
+}
+html[data-enclave-mode="future"] input:focus,
+html[data-enclave-mode="future"] textarea:focus,
+html[data-enclave-mode="future"] select:focus,
+body.enclave-future-mode input:focus,
+body.enclave-future-mode textarea:focus,
+body.enclave-future-mode select:focus {
+  outline: 1px solid rgba(101, 234, 255, .62);
+  box-shadow: 0 0 0 3px rgba(101, 234, 255, .09), 0 0 20px rgba(101, 234, 255, .12);
+}
+html[data-enclave-mode="future"] .settings-option,
+html[data-enclave-mode="future"] .settings-tab-button,
+html[data-enclave-mode="future"] .conversation-item,
+body.enclave-future-mode .settings-option,
+body.enclave-future-mode .settings-tab-button,
+body.enclave-future-mode .conversation-item {
+  border-color: rgba(101, 234, 255, .16);
+}
+html[data-enclave-mode="future"] .settings-tab-button.is-active,
+body.enclave-future-mode .settings-tab-button.is-active {
+  color: #07111d;
+  background: linear-gradient(110deg, #65eaff, #8bb8ff 58%, #b69aff);
+  border-color: transparent;
+  box-shadow: 0 0 22px rgba(101, 234, 255, .25);
+}
+html[data-enclave-mode="future"] .notification-switch.is-on,
+body.enclave-future-mode .notification-switch.is-on {
+  background: linear-gradient(100deg, #147caa, #7160c9);
+  box-shadow: 0 0 15px rgba(101, 234, 255, .25);
+}
+html[data-enclave-mode="future"] .settings-option-icon,
+body.enclave-future-mode .settings-option-icon { filter: drop-shadow(0 0 7px rgba(101, 234, 255, .45)); }
+html[data-enclave-mode="future"] .chat-header,
+html[data-enclave-mode="future"] .home-header,
+html[data-enclave-mode="future"] .settings-header,
+body.enclave-future-mode .chat-header,
+body.enclave-future-mode .home-header,
+body.enclave-future-mode .settings-header {
+  background: rgba(5, 16, 29, .94);
+  border-color: var(--future-line);
+  box-shadow: 0 5px 24px rgba(0, 0, 0, .22), 0 1px rgba(101, 234, 255, .12);
+}
+html[data-enclave-mode="future"] .send-button,
+html[data-enclave-mode="future"] .attachment-button,
+body.enclave-future-mode .send-button,
+body.enclave-future-mode .attachment-button {
+  filter: drop-shadow(0 0 8px rgba(101, 234, 255, .22));
+}
+html[data-enclave-mode="future"] .settings-option-title,
+html[data-enclave-mode="future"] .settings-tab-button,
+body.enclave-future-mode .settings-option-title,
+body.enclave-future-mode .settings-tab-button { color: #dff8ff; }
+html[data-enclave-mode="future"] .settings-option-description,
+body.enclave-future-mode .settings-option-description { color: #91b5c6; }
+html[data-enclave-mode="future"] .startup-screen,
+body.enclave-future-mode .startup-screen {
+  background: radial-gradient(ellipse at center, #102d45, #050b13 72%);
+}
+html[data-enclave-mode="future"] .startup-screen h1,
+body.enclave-future-mode .startup-screen h1 {
+  color: #8ceeff;
+  letter-spacing: .22em;
+  text-shadow: 0 0 28px rgba(101, 234, 255, .48);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html[data-enclave-mode="future"] .settings-option,
+  body.enclave-future-mode .settings-option { animation: futurePanelIn .32s ease both; }
+  @keyframes futurePanelIn { from { opacity: .72; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+}
