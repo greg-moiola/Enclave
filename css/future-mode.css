@@ -915,3 +915,432 @@ body.enclave-future-mode .contact-nickname-actions .contact-nickname-save {
     display: none;
   }
 }
+
+/* ============================================================
+   FUTURE / NEXUS MEGA RESTYLE
+   Entirely scoped to FUTURE: classic mode keeps its original CSS.
+   ============================================================ */
+
+/* Consistent control geometry: every icon sits in the true center. */
+html[data-enclave-mode="future"] button,
+body.enclave-future-mode button {
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1.15;
+  text-align: center;
+}
+
+html[data-enclave-mode="future"] button:not(.notification-switch),
+body.enclave-future-mode button:not(.notification-switch) {
+  display: inline-flex;
+}
+
+html[data-enclave-mode="future"] button > svg,
+html[data-enclave-mode="future"] button > img,
+body.enclave-future-mode button > svg,
+body.enclave-future-mode button > img {
+  display: block;
+  flex: 0 0 auto;
+  margin: 0;
+  align-self: center;
+}
+
+html[data-enclave-mode="future"] button > span:only-child,
+body.enclave-future-mode button > span:only-child {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+html[data-enclave-mode="future"] .chat-back-button,
+html[data-enclave-mode="future"] .group-info-close,
+html[data-enclave-mode="future"] .modal-close,
+html[data-enclave-mode="future"] .close-button,
+body.enclave-future-mode .chat-back-button,
+body.enclave-future-mode .group-info-close,
+body.enclave-future-mode .modal-close,
+body.enclave-future-mode .close-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  line-height: 1 !important;
+  text-indent: 0;
+}
+
+html[data-enclave-mode="future"] .chat-back-button,
+body.enclave-future-mode .chat-back-button {
+  font-size: 23px;
+  font-family: Arial, sans-serif;
+  padding-bottom: 2px !important;
+}
+
+html[data-enclave-mode="future"] .group-info-close,
+body.enclave-future-mode .group-info-close {
+  font-size: 23px !important;
+  padding: 0 !important;
+}
+
+/* The quick AI entry exists only while FUTURE is enabled. */
+html[data-enclave-mode="future"] .enclave-ai-quick-button,
+body.enclave-future-mode .enclave-ai-quick-button {
+  display: inline-flex !important;
+  flex: 0 0 auto;
+  min-width: 104px;
+  min-height: 38px;
+  padding: 0 13px;
+  margin-left: auto;
+  gap: 8px;
+  border-radius: 12px;
+}
+
+/* Main app becomes a layered command workspace. */
+html[data-enclave-mode="future"] .enclave-app,
+body.enclave-future-mode .enclave-app {
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse at 82% 8%, rgba(29, 142, 177, .13), transparent 34%),
+    radial-gradient(ellipse at 12% 92%, rgba(104, 78, 179, .10), transparent 36%),
+    #070e18 !important;
+}
+
+html[data-enclave-mode="future"] .home-header,
+body.enclave-future-mode .home-header {
+  min-height: 68px;
+  height: 68px;
+  padding-inline: clamp(16px, 2.8vw, 34px);
+  background: linear-gradient(90deg, rgba(8, 19, 32, .98), rgba(10, 25, 41, .94)) !important;
+  border-bottom: 1px solid rgba(81, 190, 218, .22) !important;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, .24), inset 0 -1px rgba(105, 224, 247, .05);
+}
+
+html[data-enclave-mode="future"] .home-logo,
+body.enclave-future-mode .home-logo {
+  position: relative;
+  letter-spacing: .24em;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+html[data-enclave-mode="future"] .home-logo::after,
+body.enclave-future-mode .home-logo::after {
+  content: "PRIVATE NETWORK";
+  display: block;
+  margin-top: 4px;
+  color: #66869e;
+  font: 600 8px/1 Inter, "Segoe UI", sans-serif;
+  letter-spacing: .22em;
+}
+
+html[data-enclave-mode="future"] .home-main,
+body.enclave-future-mode .home-main {
+  min-height: 0;
+  gap: 0;
+}
+
+html[data-enclave-mode="future"] .chat-sidebar,
+body.enclave-future-mode .chat-sidebar {
+  width: clamp(286px, 28vw, 360px);
+  flex: 0 0 clamp(286px, 28vw, 360px);
+  padding: 14px 12px 12px;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(12, 27, 44, .98), rgba(7, 17, 29, .99)) !important;
+  border-right: 1px solid rgba(74, 190, 221, .20) !important;
+  box-shadow: 12px 0 36px rgba(0, 0, 0, .16), inset -1px 0 rgba(129, 224, 246, .035);
+}
+
+html[data-enclave-mode="future"] .sidebar-top,
+body.enclave-future-mode .sidebar-top {
+  padding: 8px 7px 12px;
+}
+
+html[data-enclave-mode="future"] .search-box,
+body.enclave-future-mode .search-box {
+  min-height: 46px;
+  border-radius: 13px !important;
+  padding-inline: 14px;
+  background: rgba(4, 13, 24, .76) !important;
+  border: 1px solid rgba(93, 169, 199, .20) !important;
+  box-shadow: inset 0 1px 5px rgba(0, 0, 0, .25), 0 6px 18px rgba(0, 0, 0, .12);
+}
+
+html[data-enclave-mode="future"] .search-box:focus-within,
+body.enclave-future-mode .search-box:focus-within {
+  border-color: rgba(63, 218, 246, .62) !important;
+  box-shadow: 0 0 0 3px rgba(57, 217, 245, .08), 0 0 22px rgba(57, 217, 245, .08);
+}
+
+html[data-enclave-mode="future"] .conversation-section,
+body.enclave-future-mode .conversation-section {
+  min-height: 0;
+  padding: 12px 6px 8px;
+  border: 1px solid rgba(89, 170, 198, .13);
+  border-radius: 17px;
+  background: linear-gradient(155deg, rgba(15, 32, 51, .76), rgba(8, 20, 34, .58));
+  box-shadow: inset 0 1px rgba(255,255,255,.035), 0 10px 28px rgba(0,0,0,.12);
+}
+
+html[data-enclave-mode="future"] .conversation-header,
+body.enclave-future-mode .conversation-header {
+  min-height: 43px;
+  padding: 0 8px 10px;
+  border-bottom: 1px solid rgba(101, 175, 202, .14);
+}
+
+html[data-enclave-mode="future"] .conversation-header .section-title,
+body.enclave-future-mode .conversation-header .section-title {
+  color: #8ca9bd !important;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .19em;
+}
+
+html[data-enclave-mode="future"] .conversation-item,
+body.enclave-future-mode .conversation-item {
+  min-height: 66px;
+  margin: 5px 0;
+  padding: 10px 11px;
+  border-radius: 13px !important;
+  background: rgba(12, 27, 43, .54) !important;
+  border: 1px solid rgba(113, 165, 190, .10) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.025);
+}
+
+html[data-enclave-mode="future"] .conversation-item:hover,
+html[data-enclave-mode="future"] .conversation-item.active,
+html[data-enclave-mode="future"] .conversation-item.is-active,
+body.enclave-future-mode .conversation-item:hover,
+body.enclave-future-mode .conversation-item.active,
+body.enclave-future-mode .conversation-item.is-active {
+  background: linear-gradient(105deg, rgba(30, 116, 145, .25), rgba(15, 38, 58, .92)) !important;
+  border-color: rgba(68, 211, 239, .40) !important;
+  box-shadow: inset 3px 0 #42d9f2, 0 7px 20px rgba(0,0,0,.18), 0 0 20px rgba(57,217,245,.055);
+}
+
+html[data-enclave-mode="future"] .sidebar-profile,
+body.enclave-future-mode .sidebar-profile {
+  margin-top: auto;
+  padding: 12px 10px;
+  border: 1px solid rgba(85, 171, 200, .18) !important;
+  border-radius: 15px;
+  background: linear-gradient(110deg, rgba(23, 54, 75, .55), rgba(10, 24, 40, .76)) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.04), 0 8px 22px rgba(0,0,0,.15);
+}
+
+html[data-enclave-mode="future"] .profile-settings-button,
+body.enclave-future-mode .profile-settings-button {
+  width: 38px;
+  height: 38px;
+  padding: 0 !important;
+  border: 1px solid rgba(91, 205, 229, .28) !important;
+  border-radius: 11px !important;
+  background: rgba(20, 54, 74, .70) !important;
+  color: #c9f5ff !important;
+}
+
+html[data-enclave-mode="future"] .chat-area,
+body.enclave-future-mode .chat-area {
+  position: relative;
+  min-width: 0;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(34, 118, 151, .10), transparent 48%),
+    linear-gradient(145deg, rgba(8, 18, 30, .94), rgba(5, 13, 23, .99)) !important;
+}
+
+html[data-enclave-mode="future"] .chat-header,
+body.enclave-future-mode .chat-header {
+  min-height: 76px;
+  padding: 12px clamp(14px, 2.5vw, 30px);
+  background: rgba(8, 20, 33, .88) !important;
+  border-bottom: 1px solid rgba(77, 190, 219, .20) !important;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+html[data-enclave-mode="future"] .chat-user-nickname,
+body.enclave-future-mode .chat-user-nickname {
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: .01em;
+}
+
+html[data-enclave-mode="future"] .chat-user-id,
+body.enclave-future-mode .chat-user-id {
+  font-size: 10px;
+  letter-spacing: .10em;
+}
+
+html[data-enclave-mode="future"] .chat-back-button,
+body.enclave-future-mode .chat-back-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  margin: 0 5px 0 0;
+  border-radius: 13px !important;
+  background: linear-gradient(145deg, rgba(22, 55, 76, .88), rgba(10, 29, 46, .88)) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.07), 0 5px 15px rgba(0,0,0,.20), 0 0 16px rgba(57,217,245,.05);
+}
+
+html[data-enclave-mode="future"] .voice-call-button,
+body.enclave-future-mode .voice-call-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  padding: 0 !important;
+  border-radius: 13px !important;
+  background: rgba(17, 43, 62, .72) !important;
+}
+
+html[data-enclave-mode="future"] .chat-input-area,
+body.enclave-future-mode .chat-input-area {
+  margin: 12px clamp(12px, 2vw, 24px) 16px;
+  padding: 9px 11px;
+  border: 1px solid rgba(80, 190, 220, .22) !important;
+  border-radius: 17px !important;
+  background: rgba(7, 19, 32, .94) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,.20), inset 0 1px rgba(255,255,255,.035);
+}
+
+html[data-enclave-mode="future"] .chat-input-area button,
+body.enclave-future-mode .chat-input-area button {
+  min-width: 38px;
+  min-height: 38px;
+  border-radius: 12px;
+}
+
+html[data-enclave-mode="future"] .empty-chat,
+body.enclave-future-mode .empty-chat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 36px 24px;
+  text-align: center;
+}
+
+html[data-enclave-mode="future"] .empty-chat-icon,
+body.enclave-future-mode .empty-chat-icon {
+  width: 88px;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
+  border: 1px solid rgba(75, 207, 235, .30);
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(22, 75, 99, .62), rgba(13, 32, 53, .92));
+  box-shadow: 0 0 42px rgba(44, 192, 222, .10), inset 0 1px rgba(255,255,255,.08);
+  font-size: 34px;
+}
+
+html[data-enclave-mode="future"] .empty-chat h2,
+body.enclave-future-mode .empty-chat h2 {
+  max-width: 520px;
+  color: #e5f5ff !important;
+  font-size: clamp(21px, 2.2vw, 30px);
+  font-weight: 750;
+  letter-spacing: -.035em;
+}
+
+html[data-enclave-mode="future"] .empty-chat p,
+body.enclave-future-mode .empty-chat p {
+  max-width: 430px;
+  color: #8ca8bd !important;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* Dialogs and floating menus share the same premium glass language. */
+html[data-enclave-mode="future"] .group-info-panel,
+html[data-enclave-mode="future"] .group-creation-panel,
+html[data-enclave-mode="future"] .profile-settings-menu,
+html[data-enclave-mode="future"] .quick-menu,
+html[data-enclave-mode="future"] .message-attach-menu,
+html[data-enclave-mode="future"] .context-menu,
+html[data-enclave-mode="future"] .new-group-menu,
+body.enclave-future-mode .group-info-panel,
+body.enclave-future-mode .group-creation-panel,
+body.enclave-future-mode .profile-settings-menu,
+body.enclave-future-mode .quick-menu,
+body.enclave-future-mode .message-attach-menu,
+body.enclave-future-mode .context-menu,
+body.enclave-future-mode .new-group-menu {
+  border: 1px solid rgba(83, 194, 222, .25) !important;
+  border-radius: 19px !important;
+  background: linear-gradient(150deg, rgba(15, 34, 53, .98), rgba(7, 18, 31, .99)) !important;
+  color: #e6f4ff !important;
+  box-shadow: 0 24px 70px rgba(0,0,0,.48), inset 0 1px rgba(255,255,255,.055), 0 0 28px rgba(42, 175, 209, .07) !important;
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+}
+
+html[data-enclave-mode="future"] .group-info-close,
+body.enclave-future-mode .group-info-close {
+  width: 36px !important;
+  height: 36px !important;
+  flex: 0 0 36px;
+  border: 1px solid rgba(98, 194, 220, .28) !important;
+  border-radius: 11px !important;
+  background: rgba(24, 57, 78, .78) !important;
+  color: #dff8ff !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.06);
+}
+
+html[data-enclave-mode="future"] .group-info-close:hover,
+body.enclave-future-mode .group-info-close:hover {
+  transform: rotate(90deg);
+  border-color: rgba(91, 224, 249, .62) !important;
+  background: rgba(33, 91, 114, .88) !important;
+}
+
+/* Crisp focus states and reduced accidental layout shifts. */
+html[data-enclave-mode="future"] button:focus-visible,
+html[data-enclave-mode="future"] input:focus-visible,
+html[data-enclave-mode="future"] textarea:focus-visible,
+body.enclave-future-mode button:focus-visible,
+body.enclave-future-mode input:focus-visible,
+body.enclave-future-mode textarea:focus-visible {
+  outline: 2px solid rgba(83, 222, 247, .78) !important;
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  html[data-enclave-mode="future"] .chat-sidebar,
+  body.enclave-future-mode .chat-sidebar {
+    width: min(100%, 360px);
+    flex-basis: min(100%, 360px);
+    padding: 10px;
+  }
+  html[data-enclave-mode="future"] .conversation-section,
+  body.enclave-future-mode .conversation-section {
+    border-radius: 14px;
+  }
+  html[data-enclave-mode="future"] .chat-header,
+  body.enclave-future-mode .chat-header {
+    min-height: 66px;
+    padding: 9px 12px;
+  }
+  html[data-enclave-mode="future"] .chat-back-button,
+  body.enclave-future-mode .chat-back-button,
+  html[data-enclave-mode="future"] .voice-call-button,
+  body.enclave-future-mode .voice-call-button {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+}
+
+@media (max-width: 430px) {
+  html[data-enclave-mode="future"] .enclave-ai-quick-button,
+  body.enclave-future-mode .enclave-ai-quick-button {
+    min-width: 34px;
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 !important;
+    margin-left: auto;
+  }
+}
