@@ -8,7 +8,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#f2f2f2">
-    <script>try { if (localStorage.getItem("enclaveFutureMode") === "true") { document.documentElement.dataset.enclaveMode = "future"; } } catch (_) {}</script>
+    <script>try { if (localStorage.getItem("enclaveFutureMode") === "true") { document.documentElement.dataset.enclaveMode = "future"; document.querySelector('meta[name="theme-color"]')?.setAttribute("content", "#080f19"); } } catch (_) {}</script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Enclave">
