@@ -1,158 +1,549 @@
-/* ENCLAVE FUTURE MODE — visual layer only; preserves the existing DOM and layout. */
-html[data-enclave-mode="future"] body,
+/* ============================================================
+   ENCLAVE / FUTURE
+   NEXUS-inspired command interface. Visual layer only:
+   no layout dimensions, element order, or chat-bubble colors changed.
+   ============================================================ */
+
+html[data-enclave-mode="future"],
 body.enclave-future-mode {
-  --future-cyan: #65eaff;
-  --future-blue: #559bff;
-  --future-violet: #a78bfa;
-  --future-ink: #07111d;
-  --future-panel: rgba(9, 22, 37, .88);
-  --future-line: rgba(101, 234, 255, .24);
-  --future-text: #e8f8ff;
   color-scheme: dark;
-  background: #050b13 !important;
+  --future-bg: #080f19;
+  --future-bg-deep: #060c14;
+  --future-surface: #0d1928;
+  --future-surface-raised: #122236;
+  --future-surface-soft: rgba(16, 31, 48, .94);
+  --future-cyan: #39d9f5;
+  --future-cyan-soft: rgba(57, 217, 245, .12);
+  --future-cyan-line: rgba(92, 203, 231, .22);
+  --future-text: #e7f0fb;
+  --future-muted: #9aafc3;
+  --future-dim: #7891a8;
+  --future-purple: #8b83d8;
+  background: var(--future-bg-deep) !important;
   color: var(--future-text) !important;
 }
-html[data-enclave-mode="future"] body::before,
-body.enclave-future-mode::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at 12% 8%, rgba(35, 131, 190, .18), transparent 38%),
-    radial-gradient(ellipse at 88% 82%, rgba(103, 72, 190, .15), transparent 40%),
-    linear-gradient(rgba(79, 177, 220, .025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 177, 220, .025) 1px, transparent 1px);
-  background-size: auto, auto, 34px 34px, 34px 34px;
+
+html[data-enclave-mode="future"] body,
+body.enclave-future-mode {
+  background-color: var(--future-bg) !important;
+  background-image:
+    radial-gradient(ellipse at 78% 0%, rgba(21, 105, 145, .15), transparent 38%),
+    radial-gradient(ellipse at 8% 82%, rgba(19, 73, 111, .10), transparent 34%),
+    linear-gradient(rgba(82, 151, 184, .025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(82, 151, 184, .025) 1px, transparent 1px) !important;
+  background-size: auto, auto, 36px 36px, 36px 36px !important;
+  background-attachment: fixed !important;
+  color: var(--future-text) !important;
+  font-family: Inter, "Segoe UI", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
-html[data-enclave-mode="future"] body > *,
-body.enclave-future-mode > * { position: relative; z-index: 1; }
+
+/* Main shell — original geometry retained. */
 html[data-enclave-mode="future"] .screen,
-body.enclave-future-mode .screen { background-color: #07111d; color: var(--future-text); }
-html[data-enclave-mode="future"] .auth-container,
-html[data-enclave-mode="future"] .settings-panel,
-html[data-enclave-mode="future"] .enclave-settings-panel,
-html[data-enclave-mode="future"] .settings-content,
-html[data-enclave-mode="future"] .settings-modal,
-html[data-enclave-mode="future"] .settings-overlay .settings-panel,
-html[data-enclave-mode="future"] .chat-sidebar,
-html[data-enclave-mode="future"] .chat-area,
-html[data-enclave-mode="future"] .home-main,
-html[data-enclave-mode="future"] .conversation-item,
-html[data-enclave-mode="future"] .voice-call-modal,
-body.enclave-future-mode .auth-container,
-body.enclave-future-mode .settings-panel,
-body.enclave-future-mode .enclave-settings-panel,
-body.enclave-future-mode .settings-content,
-body.enclave-future-mode .settings-modal,
-body.enclave-future-mode .chat-sidebar,
-body.enclave-future-mode .chat-area,
-body.enclave-future-mode .home-main,
-body.enclave-future-mode .conversation-item,
-body.enclave-future-mode .voice-call-modal {
+body.enclave-future-mode .screen {
   color: var(--future-text);
-  background-color: var(--future-panel);
-  border-color: var(--future-line) !important;
-  box-shadow: 0 14px 45px rgba(0, 0, 0, .28), inset 0 1px rgba(210, 247, 255, .045), 0 0 22px rgba(56, 190, 235, .055);
-  backdrop-filter: blur(16px) saturate(135%);
-  -webkit-backdrop-filter: blur(16px) saturate(135%);
 }
-html[data-enclave-mode="future"] h1,
-html[data-enclave-mode="future"] h2,
-html[data-enclave-mode="future"] h3,
-body.enclave-future-mode h1,
-body.enclave-future-mode h2,
-body.enclave-future-mode h3 {
-  color: #e8faff;
-  text-shadow: 0 0 18px rgba(86, 218, 255, .19);
-  letter-spacing: .035em;
+
+html[data-enclave-mode="future"] .enclave-app,
+body.enclave-future-mode .enclave-app {
+  background: linear-gradient(145deg, #0a1421 0%, #080f19 55%, #0a1522 100%) !important;
+  color: var(--future-text) !important;
 }
-html[data-enclave-mode="future"] button,
-body.enclave-future-mode button {
-  transition: border-color .2s ease, box-shadow .2s ease, background-color .2s ease, transform .2s ease;
+
+html[data-enclave-mode="future"] .home-header,
+body.enclave-future-mode .home-header,
+html[data-enclave-mode="future"] .chat-header,
+body.enclave-future-mode .chat-header {
+  position: relative;
+  background: rgba(9, 20, 33, .97) !important;
+  border-color: var(--future-cyan-line) !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .22), inset 0 -1px rgba(57, 217, 245, .08);
+  color: var(--future-text) !important;
 }
-html[data-enclave-mode="future"] button:not(.notification-switch):hover,
-body.enclave-future-mode button:not(.notification-switch):hover {
-  border-color: rgba(101, 234, 255, .58);
-  box-shadow: 0 0 17px rgba(65, 201, 245, .14);
+
+html[data-enclave-mode="future"] .home-header::after,
+body.enclave-future-mode .home-header::after,
+html[data-enclave-mode="future"] .chat-header::after,
+body.enclave-future-mode .chat-header::after {
+  content: "";
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: -1px;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(57, 217, 245, .42), transparent);
 }
-html[data-enclave-mode="future"] input,
-html[data-enclave-mode="future"] textarea,
-html[data-enclave-mode="future"] select,
-body.enclave-future-mode input,
-body.enclave-future-mode textarea,
-body.enclave-future-mode select {
-  color: #e9faff;
-  background: rgba(3, 13, 24, .82);
-  border-color: rgba(101, 234, 255, .23);
-  box-shadow: inset 0 1px 8px rgba(0, 0, 0, .22);
+
+html[data-enclave-mode="future"] .home-logo,
+body.enclave-future-mode .home-logo {
+  color: #e8f7ff !important;
+  text-shadow: 0 0 22px rgba(57, 217, 245, .18);
 }
-html[data-enclave-mode="future"] input:focus,
-html[data-enclave-mode="future"] textarea:focus,
-html[data-enclave-mode="future"] select:focus,
-body.enclave-future-mode input:focus,
-body.enclave-future-mode textarea:focus,
-body.enclave-future-mode select:focus {
-  outline: 1px solid rgba(101, 234, 255, .62);
-  box-shadow: 0 0 0 3px rgba(101, 234, 255, .09), 0 0 20px rgba(101, 234, 255, .12);
+
+html[data-enclave-mode="future"] .user-nickname,
+body.enclave-future-mode .user-nickname,
+html[data-enclave-mode="future"] .chat-user-nickname,
+body.enclave-future-mode .chat-user-nickname,
+html[data-enclave-mode="future"] .profile-nickname,
+body.enclave-future-mode .profile-nickname,
+html[data-enclave-mode="future"] .conversation-nickname,
+body.enclave-future-mode .conversation-nickname {
+  color: #e7f2fc !important;
 }
-html[data-enclave-mode="future"] .settings-option,
-html[data-enclave-mode="future"] .settings-tab-button,
+
+html[data-enclave-mode="future"] .user-enclave-id,
+body.enclave-future-mode .user-enclave-id,
+html[data-enclave-mode="future"] .chat-user-id,
+body.enclave-future-mode .chat-user-id,
+html[data-enclave-mode="future"] .conversation-time,
+body.enclave-future-mode .conversation-time,
+html[data-enclave-mode="future"] .conversation-preview,
+body.enclave-future-mode .conversation-preview,
+html[data-enclave-mode="future"] .profile-enclave-id,
+body.enclave-future-mode .profile-enclave-id {
+  color: #9aafc3 !important;
+}
+
+/* Left rail and conversation list. */
+html[data-enclave-mode="future"] .chat-area,
+body.enclave-future-mode .chat-area {
+  background: linear-gradient(145deg, #0b1725 0%, #09131f 100%) !important;
+  color: var(--future-text) !important;
+}
+
+html[data-enclave-mode="future"] .chat-messages,
+body.enclave-future-mode .chat-messages {
+  background-color: #0a1421;
+}
+
+html[data-enclave-mode="future"] .chat-day-indicator,
+body.enclave-future-mode .chat-day-indicator {
+  background: rgba(13, 30, 46, .94) !important;
+  border-color: rgba(57, 217, 245, .22) !important;
+  color: #c8e5f2 !important;
+  box-shadow: 0 5px 18px rgba(0, 0, 0, .28), 0 0 16px rgba(57, 217, 245, .05);
+}
+
+html[data-enclave-mode="future"] .chat-history-boundary,
+body.enclave-future-mode .chat-history-boundary {
+  background: rgba(15, 31, 47, .88) !important;
+  border-color: rgba(117, 158, 190, .18) !important;
+  color: #a9bed0 !important;
+}
+
+html[data-enclave-mode="future"] .chat-sidebar,
+body.enclave-future-mode .chat-sidebar {
+  background: linear-gradient(180deg, #0d1a2a 0%, #0a1523 100%) !important;
+  border-color: var(--future-cyan-line) !important;
+  box-shadow: inset -1px 0 rgba(57, 217, 245, .035);
+}
+
+html[data-enclave-mode="future"] .conversation-header,
+body.enclave-future-mode .conversation-header {
+  color: #dcecf8 !important;
+  border-color: rgba(117, 158, 190, .16) !important;
+}
+
+html[data-enclave-mode="future"] .conversation-header .section-title,
+body.enclave-future-mode .conversation-header .section-title,
+html[data-enclave-mode="future"] .section-title,
+body.enclave-future-mode .section-title {
+  color: #91a9bf !important;
+}
+
 html[data-enclave-mode="future"] .conversation-item,
-body.enclave-future-mode .settings-option,
-body.enclave-future-mode .settings-tab-button,
 body.enclave-future-mode .conversation-item {
-  border-color: rgba(101, 234, 255, .16);
+  background: rgba(16, 31, 48, .48) !important;
+  border: 1px solid rgba(117, 158, 190, .10) !important;
+  color: var(--future-text) !important;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
+
+html[data-enclave-mode="future"] .conversation-item:hover,
+body.enclave-future-mode .conversation-item:hover,
+html[data-enclave-mode="future"] .conversation-item.active,
+body.enclave-future-mode .conversation-item.active,
+html[data-enclave-mode="future"] .conversation-item.is-active,
+body.enclave-future-mode .conversation-item.is-active {
+  background: linear-gradient(105deg, rgba(57, 217, 245, .105), rgba(18, 34, 54, .88)) !important;
+  border-color: rgba(57, 217, 245, .28) !important;
+  box-shadow: inset 2px 0 0 rgba(57, 217, 245, .78), 0 5px 18px rgba(0, 0, 0, .12);
+}
+
+html[data-enclave-mode="future"] .conversation-avatar,
+body.enclave-future-mode .conversation-avatar,
+html[data-enclave-mode="future"] .chat-user-avatar,
+body.enclave-future-mode .chat-user-avatar,
+html[data-enclave-mode="future"] .profile-avatar,
+body.enclave-future-mode .profile-avatar {
+  background: linear-gradient(145deg, #15334a, #102338) !important;
+  border: 1px solid rgba(57, 217, 245, .30) !important;
+  color: #8cecff !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06), 0 0 18px rgba(57, 217, 245, .07);
+}
+
+html[data-enclave-mode="future"] .sidebar-profile,
+body.enclave-future-mode .sidebar-profile {
+  background: linear-gradient(90deg, rgba(57, 217, 245, .045), transparent) !important;
+  border-color: rgba(117, 158, 190, .15) !important;
+}
+
+/* Search and composer fields: high contrast, without touching message bubbles. */
+html[data-enclave-mode="future"] .search-box,
+body.enclave-future-mode .search-box,
+html[data-enclave-mode="future"] .chat-input-area,
+body.enclave-future-mode .chat-input-area {
+  background: rgba(9, 21, 35, .96) !important;
+  border-color: var(--future-cyan-line) !important;
+}
+
+html[data-enclave-mode="future"] .search-box input,
+body.enclave-future-mode .search-box input,
+html[data-enclave-mode="future"] .chat-input-area input,
+body.enclave-future-mode .chat-input-area input,
+html[data-enclave-mode="future"] .chat-input-area textarea,
+body.enclave-future-mode .chat-input-area textarea {
+  color: #e7f3fc !important;
+  caret-color: var(--future-cyan);
+}
+
+html[data-enclave-mode="future"] .search-box input::placeholder,
+body.enclave-future-mode .search-box input::placeholder,
+html[data-enclave-mode="future"] .chat-input-area input::placeholder,
+body.enclave-future-mode .chat-input-area input::placeholder,
+html[data-enclave-mode="future"] .chat-input-area textarea::placeholder,
+body.enclave-future-mode .chat-input-area textarea::placeholder {
+  color: #829bb1 !important;
+  opacity: 1;
+}
+
+html[data-enclave-mode="future"] .empty-chat h2,
+body.enclave-future-mode .empty-chat h2,
+html[data-enclave-mode="future"] .empty-chat p,
+body.enclave-future-mode .empty-chat p,
+html[data-enclave-mode="future"] .no-conversations,
+body.enclave-future-mode .no-conversations {
+  color: #a9bed0 !important;
+}
+
+/* Settings window — a compact NEXUS control panel, same dimensions/placement. */
+html[data-enclave-mode="future"] .group-info-overlay,
+body.enclave-future-mode .group-info-overlay {
+  background: rgba(2, 8, 15, .76) !important;
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-panel,
+body.enclave-future-mode .group-info-overlay .group-info-panel,
+html[data-enclave-mode="future"] .enclave-settings-panel,
+body.enclave-future-mode .enclave-settings-panel {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(43, 133, 171, .105), transparent 52%),
+    linear-gradient(145deg, #122236 0%, #0d1928 58%, #0b1725 100%) !important;
+  border: 1px solid rgba(88, 190, 218, .27) !important;
+  color: var(--future-text) !important;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .55), 0 0 38px rgba(57, 217, 245, .075), inset 0 1px rgba(219, 248, 255, .07) !important;
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-panel::before,
+body.enclave-future-mode .group-info-overlay .group-info-panel::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(57, 217, 245, .72), transparent);
+  pointer-events: none;
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-header,
+body.enclave-future-mode .group-info-overlay .group-info-header {
+  border-color: rgba(117, 158, 190, .20) !important;
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-title,
+body.enclave-future-mode .group-info-overlay .group-info-title,
+html[data-enclave-mode="future"] .settings-option-title,
+body.enclave-future-mode .settings-option-title,
+html[data-enclave-mode="future"] .settings-theme-heading,
+body.enclave-future-mode .settings-theme-heading {
+  color: #e7f3fc !important;
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-close,
+body.enclave-future-mode .group-info-overlay .group-info-close {
+  background: rgba(57, 217, 245, .09) !important;
+  border: 1px solid rgba(57, 217, 245, .18) !important;
+  color: #a9edfb !important;
+}
+
+html[data-enclave-mode="future"] .group-info-overlay .group-info-close:hover,
+body.enclave-future-mode .group-info-overlay .group-info-close:hover {
+  background: rgba(57, 217, 245, .18) !important;
+}
+
+html[data-enclave-mode="future"] .settings-tabs,
+body.enclave-future-mode .settings-tabs {
+  background: rgba(4, 13, 23, .62) !important;
+  border: 1px solid rgba(117, 158, 190, .13);
+}
+
+html[data-enclave-mode="future"] .settings-tab-button,
+body.enclave-future-mode .settings-tab-button {
+  color: #a4b8ca !important;
+}
+
 html[data-enclave-mode="future"] .settings-tab-button.is-active,
 body.enclave-future-mode .settings-tab-button.is-active {
-  color: #07111d;
-  background: linear-gradient(110deg, #65eaff, #8bb8ff 58%, #b69aff);
-  border-color: transparent;
-  box-shadow: 0 0 22px rgba(101, 234, 255, .25);
+  color: #07131e !important;
+  background: linear-gradient(110deg, #39d9f5 0%, #83e8f4 58%, #a8c8f5 100%) !important;
+  border-color: transparent !important;
+  box-shadow: 0 0 22px rgba(57, 217, 245, .22), inset 0 1px rgba(255, 255, 255, .55);
 }
+
+html[data-enclave-mode="future"] .settings-option,
+body.enclave-future-mode .settings-option {
+  background: linear-gradient(115deg, rgba(18, 34, 54, .92), rgba(13, 27, 43, .94)) !important;
+  border-color: rgba(117, 158, 190, .17) !important;
+  color: #e2eef9 !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035);
+}
+
+html[data-enclave-mode="future"] .settings-option:hover,
+body.enclave-future-mode .settings-option:hover,
+html[data-enclave-mode="future"] .settings-option[aria-expanded="true"],
+body.enclave-future-mode .settings-option[aria-expanded="true"] {
+  background: linear-gradient(110deg, rgba(25, 55, 76, .98), rgba(16, 34, 53, .98)) !important;
+  border-color: rgba(57, 217, 245, .36) !important;
+  box-shadow: inset 2px 0 rgba(57, 217, 245, .7), 0 7px 22px rgba(0, 0, 0, .16);
+}
+
+html[data-enclave-mode="future"] .settings-option-icon,
+body.enclave-future-mode .settings-option-icon {
+  color: var(--future-cyan) !important;
+  background: rgba(57, 217, 245, .095) !important;
+  border: 1px solid rgba(57, 217, 245, .17);
+  filter: none !important;
+}
+
+html[data-enclave-mode="future"] .settings-option-description,
+body.enclave-future-mode .settings-option-description,
+html[data-enclave-mode="future"] .settings-theme-status,
+body.enclave-future-mode .settings-theme-status,
+html[data-enclave-mode="future"] .settings-notifications-status,
+body.enclave-future-mode .settings-notifications-status {
+  color: #a4b8ca !important;
+}
+
+html[data-enclave-mode="future"] .settings-theme-swatch,
+body.enclave-future-mode .settings-theme-swatch,
+html[data-enclave-mode="future"] .settings-wallpaper-choice,
+body.enclave-future-mode .settings-wallpaper-choice {
+  border-color: rgba(117, 158, 190, .22) !important;
+}
+
+html[data-enclave-mode="future"] .notification-switch,
+body.enclave-future-mode .notification-switch {
+  background: #34485b !important;
+  border: 1px solid rgba(171, 204, 225, .18) !important;
+}
+
 html[data-enclave-mode="future"] .notification-switch.is-on,
 body.enclave-future-mode .notification-switch.is-on {
-  background: linear-gradient(100deg, #147caa, #7160c9);
-  box-shadow: 0 0 15px rgba(101, 234, 255, .25);
+  background: linear-gradient(100deg, #1686a5, #39bfd7) !important;
+  box-shadow: 0 0 16px rgba(57, 217, 245, .22);
 }
-html[data-enclave-mode="future"] .settings-option-icon,
-body.enclave-future-mode .settings-option-icon { filter: drop-shadow(0 0 7px rgba(101, 234, 255, .45)); }
-html[data-enclave-mode="future"] .chat-header,
-html[data-enclave-mode="future"] .home-header,
-html[data-enclave-mode="future"] .settings-header,
-body.enclave-future-mode .chat-header,
-body.enclave-future-mode .home-header,
-body.enclave-future-mode .settings-header {
-  background: rgba(5, 16, 29, .94);
-  border-color: var(--future-line);
-  box-shadow: 0 5px 24px rgba(0, 0, 0, .22), 0 1px rgba(101, 234, 255, .12);
+
+html[data-enclave-mode="future"] .notification-switch-knob,
+body.enclave-future-mode .notification-switch-knob {
+  background: #f3fbff !important;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, .32);
 }
-html[data-enclave-mode="future"] .send-button,
-html[data-enclave-mode="future"] .attachment-button,
-body.enclave-future-mode .send-button,
-body.enclave-future-mode .attachment-button {
-  filter: drop-shadow(0 0 8px rgba(101, 234, 255, .22));
+
+/* Buttons and focus states. Bubble/send/attachment colors are deliberately excluded. */
+html[data-enclave-mode="future"] .logout-button,
+body.enclave-future-mode .logout-button,
+html[data-enclave-mode="future"] .profile-settings-button,
+body.enclave-future-mode .profile-settings-button,
+html[data-enclave-mode="future"] .new-group-button,
+body.enclave-future-mode .new-group-button {
+  background: linear-gradient(145deg, #14283c, #102033) !important;
+  border-color: rgba(117, 158, 190, .23) !important;
+  color: #d9edf9 !important;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .045);
 }
-html[data-enclave-mode="future"] .settings-option-title,
-html[data-enclave-mode="future"] .settings-tab-button,
-body.enclave-future-mode .settings-option-title,
-body.enclave-future-mode .settings-tab-button { color: #dff8ff; }
-html[data-enclave-mode="future"] .settings-option-description,
-body.enclave-future-mode .settings-option-description { color: #91b5c6; }
+
+html[data-enclave-mode="future"] .logout-button:hover,
+body.enclave-future-mode .logout-button:hover,
+html[data-enclave-mode="future"] .profile-settings-button:hover,
+body.enclave-future-mode .profile-settings-button:hover,
+html[data-enclave-mode="future"] .new-group-button:hover,
+body.enclave-future-mode .new-group-button:hover {
+  border-color: rgba(57, 217, 245, .42) !important;
+  box-shadow: 0 0 18px rgba(57, 217, 245, .09);
+}
+
+html[data-enclave-mode="future"] button:focus-visible,
+body.enclave-future-mode button:focus-visible,
+html[data-enclave-mode="future"] input:focus-visible,
+body.enclave-future-mode input:focus-visible,
+html[data-enclave-mode="future"] textarea:focus-visible,
+body.enclave-future-mode textarea:focus-visible,
+html[data-enclave-mode="future"] select:focus-visible,
+body.enclave-future-mode select:focus-visible {
+  outline: 2px solid rgba(57, 217, 245, .78) !important;
+  outline-offset: 3px;
+}
+
+/* Auth and boot screens share the same visual language. */
+html[data-enclave-mode="future"] .auth-container,
+body.enclave-future-mode .auth-container,
+html[data-enclave-mode="future"] .verification-panel,
+body.enclave-future-mode .verification-panel,
+html[data-enclave-mode="future"] .notifications-panel,
+body.enclave-future-mode .notifications-panel {
+  background:
+    radial-gradient(ellipse at 100% 0%, rgba(43, 133, 171, .10), transparent 55%),
+    linear-gradient(145deg, #122236, #0d1928) !important;
+  border: 1px solid rgba(88, 190, 218, .24) !important;
+  color: var(--future-text) !important;
+  box-shadow: 0 25px 75px rgba(0, 0, 0, .40), 0 0 32px rgba(57, 217, 245, .055) !important;
+}
+
+html[data-enclave-mode="future"] .auth-container h1,
+body.enclave-future-mode .auth-container h1,
+html[data-enclave-mode="future"] .auth-container h2,
+body.enclave-future-mode .auth-container h2,
+html[data-enclave-mode="future"] .auth-title,
+body.enclave-future-mode .auth-title {
+  color: #e9f6ff !important;
+}
+
+html[data-enclave-mode="future"] .auth-container p,
+body.enclave-future-mode .auth-container p,
+html[data-enclave-mode="future"] .login-link,
+body.enclave-future-mode .login-link {
+  color: #a4b8ca !important;
+}
+
+html[data-enclave-mode="future"] .input-group input,
+body.enclave-future-mode .input-group input {
+  background: rgba(5, 15, 26, .86) !important;
+  border-color: rgba(117, 158, 190, .25) !important;
+  color: #edf8ff !important;
+}
+
+html[data-enclave-mode="future"] .input-group input::placeholder,
+body.enclave-future-mode .input-group input::placeholder {
+  color: #829bb1 !important;
+}
+
+html[data-enclave-mode="future"] .register-button,
+body.enclave-future-mode .register-button {
+  background: linear-gradient(105deg, #147d9b, #1d7895 55%, #526d9f) !important;
+  color: #f5fcff !important;
+  box-shadow: 0 7px 22px rgba(20, 125, 155, .20);
+}
+
 html[data-enclave-mode="future"] .startup-screen,
 body.enclave-future-mode .startup-screen {
-  background: radial-gradient(ellipse at center, #102d45, #050b13 72%);
+  background:
+    radial-gradient(ellipse at center, rgba(14, 91, 121, .22), transparent 44%),
+    #070e18 !important;
 }
-html[data-enclave-mode="future"] .startup-screen h1,
-body.enclave-future-mode .startup-screen h1 {
-  color: #8ceeff;
-  letter-spacing: .22em;
-  text-shadow: 0 0 28px rgba(101, 234, 255, .48);
+
+html[data-enclave-mode="future"] .startup-content,
+body.enclave-future-mode .startup-content,
+html[data-enclave-mode="future"] .startup-content h1,
+body.enclave-future-mode .startup-content h1 {
+  color: #eafaff !important;
+  text-shadow: 0 0 24px rgba(57, 217, 245, .20);
 }
+
+html[data-enclave-mode="future"] .startup-content p,
+body.enclave-future-mode .startup-content p {
+  color: #91a9bf !important;
+}
+
+html[data-enclave-mode="future"] .startup-spinner,
+body.enclave-future-mode .startup-spinner {
+  border-color: rgba(57, 217, 245, .18) !important;
+  border-top-color: var(--future-cyan) !important;
+  box-shadow: 0 0 15px rgba(57, 217, 245, .12);
+}
+
+/* Menus and call panels. */
+html[data-enclave-mode="future"] .message-attach-menu,
+body.enclave-future-mode .message-attach-menu,
+html[data-enclave-mode="future"] .profile-settings-menu,
+body.enclave-future-mode .profile-settings-menu,
+html[data-enclave-mode="future"] .quick-menu,
+body.enclave-future-mode .quick-menu,
+html[data-enclave-mode="future"] .context-menu,
+body.enclave-future-mode .context-menu,
+html[data-enclave-mode="future"] .new-group-menu,
+body.enclave-future-mode .new-group-menu,
+html[data-enclave-mode="future"] .voice-call-panel,
+body.enclave-future-mode .voice-call-panel,
+html[data-enclave-mode="future"] .voice-recording-panel,
+body.enclave-future-mode .voice-recording-panel {
+  background: linear-gradient(145deg, #14263a, #0d1a29) !important;
+  border-color: rgba(88, 190, 218, .25) !important;
+  color: #e5f2fc !important;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .38), 0 0 24px rgba(57, 217, 245, .055) !important;
+}
+
+html[data-enclave-mode="future"] .message-attach-menu button,
+body.enclave-future-mode .message-attach-menu button,
+html[data-enclave-mode="future"] .profile-settings-menu button,
+body.enclave-future-mode .profile-settings-menu button,
+html[data-enclave-mode="future"] .quick-menu button,
+body.enclave-future-mode .quick-menu button,
+html[data-enclave-mode="future"] .context-menu button,
+body.enclave-future-mode .context-menu button,
+html[data-enclave-mode="future"] .new-group-menu button,
+body.enclave-future-mode .new-group-menu button {
+  color: #dcecf8 !important;
+}
+
+html[data-enclave-mode="future"] .message-attach-menu button:hover,
+body.enclave-future-mode .message-attach-menu button:hover,
+html[data-enclave-mode="future"] .profile-settings-menu button:hover,
+body.enclave-future-mode .profile-settings-menu button:hover,
+html[data-enclave-mode="future"] .quick-menu button:hover,
+body.enclave-future-mode .quick-menu button:hover,
+html[data-enclave-mode="future"] .context-menu button:hover,
+body.enclave-future-mode .context-menu button:hover,
+html[data-enclave-mode="future"] .new-group-menu button:hover,
+body.enclave-future-mode .new-group-menu button:hover {
+  background: rgba(57, 217, 245, .09) !important;
+}
+
+/* Small, restrained motion: no shifting/resizing of interface elements. */
 @media (prefers-reduced-motion: no-preference) {
   html[data-enclave-mode="future"] .settings-option,
-  body.enclave-future-mode .settings-option { animation: futurePanelIn .32s ease both; }
-  @keyframes futurePanelIn { from { opacity: .72; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+  body.enclave-future-mode .settings-option,
+  html[data-enclave-mode="future"] .conversation-item,
+  body.enclave-future-mode .conversation-item,
+  html[data-enclave-mode="future"] .profile-settings-button,
+  body.enclave-future-mode .profile-settings-button {
+    transition-duration: .22s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-enclave-mode="future"] *,
+  body.enclave-future-mode * {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
