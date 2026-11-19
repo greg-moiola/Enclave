@@ -239,6 +239,15 @@ const searchResults =
 const newGroupButton =
     document.getElementById("newGroupButton");
 
+const enclaveAIQuickButton =
+    document.getElementById("enclaveAIQuickButton");
+
+if (enclaveAIQuickButton) {
+    enclaveAIQuickButton.addEventListener("click", () => {
+        openEnclaveAI();
+    });
+}
+
 const notificationsOverlay =
     document.getElementById("notificationsOverlay");
 
