@@ -4964,32 +4964,3 @@ select:focus {
     .enclave-ai-nexus-report { animation: none !important; }
     .enclave-ai-nexus-progress i { transition: none !important; }
 }
-
-/* Accesso diretto a EnclaveAI dalla testata conversazioni. */
-.enclave-ai-quick-button {
-    min-height: 30px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    margin-left: auto;
-    padding: 0 11px;
-    border: 1px solid rgba(128, 89, 201, .25);
-    border-radius: 9px;
-    background: rgba(128, 89, 201, .08);
-    color: #6548a7;
-    font: 650 11px/1 Inter, "Segoe UI", Arial, sans-serif;
-    letter-spacing: .025em;
-    cursor: pointer;
-    transition: background .18s ease, border-color .18s ease, transform .18s ease;
-}
-.enclave-ai-quick-button > span:first-child { font-size: 15px; }
-.enclave-ai-quick-button:hover {
-    background: rgba(128, 89, 201, .14);
-    border-color: rgba(128, 89, 201, .42);
-    transform: translateY(-1px);
-}
-@media (max-width: 430px) {
-    .enclave-ai-quick-button { width: 31px; min-width: 31px; padding: 0; }
-    .enclave-ai-quick-button > span:last-child { display: none; }
-}
