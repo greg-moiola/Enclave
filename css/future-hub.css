@@ -1,4 +1,5 @@
-/* FUTURE MODE — immersive particle navigation. */
+/* FUTURE MODE — immersive particle navigation.
+   Scoped to the dedicated hub; classic Enclave geometry is untouched. */
 #futureHub {
   position: fixed;
   inset: 0;
@@ -11,7 +12,7 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity .65s ease, visibility .65s step-end;
+  transition: opacity .72s ease, visibility .72s step-end;
   overscroll-behavior: none;
   touch-action: pan-y;
 }
@@ -19,7 +20,7 @@
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition: opacity .5s ease, visibility 0s;
+  transition: opacity .72s ease, visibility 0s;
 }
 #futureHub.is-shutting-down,
 #futureHub.is-routing {
@@ -55,43 +56,6 @@
   display: block;
   pointer-events: none;
 }
-
-/* Effetto "smolecolamento" del pannello impostazioni */
-.future-dematerialize {
-  animation: future-dematerialize-anim 0.85s cubic-bezier(.16, .84, .32, 1) forwards !important;
-  pointer-events: none !important;
-  z-index: 1250 !important;
-}
-@keyframes future-dematerialize-anim {
-  0% {
-    opacity: 1;
-    filter: blur(0px) brightness(1);
-    transform: scale(1);
-  }
-  35% {
-    opacity: 0.85;
-    filter: blur(4px) brightness(1.6) drop-shadow(0 0 24px rgba(56, 200, 255, .9));
-    transform: scale(1.03);
-  }
-  100% {
-    opacity: 0;
-    filter: blur(22px) brightness(2.2);
-    transform: scale(0.86);
-  }
-}
-
-/* Vista CHAT pulita in Future Mode: solo elenco chat e pulsante + gruppi */
-html[data-enclave-mode="future"] #homeScreen .home-header,
-html[data-enclave-mode="future"] #homeScreen .sidebar-top,
-html[data-enclave-mode="future"] #homeScreen #searchResults,
-html[data-enclave-mode="future"] #homeScreen .sidebar-profile,
-html[data-enclave-mode="future"] #homeScreen #enclaveAIQuickButton {
-  display: none !important;
-}
-html[data-enclave-mode="future"] #homeScreen .home-main {
-  height: 100dvh !important;
-}
-
 .future-hub-core {
   position: absolute;
   left: 50%;
@@ -173,7 +137,7 @@ html[data-enclave-mode="future"] #homeScreen .home-main {
 .future-hub-branch[data-direction="left"]::before { right: -20px; }
 .future-hub-branch[data-direction="right"]::before { left: -20px; }
 
-/* Overlay Ricerca Utenti sopra la bolla */
+/* Overlay Ricerca Utenti sopra la bolla (Punto 2) */
 .future-search-overlay {
   position: absolute;
   inset: 0;
