@@ -43,21 +43,20 @@
   let phase = "idle", phaseStarted = 0, lastFrame = 0;
   let particles = [];
   let dematerializeSparks = [];
-  let inAIView = false;
 
-  const particleCount = () => Math.max(220, Math.min(560, Math.round((width * height) / 2300)));
-  const rand = (min,max) => min + Math.random() * (max-min);
+  const particleCount = () => Math.max(220, Math.min(540, Math.round((width * height) / 2400)));
+  const rand = (min, max) => min + Math.random() * (max - min);
 
   function resize() {
     const rect = hub.getBoundingClientRect();
     width = Math.max(1, rect.width);
     height = Math.max(1, rect.height);
     dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia("(pointer: coarse)").matches ? 1.35 : 1.8);
-    canvas.width = Math.round(width*dpr);
-    canvas.height = Math.round(height*dpr);
-    canvas.style.width = width+"px";
-    canvas.style.height = height+"px";
-    ctx.setTransform(dpr,0,0,dpr,0,0);
+    canvas.width = Math.round(width * dpr);
+    canvas.height = Math.round(height * dpr);
+    canvas.style.width = width + "px";
+    canvas.style.height = height + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     seedParticles();
   }
 
@@ -65,38 +64,36 @@
     const count = particleCount();
     particles = [];
     const golden = Math.PI * (3 - Math.sqrt(5));
-    for (let i=0;i<count;i++) {
-      const y = 1 - (i/(count-1))*2;
-      const radius = Math.sqrt(1-y*y);
-      const theta = golden*i;
-      const spread = rand(.86,1.13);
+    for (let i = 0; i < count; i++) {
+      const y = 1 - (i / (count - 1)) * 2;
+      const radius = Math.sqrt(1 - y * y);
+      const theta = golden * i;
+      const spread = rand(0.86, 1.13);
       particles.push({
-        x: Math.cos(theta)*radius*spread,
-        y: y*spread,
-        z: Math.sin(theta)*radius*spread,
-        size: rand(.65,1.8),
-        seed: rand(0,Math.PI*2),
-        drift: rand(.3,1.25),
-        alpha: rand(.5,1),
+        x: Math.cos(theta) * radius * spread,
+        y: y * spread,
+        z: Math.sin(theta) * radius * spread,
+        size: rand(0.65, 1.75),
+        seed: rand(0, Math.PI * 2),
+        drift: rand(0.3, 1.25),
+        alpha: rand(0.5, 1),
         startX: rand(0, width || window.innerWidth),
         startY: rand(0, height || window.innerHeight)
       });
     }
   }
 
-  // Genera scintille dall'area del menu impostazioni che "smolecola" verso il centro
   function spawnDematerializeSparks(rect) {
     dematerializeSparks = [];
     const r = rect && rect.width > 0 ? rect : { left: width * 0.15, top: height * 0.15, width: width * 0.7, height: height * 0.7 };
-    const total = 240;
-    for (let i = 0; i < total; i++) {
+    for (let i = 0; i < 240; i++) {
       dematerializeSparks.push({
         sx: r.left + Math.random() * r.width,
         sy: r.top + Math.random() * r.height,
         angle: rand(0, Math.PI * 2),
-        swirl: rand(-2.8, 2.8),
-        size: rand(1.1, 2.8),
-        delay: rand(0, 0.25),
+        swirl: rand(-2.6, 2.6),
+        size: rand(1.1, 2.7),
+        delay: rand(0, 0.22),
         alpha: rand(0.65, 1)
       });
     }
@@ -104,26 +101,26 @@
 
   function draw(now) {
     if (!active && phase === "idle") return;
-    const frameInterval = window.matchMedia("(pointer: coarse)").matches ? 1000/30 : 1000/45;
+    const frameInterval = window.matchMedia("(pointer: coarse)").matches ? 1000 / 30 : 1000 / 45;
     if (lastFrame && now - lastFrame < frameInterval) {
       raf = requestAnimationFrame(draw);
       return;
     }
     lastFrame = now;
-    const elapsed = (now-phaseStarted)/1000;
-    ctx.clearRect(0,0,width,height);
+    const elapsed = (now - phaseStarted) / 1000;
+    ctx.clearRect(0, 0, width, height);
 
-    const cx = width/2, cy = height/2;
-    const minSide = Math.min(width,height);
-    const radius = minSide * (width < 700 ? .185 : .205);
+    const cx = width / 2, cy = height / 2;
+    const minSide = Math.min(width, height);
+    const radius = minSide * (width < 700 ? 0.185 : 0.205);
     const build = phase === "opening" ? Math.min(1, elapsed / 1.65) : 1;
     const collapse = phase === "closing" ? Math.max(0, 1 - elapsed / 1.05) : 1;
-    const routing = phase === "routing" ? Math.max(0, 1 - elapsed / .42) : 1;
+    const routing = phase === "routing" ? Math.max(0, 1 - elapsed / 0.42) : 1;
     const overall = build * collapse * routing;
-    const time = now*.00022;
-    const rotY = time*.75, rotX = Math.sin(time*.55)*.16;
+    const time = now * 0.00022;
+    const rotY = time * 0.75, rotX = Math.sin(time * 0.55) * 0.16;
 
-    // Scintille dello smolecolamento del menu che confluiscono nella bolla centrale
+    // Scintille dello smolecolamento del menu verso il centro
     if (phase === "opening" && dematerializeSparks.length > 0 && elapsed < 1.55) {
       for (const sp of dematerializeSparks) {
         const localT = Math.max(0, Math.min(1, (elapsed - sp.delay) / 1.25));
@@ -143,183 +140,199 @@
       ctx.shadowBlur = 0;
     }
 
-    // Particelle vaganti su tutto lo schermo che si riuniscono al centro
-    const cloudCount = Math.min(200, Math.round(particles.length * .42));
-    for (let i=0;i<cloudCount;i++) {
-      const p=particles[i];
-      const a=p.seed + now*.00012*p.drift;
-      const maxSpread = Math.max(width, height) * 0.65;
-      const dist = radius * 1.4 + maxSpread * (0.35 + 0.65 * Math.abs(Math.sin(a*1.7)));
-      const convergence = phase === "opening" ? Math.pow(Math.max(0, 1 - elapsed / 1.6), 1.4) : 0;
+    // Particelle ambientali che convergono nella bolla
+    const cloudCount = Math.min(180, Math.round(particles.length * 0.38));
+    for (let i = 0; i < cloudCount; i++) {
+      const p = particles[i];
+      const a = p.seed + now * 0.00012 * p.drift;
+      const dist = radius * (1.7 + 0.7 * Math.sin(a * 1.7));
+      const convergence = phase === "opening" ? Math.max(0, 1 - elapsed / 1.6) : 0;
       const scatter = phase === "closing" ? Math.min(1, elapsed / 1.05) : 0;
-      const factor = convergence + scatter;
-      const px = cx + Math.cos(a) * (radius * 1.15 + dist * factor);
-      const py = cy + Math.sin(a * 1.31) * (radius * 1.1 + dist * factor);
-      const alpha = (convergence * .75 + scatter * .5) * p.alpha;
-      if(alpha>.015) {
-        ctx.beginPath(); ctx.fillStyle=`rgba(75,190,255,${alpha})`;
-        ctx.arc(px,py,p.size*(1 + factor * .5),0,Math.PI*2); ctx.fill();
+      const px = cx + Math.cos(a) * (dist * (convergence + scatter) * 0.65 + radius * 1.35);
+      const py = cy + Math.sin(a * 1.31) * (dist * (convergence + scatter) * 0.5 + radius * 1.2);
+      const alpha = (convergence * 0.55 + scatter * 0.38) * p.alpha;
+      if (alpha > 0.015) {
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(75,190,255,${alpha})`;
+        ctx.arc(px, py, p.size * 0.85, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
 
-    const projected=[];
+    const projected = [];
     const gatherEase = phase === "opening" ? 1 - Math.pow(Math.max(0, 1 - elapsed / 1.55), 2.4) : 1;
     for (const p of particles) {
-      let x=p.x*Math.cos(rotY)-p.z*Math.sin(rotY);
-      let z=p.x*Math.sin(rotY)+p.z*Math.cos(rotY);
-      let y=p.y*Math.cos(rotX)-z*Math.sin(rotX);
-      z=p.y*Math.sin(rotX)+z*Math.cos(rotX);
-      const pulse=1 + .035*Math.sin(now*.0011+p.seed*2);
-      const organic=1 + .075*Math.sin(p.seed+now*.0007*p.drift) + .035*Math.cos(p.seed*2-now*.0004);
-      const depth=1/(1.8-z*.52);
-      const breathe=radius*pulse*organic*collapse*routing;
-      const targetX=cx+x*breathe*depth;
-      const targetY=cy+y*breathe*depth;
+      let x = p.x * Math.cos(rotY) - p.z * Math.sin(rotY);
+      let z = p.x * Math.sin(rotY) + p.z * Math.cos(rotY);
+      let y = p.y * Math.cos(rotX) - z * Math.sin(rotX);
+      z = p.y * Math.sin(rotX) + z * Math.cos(rotX);
+      const pulse = 1 + 0.035 * Math.sin(now * 0.0011 + p.seed * 2);
+      const organic = 1 + 0.075 * Math.sin(p.seed + now * 0.0007 * p.drift) + 0.035 * Math.cos(p.seed * 2 - now * 0.0004);
+      const depth = 1 / (1.8 - z * 0.52);
+      const breathe = radius * pulse * organic * collapse * routing;
+      const targetX = cx + x * breathe * depth;
+      const targetY = cy + y * breathe * depth;
       const px = p.startX + (targetX - p.startX) * gatherEase;
       const py = p.startY + (targetY - p.startY) * gatherEase;
-      const front=(z+1)/2;
-      const alpha=(.22+front*.78)*p.alpha*overall;
-      projected.push({x:px,y:py,z,alpha,size:p.size*(.65+front*.9),front});
+      const front = (z + 1) / 2;
+      const alpha = (0.22 + front * 0.78) * p.alpha * overall;
+      projected.push({ x: px, y: py, z, alpha, size: p.size * (0.65 + front * 0.9), front });
     }
 
-    ctx.lineWidth=.55;
-    for(let i=0;i<projected.length;i+=2) {
-      const a=projected[i];
-      for(let j=i+7;j<Math.min(i+22,projected.length);j+=5) {
-        const b=projected[j];
-        const dx=a.x-b.x,dy=a.y-b.y,dist=dx*dx+dy*dy;
-        if(dist < radius*radius*.085 && a.z>-.35 && b.z>-.35) {
-          const alpha=(1-Math.sqrt(dist)/(radius*.292))*.11*Math.min(a.alpha,b.alpha);
-          ctx.strokeStyle=`rgba(44,177,255,${alpha})`;
-          ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.lineWidth = 0.55;
+    for (let i = 0; i < projected.length; i += 2) {
+      const a = projected[i];
+      for (let j = i + 7; j < Math.min(i + 22, projected.length); j += 5) {
+        const b = projected[j];
+        const dx = a.x - b.x, dy = a.y - b.y, dist = dx * dx + dy * dy;
+        if (dist < radius * radius * 0.085 && a.z > -0.35 && b.z > -0.35) {
+          const alpha = (1 - Math.sqrt(dist) / (radius * 0.292)) * 0.11 * Math.min(a.alpha, b.alpha);
+          ctx.strokeStyle = `rgba(44,177,255,${alpha})`;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
         }
       }
     }
 
-    const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.28);
-    glow.addColorStop(0,"rgba(0,115,230,0)");
-    glow.addColorStop(.55,`rgba(0,112,220,${.08*overall})`);
-    glow.addColorStop(.82,`rgba(0,180,255,${.09*overall})`);
-    glow.addColorStop(1,"rgba(0,100,220,0)");
-    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.28,0,Math.PI*2);ctx.fill();
+    const glow = ctx.createRadialGradient(cx, cy, radius * 0.12, cx, cy, radius * 1.28);
+    glow.addColorStop(0, "rgba(0,115,230,0)");
+    glow.addColorStop(0.55, `rgba(0,112,220,${0.08 * overall})`);
+    glow.addColorStop(0.82, `rgba(0,180,255,${0.09 * overall})`);
+    glow.addColorStop(1, "rgba(0,100,220,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 1.28, 0, Math.PI * 2);
+    ctx.fill();
 
-    for(const p of projected) {
-      if(p.alpha<.015) continue;
-      const flicker=.72+.28*Math.sin(now*.002+p.x*.018+p.y*.013);
-      const a=p.alpha*flicker;
+    for (const p of projected) {
+      if (p.alpha < 0.015) continue;
+      const flicker = 0.72 + 0.28 * Math.sin(now * 0.002 + p.x * 0.018 + p.y * 0.013);
+      const a = p.alpha * flicker;
       ctx.beginPath();
-      ctx.fillStyle=`rgba(${Math.round(44+35*p.front)},${Math.round(150+85*p.front)},255,${a})`;
-      ctx.shadowBlur=5+p.front*12;
-      ctx.shadowColor=`rgba(28,164,255,${a*.8})`;
-      ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+      ctx.fillStyle = `rgba(${Math.round(44 + 35 * p.front)},${Math.round(150 + 85 * p.front)},255,${a})`;
+      ctx.shadowBlur = 5 + p.front * 12;
+      ctx.shadowColor = `rgba(28,164,255,${a * 0.8})`;
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.shadowBlur=0;
+    ctx.shadowBlur = 0;
 
     ctx.save();
-    ctx.translate(cx,cy);
-    ctx.rotate(now*.00009);
-    for(let k=0;k<3;k++) {
+    ctx.translate(cx, cy);
+    ctx.rotate(now * 0.00009);
+    for (let k = 0; k < 3; k++) {
       ctx.beginPath();
-      ctx.ellipse(0,0,radius*(.92+k*.055),radius*(.32+k*.025),k*.83,now*.00012+k*2,now*.00012+k*2+Math.PI*1.42);
-      ctx.strokeStyle=`rgba(62,190,255,${.10*overall})`;
-      ctx.lineWidth=.7;ctx.stroke();
-    }
-    ctx.restore();
 
-    const rayAlpha=overall*(phase==="opening"?Math.min(1,elapsed/1.25):1);
-
-    const directions=[[0,-1],[-1,0],,];
-for(let i=0;i<4;i++) {
-const [dx,dy]=directions[i];
-const start=radius*.76, end=radius*(width<700?1.72:1.88);
-const x1=cx+dxstart,y1=cy+dystart,x2=cx+dxend,y2=cy+dyend;
-const grad=ctx.createLinearGradient(x1,y1,x2,y2);
-grad.addColorStop(0,rgba(35,164,255,${.55*rayAlpha}));
-grad.addColorStop(.55,rgba(52,210,255,${.25*rayAlpha}));
-grad.addColorStop(1,"rgba(36,140,255,0)");
-ctx.strokeStyle=grad;ctx.lineWidth=1.15;
-ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-const pulse=(now*.00032+i*.25)%1;
-const dotX=x1+(x2-x1)*pulse,dotY=y1+(y2-y1)pulse;
-ctx.beginPath();ctx.fillStyle=rgba(102,235,255,${.9*rayAlpha});
-ctx.shadowBlur=12;ctx.shadowColor="#159dff";ctx.arc(dotX,dotY,1.6,0,Math.PI2);ctx.fill();ctx.shadowBlur=0;
+    ctx.ellipse(0, 0, radius * (0.92 + k * 0.055), radius * (0.32 + k * 0.025), k * 0.83, now * 0.00012 + k * 2, now * 0.00012 + k * 2 + Math.PI * 1.42);
+ctx.strokeStyle = rgba(62,190,255,${0.10 * overall});
+ctx.lineWidth = 0.7;
+ctx.stroke();
 }
-if(phase==="opening" && elapsed>=1.65) phase="running";
-if(phase==="closing" && elapsed>=1.08) {
-phase="idle"; active=false; hub.classList.remove("is-active","is-shutting-down");
+ctx.restore();
+const rayAlpha = overall * (phase === "opening" ? Math.min(1, elapsed / 1.25) : 1);
+const directions = [
+{ dx: 0, dy: -1 },
+{ dx: -1, dy: 0 },
+{ dx: 1, dy: 0 },
+{ dx: 0, dy: 1 }
+];
+for (let i = 0; i < directions.length; i++) {
+const { dx, dy } = directions[i];
+const start = radius * 0.76, end = radius * (width < 700 ? 1.72 : 1.88);
+const x1 = cx + dx * start, y1 = cy + dy * start, x2 = cx + dx * end, y2 = cy + dy * end;
+const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+grad.addColorStop(0, rgba(35,164,255,${0.55 * rayAlpha}));
+grad.addColorStop(0.55, rgba(52,210,255,${0.25 * rayAlpha}));
+grad.addColorStop(1, "rgba(36,140,255,0)");
+ctx.strokeStyle = grad;
+ctx.lineWidth = 1.15;
+ctx.beginPath();
+ctx.moveTo(x1, y1);
+ctx.lineTo(x2, y2);
+ctx.stroke();
+const pulse = (now * 0.00032 + i * 0.25) % 1;
+const dotX = x1 + (x2 - x1) * pulse, dotY = y1 + (y2 - y1) * pulse;
+ctx.beginPath();
+ctx.fillStyle = rgba(102,235,255,${0.9 * rayAlpha});
+ctx.shadowBlur = 12;
+ctx.shadowColor = "#159dff";
+ctx.arc(dotX, dotY, 1.6, 0, Math.PI * 2);
+ctx.fill();
+ctx.shadowBlur = 0;
+}
+if (phase === "opening" && elapsed >= 1.65) phase = "running";
+if (phase === "closing" && elapsed >= 1.08) {
+phase = "idle";
+active = false;
+hub.classList.remove("is-active", "is-shutting-down");
 returnButton.classList.remove("is-visible");
-ctx.clearRect(0,0,width,height); cancelAnimationFrame(raf); raf=0; return;
+ctx.clearRect(0, 0, width, height);
+cancelAnimationFrame(raf);
+raf = 0;
+return;
 }
-if(phase==="routing" && elapsed>=.45) {
-phase="idle"; active=false; hub.classList.remove("is-active","is-routing");
-cancelAnimationFrame(raf);raf=0;return;
+if (phase === "routing" && elapsed >= 0.45) {
+phase = "idle";
+active = false;
+hub.classList.remove("is-active", "is-routing");
+cancelAnimationFrame(raf);
+raf = 0;
+return;
 }
-raf=requestAnimationFrame(draw);
+raf = requestAnimationFrame(draw);
 }
 function startAnimation(nextPhase) {
-active=true;phase=nextPhase;phaseStarted=performance.now();lastFrame=0;
-if(!raf) raf=requestAnimationFrame(draw);
+active = true;
+phase = nextPhase;
+phaseStarted = performance.now();
+lastFrame = 0;
+if (!raf) raf = requestAnimationFrame(draw);
 }
-// Trova la modale impostazioni aperta, la "smolecola" e poi la chiude
-function dematerializeSettingsAndShowHub() {
-if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
-// Cerca eventuali modali/overlay visibili fuori da #homeScreen e #futureHub
-const candidates = Array.from(document.body.children).filter(el => {
-if (el === home || el === hub || el === returnButton) return false;
-if (el.tagName === "SCRIPT" || el.tagName === "STYLE") return false;
+function findOpenSettingsElement() {
+// Cerca prima dentro #homeScreen e poi nel body qualsiasi pannello impostazioni visibile
+const all = Array.from(document.querySelectorAll("[id*='settings' i], [class*='settings' i], [role='dialog']"));
+return all.find(el => {
+if (el === hub || hub.contains(el)) return false;
+if (el.id === "settingsButton") return false;
 if (el.classList.contains("hidden") || el.hidden) return false;
 const st = getComputedStyle(el);
 if (st.display === "none" || st.visibility === "hidden" || st.opacity === "0") return false;
-return el.offsetWidth > 0 && el.offsetHeight > 0;
-});
-const openModal = candidates[candidates.length - 1];
-let rect = null;
-if (openModal) {
-const innerPanel = openModal.firstElementChild || openModal;
-rect = innerPanel.getBoundingClientRect();
-openModal.classList.add("future-dematerialize");
+return el.offsetWidth > 180 && el.offsetHeight > 180;
+}) || null;
 }
-closeFutureSearch();
-inAIView = false;
-returnButton.classList.remove("is-visible");
-hub.classList.remove("is-shutting-down","is-routing");
-hub.classList.add("is-active");
-resize();
-spawnDematerializeSparks(rect);
-startAnimation(reducedMotion ? "running" : "opening");
-if (openModal) {
-window.setTimeout(() => {
-// Prova a cliccare il tasto di chiusura nativo della modale per mantenere lo stato coerente in script.js
-const closeBtn = openModal.querySelector("button[aria-label*='Chiudi'], button[class*='close'], .close-button, .modal-close");
-if (closeBtn) {
-closeBtn.click();
-} else {
-openModal.classList.add("hidden");
-}
-openModal.classList.remove("future-dematerialize");
-}, 820);
-}
-}
-function showHub(fromDematerialize = false) {
-if (fromDematerialize) {
-dematerializeSettingsAndShowHub();
-return;
-}
+function showHub(fromToggle = false) {
 if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
+let openPanel = null;
+let rect = null;
+if (fromToggle) {
+openPanel = findOpenSettingsElement();
+if (openPanel) {
+rect = openPanel.getBoundingClientRect();
+openPanel.classList.add("future-dematerialize");
+}
+}
 closeFutureSearch();
-inAIView = false;
 returnButton.classList.remove("is-visible");
-hub.classList.remove("is-shutting-down","is-routing");
+hub.classList.remove("is-shutting-down", "is-routing");
 hub.classList.add("is-active");
 resize();
+if (fromToggle) spawnDematerializeSparks(rect);
 startAnimation(reducedMotion ? "running" : "opening");
+if (openPanel) {
+window.setTimeout(() => {
+const closeBtn = openPanel.querySelector("button[aria-label*='Chiudi' i], button[class*='close' i], .close-button, .modal-close");
+if (closeBtn) closeBtn.click();
+else openPanel.classList.add("hidden");
+openPanel.classList.remove("future-dematerialize");
+}, 780);
+}
 }
 function shutdown() {
 closeFutureSearch();
-inAIView = false;
 if (!hub.classList.contains("is-active")) {
-hub.classList.remove("is-shutting-down","is-routing");
+hub.classList.remove("is-shutting-down", "is-routing");
 returnButton.classList.remove("is-visible");
 return;
 }
@@ -377,24 +390,6 @@ futureSearchClose?.addEventListener("click", closeFutureSearch);
 searchOverlay?.addEventListener("click", (e) => {
 if (e.target === searchOverlay) closeFutureSearch();
 });
-// Rileva la chiusura di EnclaveAI per tornare direttamente alla bolla (senza mostrare l'elenco chat)
-const bodyObserver = new MutationObserver((mutations) => {
-if (!inAIView || localStorage.getItem("enclaveFutureMode") !== "true") return;
-for (const m of mutations) {
-const removedAI = Array.from(m.removedNodes).some(n =>
-n.nodeType === 1 && (n.id?.toLowerCase().includes("ai") || n.className?.toString().toLowerCase().includes("ai") || n.textContent?.includes("EnclaveAI"))
-);
-const hiddenAI = m.type === "attributes" && m.target instanceof Element &&
-(m.target.id?.toLowerCase().includes("ai") || m.target.className?.toString().toLowerCase().includes("ai")) &&
-(m.target.classList.contains("hidden") || m.target.hidden || getComputedStyle(m.target).display === "none");
-if (removedAI || hiddenAI) {
-inAIView = false;
-showHub(false);
-break;
-}
-}
-});
-bodyObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "hidden", "style"] });
 function routeAway(target) {
 if (!hub.classList.contains("is-active")) return;
 if (target === "settings") {
@@ -408,7 +403,6 @@ return;
 if (target === "ai") {
 const ai = document.getElementById("enclaveAIQuickButton");
 if (ai) {
-inAIView = true;
 ai.hidden = false;
 ai.click();
 }
@@ -439,7 +433,7 @@ if (event.detail?.enabled) showHub(true);
 else shutdown();
 });
 const observer = new MutationObserver(() => {
-if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden") && !hub.classList.contains("is-active") && !returnButton.classList.contains("is-visible") && !inAIView) {
+if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden") && !hub.classList.contains("is-active") && !returnButton.classList.contains("is-visible")) {
 showHub(false);
 }
 });
