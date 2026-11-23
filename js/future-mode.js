@@ -120,7 +120,6 @@
     const time = now * 0.00022;
     const rotY = time * 0.75, rotX = Math.sin(time * 0.55) * 0.16;
 
-    // Scintille dello smolecolamento del menu verso il centro
     if (phase === "opening" && dematerializeSparks.length > 0 && elapsed < 1.55) {
       for (const sp of dematerializeSparks) {
         const localT = Math.max(0, Math.min(1, (elapsed - sp.delay) / 1.25));
@@ -140,7 +139,6 @@
       ctx.shadowBlur = 0;
     }
 
-    // Particelle ambientali che convergono nella bolla
     const cloudCount = Math.min(180, Math.round(particles.length * 0.38));
     for (let i = 0; i < cloudCount; i++) {
       const p = particles[i];
@@ -224,14 +222,13 @@
     ctx.rotate(now * 0.00009);
     for (let k = 0; k < 3; k++) {
       ctx.beginPath();
+      ctx.ellipse(0, 0, radius * (0.92 + k * 0.055), radius * (0.32 + k * 0.025), k * 0.83, now * 0.00012 + k * 2, now * 0.00012 + k * 2 + Math.PI * 1.42);
+      ctx.strokeStyle = `rgba(62,190,255,${0.10 * overall})`;
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+    }
 
-    ctx.ellipse(0, 0, radius * (0.92 + k * 0.055), radius * (0.32 + k * 0.025), k * 0.83, now * 0.00012 + k * 2, now * 0.00012 + k * 2 + Math.PI * 1.42);
-ctx.strokeStyle = rgba(62,190,255,${0.10 * overall});
-    )  
-ctx.lineWidth = 0.7;
-ctx.stroke();
-}
-ctx.restore();
+  ctx.restore();
 const rayAlpha = overall * (phase === "opening" ? Math.min(1, elapsed / 1.25) : 1);
 const directions = [
 { dx: 0, dy: -1 },
@@ -292,8 +289,7 @@ lastFrame = 0;
 if (!raf) raf = requestAnimationFrame(draw);
 }
 function findOpenSettingsElement() {
-// Cerca prima dentro #homeScreen e poi nel body qualsiasi pannello impostazioni visibile
-const all = Array.from(document.querySelectorAll("[id*='settings' i], [class*='settings' i], [role='dialog']"));
+const all = Array.from(document.querySelectorAll("[id*='settings'], [id*='Settings'], [class*='settings'], [class*='Settings'], [role='dialog']"));
 return all.find(el => {
 if (el === hub || hub.contains(el)) return false;
 if (el.id === "settingsButton") return false;
@@ -323,7 +319,7 @@ if (fromToggle) spawnDematerializeSparks(rect);
 startAnimation(reducedMotion ? "running" : "opening");
 if (openPanel) {
 window.setTimeout(() => {
-const closeBtn = openPanel.querySelector("button[aria-label*='Chiudi' i], button[class*='close' i], .close-button, .modal-close");
+const closeBtn = openPanel.querySelector("button[aria-label*='Chiudi'], button[aria-label*='chiudi'], button[class*='close'], button[class*='Close'], .close-button, .modal-close");
 if (closeBtn) closeBtn.click();
 else openPanel.classList.add("hidden");
 openPanel.classList.remove("future-dematerialize");
@@ -341,7 +337,6 @@ hub.classList.remove("is-active");
 hub.classList.add("is-shutting-down");
 startAnimation("closing");
 }
-// Ricerca utenti sopra la bolla
 const searchOverlay = hub.querySelector("#futureSearchOverlay");
 const futureSearchInput = hub.querySelector("#futureSearchInput");
 const futureSearchClose = hub.querySelector("#futureSearchClose");
