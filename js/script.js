@@ -1553,6 +1553,9 @@ function createEnclaveSettingsPanel() {
         futureSwitch.setAttribute("aria-checked", String(enabled));
         futureSwitch.classList.toggle("is-on", enabled);
         document.documentElement.dataset.enclaveMode = enabled ? "future" : "classic";
+        document.dispatchEvent(new CustomEvent("enclave:future-mode-change", {
+            detail: { enabled }
+        }));
     });
 
     rememberSwitch.addEventListener("click", async () => {
