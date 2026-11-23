@@ -228,3 +228,138 @@
     ];
     for (const sel of closeSelectors) {
       const btn = document.querySelector(sel);
+
+    if (btn && btn.offsetParent !== null) {
+btn.click();
+return;
+}
+}
+const modal = document.getElementById("settingsModal") || document.querySelector(".settings-modal:not(.hidden)");
+if (modal && !modal.classList.contains("hidden")) {
+modal.classList.add("hidden");
+}
+}
+function showHub() {
+if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
+closeSettingsModalIfOpen();
+closeFutureSearch();
+returnButton.classList.remove("is-visible");
+hub.classList.remove("is-shutting-down","is-routing");
+hub.classList.add("is-active");
+resize();
+startAnimation(reducedMotion ? "running" : "opening");
+}
+function shutdown() {
+// Punto 4: NON nascondere EnclaveAI quando si torna a Enclave normale
+closeFutureSearch();
+if (!hub.classList.contains("is-active")) {
+hub.classList.remove("is-shutting-down","is-routing");
+returnButton.classList.remove("is-visible");
+return;
+}
+hub.classList.remove("is-active");
+hub.classList.add("is-shutting-down");
+startAnimation("closing");
+}
+// Punto 2: Ricerca utenti direttamente sopra la bolla
+const searchOverlay = hub.querySelector("#futureSearchOverlay");
+const futureSearchInput = hub.querySelector("#futureSearchInput");
+const futureSearchClose = hub.querySelector("#futureSearchClose");
+const futureSearchMirror = hub.querySelector("#futureSearchResultsMirror");
+const realSearchInput = document.getElementById("chatSearch");
+const realSearchResults = document.getElementById("searchResults");
+function openFutureSearch() {
+if (!searchOverlay) return;
+searchOverlay.classList.add("is-open");
+searchOverlay.setAttribute("aria-hidden", "false");
+if (realSearchInput && futureSearchInput) {
+futureSearchInput.value = realSearchInput.value;
+futureSearchInput.focus();
+}
+}
+function closeFutureSearch() {
+if (!searchOverlay) return;
+searchOverlay.classList.remove("is-open");
+searchOverlay.setAttribute("aria-hidden", "true");
+if (futureSearchMirror) futureSearchMirror.innerHTML = "";
+}
+if (futureSearchInput && realSearchInput) {
+futureSearchInput.addEventListener("input", () => {
+realSearchInput.value = futureSearchInput.value;
+realSearchInput.dispatchEvent(new Event("input", { bubbles: true }));
+});
+}
+if (realSearchResults && futureSearchMirror) {
+const syncResults = () => {
+if (!searchOverlay.classList.contains("is-open")) return;
+futureSearchMirror.innerHTML = realSearchResults.innerHTML;
+};
+new MutationObserver(syncResults).observe(realSearchResults, { childList: true, subtree: true });
+futureSearchMirror.addEventListener("click", (e) => {
+const items = Array.from(futureSearchMirror.children);
+const clickedItem = items.find(el => el.contains(e.target));
+const idx = items.indexOf(clickedItem);
+if (idx >= 0 && realSearchResults.children[idx]) {
+closeFutureSearch();
+hub.classList.remove("is-active");
+returnButton.classList.add("is-visible");
+realSearchResults.children[idx].click();
+}
+});
+}
+futureSearchClose?.addEventListener("click", closeFutureSearch);
+searchOverlay?.addEventListener("click", (e) => {
+if (e.target === searchOverlay) closeFutureSearch();
+});
+function routeAway(target) {
+if (!hub.classList.contains("is-active")) return;
+if (target === "settings") {
+document.getElementById("settingsButton")?.click();
+return;
+}
+// Punto 2: Apri la barra di ricerca sopra la bolla senza uscire dall'hub
+if (target === "search") {
+openFutureSearch();
+return;
+}
+// Punto 3: Apri EnclaveAI istantaneamente PRIMA di nascondere l'hub per evitare il flash della home
+if (target === "ai") {
+const ai = document.getElementById("enclaveAIQuickButton");
+if (ai) {
+ai.hidden = false;
+ai.click();
+}
+returnButton.classList.add("is-visible");
+hub.classList.remove("is-active");
+hub.classList.add("is-routing");
+startAnimation("routing");
+return;
+}
+hub.classList.remove("is-active");
+hub.classList.add("is-routing");
+startAnimation("routing");
+window.setTimeout(() => {
+returnButton.classList.add("is-visible");
+if (target === "chat") {
+const back = document.getElementById("chatBackButton");
+if (back && !document.getElementById("activeChat")?.classList.contains("hidden")) back.click();
+document.querySelector(".conversation-section")?.scrollIntoView({ block: "nearest" });
+}
+}, 180);
+}
+hub.querySelectorAll(".future-hub-branch").forEach(button => {
+button.addEventListener("click", () => routeAway(button.dataset.target));
+});
+returnButton.addEventListener("click", showHub);
+document.addEventListener("enclave:future-mode-change", event => {
+if (event.detail?.enabled) showHub();
+else shutdown();
+});
+const observer = new MutationObserver(() => {
+if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden") && !hub.classList.contains("is-active") && !returnButton.classList.contains("is-visible")) {
+showHub();
+}
+});
+observer.observe(home, { attributes: true, attributeFilter: ["class"] });
+window.addEventListener("resize", () => { if (active) resize(); });
+})();
