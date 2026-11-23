@@ -1,0 +1,205 @@
+/* FUTURE MODE — immersive particle navigation.
+   Scoped to the dedicated hub; classic Enclave geometry is untouched. */
+#futureHub {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  overflow: hidden;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  background: #02050b;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .72s ease, visibility .72s step-end;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+}
+#futureHub.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity .72s ease, visibility 0s;
+}
+#futureHub.is-shutting-down,
+#futureHub.is-routing {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .9s cubic-bezier(.22,.7,.2,1), visibility 0s .95s;
+}
+#futureHub::before,
+#futureHub::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: -1;
+  pointer-events: none;
+}
+#futureHub::before {
+  background:
+    radial-gradient(ellipse at 50% 48%, rgba(0, 113, 190, .15), transparent 27%),
+    radial-gradient(ellipse at 50% 50%, rgba(0, 44, 93, .2), transparent 58%);
+  animation: future-nebula 12s ease-in-out infinite alternate;
+}
+#futureHub::after {
+  opacity: .28;
+  background-image: radial-gradient(rgba(105,207,255,.34) .55px, transparent .8px);
+  background-size: 47px 47px;
+  mask-image: radial-gradient(ellipse at center, #000, transparent 72%);
+}
+#futureParticleField {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+.future-hub-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(54vmin, 560px);
+  aspect-ratio: 1;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+  filter: drop-shadow(0 0 36px rgba(0,151,255,.18));
+}
+.future-hub-branch {
+  --branch-x: 0px;
+  --branch-y: 0px;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: clamp(138px, 19vw, 230px);
+  min-height: 56px;
+  padding: 13px 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #d9f8ff;
+  font: 600 clamp(10px,1.05vw,13px)/1.2 Inter, "Segoe UI", sans-serif;
+  letter-spacing: .2em;
+  text-align: center;
+  text-shadow: 0 0 12px rgba(47,202,255,.8), 0 0 30px rgba(0,128,255,.5);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate(calc(-50% + var(--branch-x)),calc(-50% + var(--branch-y)));
+  opacity: 0;
+  transition: opacity .8s ease, filter .25s ease, text-shadow .25s ease;
+  isolation: isolate;
+}
+#futureHub.is-active .future-hub-branch {
+  opacity: 1;
+  transition-delay: .55s;
+}
+.future-hub-branch::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  width: 34px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(77,220,255,.95), transparent);
+  box-shadow: 0 0 10px rgba(41,190,255,.9);
+  opacity: .8;
+}
+.future-hub-branch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgba(58,192,255,0);
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(0,115,184,.12), transparent 72%);
+  transition: border-color .25s ease, background .25s ease;
+}
+.future-hub-branch:hover,
+.future-hub-branch:focus-visible {
+  color: #fff;
+  filter: brightness(1.35);
+  text-shadow: 0 0 15px #54eaff, 0 0 36px #078dff;
+  outline: none;
+}
+.future-hub-branch:hover::after,
+.future-hub-branch:focus-visible::after {
+  border-color: rgba(67,207,255,.32);
+  background: radial-gradient(ellipse, rgba(0,145,220,.22), transparent 75%);
+}
+.future-hub-branch:focus-visible { outline: 1px solid rgba(93,220,255,.7); outline-offset: 5px; }
+.future-hub-branch[data-direction="top"] { --branch-y: clamp(-230px,-22vmin,-128px); }
+.future-hub-branch[data-direction="left"] { --branch-x: clamp(-330px,-26vw,-160px); }
+.future-hub-branch[data-direction="right"] { --branch-x: clamp(160px,26vw,330px); }
+.future-hub-branch[data-direction="bottom"] { --branch-y: clamp(128px,22vmin,230px); }
+.future-hub-branch[data-direction="top"]::before,
+.future-hub-branch[data-direction="bottom"]::before { left: 50%; transform: translateX(-50%) rotate(90deg); }
+.future-hub-branch[data-direction="left"]::before { right: -20px; }
+.future-hub-branch[data-direction="right"]::before { left: -20px; }
+.future-hub-caption {
+  position: absolute;
+  left: 50%;
+  bottom: max(22px,env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  color: rgba(121,190,219,.38);
+  font: 500 9px/1 Inter, sans-serif;
+  letter-spacing: .34em;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity .8s ease .9s;
+  pointer-events: none;
+}
+#futureHub.is-active .future-hub-caption { opacity: 1; }
+#futureHub.is-shutting-down .future-hub-branch,
+#futureHub.is-routing .future-hub-branch,
+#futureHub.is-shutting-down .future-hub-caption,
+#futureHub.is-routing .future-hub-caption { opacity: 0; transition-delay: 0s; }
+#futureReturnButton {
+  position: fixed;
+  z-index: 9988;
+  right: max(18px,env(safe-area-inset-right));
+  bottom: max(18px,env(safe-area-inset-bottom));
+  width: 46px;
+  height: 46px;
+  border: 1px solid rgba(63,202,255,.42);
+  border-radius: 50%;
+  background: rgba(2,12,24,.88);
+  color: #9ceeff;
+  box-shadow: 0 0 22px rgba(0,149,255,.2), inset 0 0 14px rgba(0,130,220,.12);
+  font-size: 21px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .25s ease, transform .25s ease;
+}
+#futureReturnButton.is-visible { opacity: 1; visibility: visible; }
+#futureReturnButton:active { transform: scale(.94); }
+@keyframes future-nebula {
+  from { transform: scale(.94) rotate(-4deg); opacity: .65; }
+  to { transform: scale(1.08) rotate(4deg); opacity: 1; }
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .future-hub-core { width: min(70vw, 390px); }
+  .future-hub-branch {
+    width: clamp(132px,42vw,174px);
+    min-height: 52px;
+    padding: 12px 8px;
+    font-size: 10px;
+    letter-spacing: .13em;
+  }
+  .future-hub-branch[data-direction="top"] { --branch-y: clamp(-190px,-25vw,-125px); }
+  .future-hub-branch[data-direction="bottom"] { --branch-y: clamp(125px,25vw,190px); }
+  .future-hub-branch[data-direction="left"] { --branch-x: clamp(-178px,-24vw,-128px); }
+  .future-hub-branch[data-direction="right"] { --branch-x: clamp(128px,24vw,178px); }
+  .future-hub-caption { font-size: 8px; letter-spacing: .22em; }
+}
+@media (max-width: 360px) {
+  .future-hub-branch { width: 116px; font-size: 9px; }
+  .future-hub-branch[data-direction="left"] { --branch-x: -112px; }
+  .future-hub-branch[data-direction="right"] { --branch-x: 112px; }
+}
+/* EnclaveAI is deliberately available only while FUTURE is enabled. */
+html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  #futureHub, #futureHub *, #futureReturnButton { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
