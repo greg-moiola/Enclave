@@ -15,6 +15,16 @@
     <button class="future-hub-branch" type="button" data-direction="left" data-target="chat">CHAT</button>
     <button class="future-hub-branch" type="button" data-direction="right" data-target="settings">IMPOSTAZIONI</button>
     <button class="future-hub-branch" type="button" data-direction="bottom" data-target="ai">ENCLAVEAI</button>
+    <div id="futureSearchOverlay" class="future-search-overlay" aria-hidden="true">
+      <div class="future-search-panel">
+        <div class="future-search-bar-wrap">
+          <span aria-hidden="true">🔍</span>
+          <input type="text" id="futureSearchInput" placeholder="Cerca Enclave ID..." autocomplete="off">
+          <button type="button" id="futureSearchClose" class="future-search-close" aria-label="Chiudi ricerca">✕</button>
+        </div>
+        <div id="futureSearchResultsMirror" class="search-results"></div>
+      </div>
+    </div>
     <div class="future-hub-caption">ENCLAVE · FUTURE INTERFACE</div>`;
   document.body.appendChild(hub);
 
@@ -76,7 +86,6 @@
       raf = requestAnimationFrame(draw);
       return;
     }
-    const dt = Math.min(.04, (now-lastFrame)/1000 || .016);
     lastFrame = now;
     const elapsed = (now-phaseStarted)/1000;
     ctx.clearRect(0,0,width,height);
@@ -86,25 +95,27 @@
     const radius = minSide * (width < 700 ? .185 : .205);
     const build = phase === "opening" ? Math.min(1,elapsed/1.55) : 1;
     const collapse = phase === "closing" ? Math.max(0,1-elapsed/1.05) : 1;
-    const routing = phase === "routing" ? Math.max(0,1-elapsed/.58) : 1;
+    const routing = phase === "routing" ? Math.max(0,1-elapsed/.42) : 1;
     const overall = build * collapse * routing;
     const time = now*.00022;
     const rotY = time*.75, rotX = Math.sin(time*.55)*.16;
 
-    // Atmospheric particles converge from the periphery while opening, then scatter on exit.
-    const cloudCount = Math.min(150, Math.round(particles.length*.34));
+    // Particelle vaganti su tutto lo schermo che convergono nella bolla all'apertura
+    const cloudCount = Math.min(220, Math.round(particles.length*.48));
     for (let i=0;i<cloudCount;i++) {
       const p=particles[i];
       const a=p.seed + now*.00012*p.drift;
-      const dist=radius*(1.7 + .7*Math.sin(a*1.7));
-      const convergence = phase === "opening" ? Math.max(0,1-elapsed/1.6) : 0;
-      const scatter = phase === "closing" ? Math.min(1,elapsed/1.05) : 0;
-      const px=cx+Math.cos(a)*(dist*(convergence+scatter)*.65+radius*1.35);
-      const py=cy+Math.sin(a*1.31)*(dist*(convergence+scatter)*.5+radius*1.2);
-      const alpha=(convergence*.52+scatter*.36)*p.alpha;
+      const maxSpread = Math.max(width, height) * 0.65;
+      const dist = radius * 1.4 + maxSpread * (0.35 + 0.65 * Math.abs(Math.sin(a*1.7)));
+      const convergence = phase === "opening" ? Math.pow(Math.max(0, 1 - elapsed / 1.55), 1.4) : 0;
+      const scatter = phase === "closing" ? Math.min(1, elapsed / 1.05) : 0;
+      const factor = convergence + scatter;
+      const px = cx + Math.cos(a) * (radius * 1.15 + dist * factor);
+      const py = cy + Math.sin(a * 1.31) * (radius * 1.1 + dist * factor);
+      const alpha = (convergence * .78 + scatter * .5) * p.alpha;
       if(alpha>.015) {
         ctx.beginPath(); ctx.fillStyle=`rgba(75,190,255,${alpha})`;
-        ctx.arc(px,py,p.size*.8,0,Math.PI*2); ctx.fill();
+        ctx.arc(px,py,p.size*(1 + factor * .6),0,Math.PI*2); ctx.fill();
       }
     }
 
@@ -125,7 +136,6 @@
       projected.push({x:px,y:py,z,alpha,size:p.size*(.65+front*.9),front});
     }
 
-    // Loose energy filaments: local links only, avoiding a geometric wireframe appearance.
     ctx.lineWidth=.55;
     for(let i=0;i<projected.length;i+=2) {
       const a=projected[i];
@@ -140,7 +150,6 @@
       }
     }
 
-    // Central luminous volume.
     const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.28);
     glow.addColorStop(0,"rgba(0,115,230,0)");
     glow.addColorStop(.55,`rgba(0,112,220,${.08*overall})`);
@@ -148,7 +157,6 @@
     glow.addColorStop(1,"rgba(0,100,220,0)");
     ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.28,0,Math.PI*2);ctx.fill();
 
-    // Bright particles, with depth-based glow and organic flicker.
     for(const p of projected) {
       if(p.alpha<.015) continue;
       const flicker=.72+.28*Math.sin(now*.002+p.x*.018+p.y*.013);
@@ -162,7 +170,6 @@
     }
     ctx.shadowBlur=0;
 
-    // A few moving energy arcs add volume without enclosing the sphere in a wire cage.
     ctx.save();
     ctx.translate(cx,cy);
     ctx.rotate(now*.00009);
@@ -174,11 +181,8 @@
     }
     ctx.restore();
 
-    // Four delicate animated rays connect the orb to navigation nodes.
     const rayAlpha=overall*(phase==="opening"?Math.min(1,elapsed/1.25):1);
-    const directions=[
-      [0,-1],[-1,0],[1,0],[0,1]
-    ];
+    const directions=[[0,-1],[-1,0],[1,0],[0,1]];
     for(let i=0;i<4;i++) {
       const [dx,dy]=directions[i];
       const start=radius*.76, end=radius*(width<700?1.72:1.88);
@@ -201,7 +205,7 @@
       returnButton.classList.remove("is-visible");
       ctx.clearRect(0,0,width,height); cancelAnimationFrame(raf); raf=0; return;
     }
-    if(phase==="routing" && elapsed>=.62) {
+    if(phase==="routing" && elapsed>=.45) {
       phase="idle"; active=false; hub.classList.remove("is-active","is-routing");
       cancelAnimationFrame(raf);raf=0;return;
     }
@@ -213,84 +217,14 @@
     if(!raf) raf=requestAnimationFrame(draw);
   }
 
-  function showHub() {
-    if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
-    returnButton.classList.remove("is-visible");
-    hub.classList.remove("is-shutting-down","is-routing");
-    hub.classList.add("is-active");
-    resize();
-    startAnimation(reducedMotion ? "running" : "opening");
-  }
-
-  function shutdown() {
-    const aiButton = document.getElementById("enclaveAIQuickButton");
-    if (aiButton) aiButton.hidden = true;
-    if (!hub.classList.contains("is-active")) {
-      hub.classList.remove("is-shutting-down","is-routing");
-      returnButton.classList.remove("is-visible");
-      return;
-    }
-    hub.classList.remove("is-active");
-    hub.classList.add("is-shutting-down");
-    startAnimation(reducedMotion ? "closing" : "closing");
-  }
-
-  function routeAway(target) {
-    if (!hub.classList.contains("is-active")) return;
-    // Settings are an existing modal: keep the sphere alive behind it so
-    // disabling FUTURE can visibly play the particle-collapse transition.
-    if (target === "settings") {
-      document.getElementById("settingsButton")?.click();
-      return;
-    }
-    hub.classList.remove("is-active");
-    hub.classList.add("is-routing");
-    startAnimation("routing");
-    window.setTimeout(() => {
-      returnButton.classList.add("is-visible");
-      if (target === "search") {
-        document.getElementById("chatSearch")?.focus({ preventScroll: true });
-      } else if (target === "chat") {
-        const back = document.getElementById("chatBackButton");
-        if (back && !document.getElementById("activeChat")?.classList.contains("hidden")) back.click();
-        document.querySelector(".conversation-section")?.scrollIntoView({ block: "nearest" });
-      } else if (target === "ai") {
-        const ai = document.getElementById("enclaveAIQuickButton");
-        if (ai) { ai.hidden = false; ai.click(); }
-      }
-    }, 180);
-  }
-
-  hub.querySelectorAll(".future-hub-branch").forEach(button => {
-    button.addEventListener("click", () => routeAway(button.dataset.target));
-  });
-  returnButton.addEventListener("click", showHub);
-
-  document.addEventListener("enclave:future-mode-change", event => {
-    if (event.detail?.enabled) showHub();
-    else shutdown();
-  });
-
-  const observer = new MutationObserver(() => {
-    if (home.classList.contains("hidden")) {
-      if (hub.classList.contains("is-active")) shutdown();
-      returnButton.classList.remove("is-visible");
-    } else if (localStorage.getItem("enclaveFutureMode") === "true" && phase === "idle") {
-      showHub();
-    }
-  });
-  observer.observe(home,{attributes:true,attributeFilter:["class"]});
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    } else if (hub.classList.contains("is-active")) {
-      lastFrame = 0;
-      if (!raf) raf = requestAnimationFrame(draw);
-    }
-  });
-  window.addEventListener("resize", () => { if (hub.classList.contains("is-active")) resize(); }, {passive:true});
-  window.addEventListener("orientationchange", () => { if (hub.classList.contains("is-active")) resize(); }, {passive:true});
-
-  if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden")) showHub();
-})();
+  // Punto 1: Chiude automaticamente la modale impostazioni prima di lanciare le particelle
+  function closeSettingsModalIfOpen() {
+    const closeSelectors = [
+      "#closeSettingsButton",
+      "#settingsCloseButton",
+      "#settingsModal .close-button",
+      "#settingsModal .modal-close",
+      "[data-close-settings]"
+    ];
+    for (const sel of closeSelectors) {
+      const btn = document.querySelector(sel);
