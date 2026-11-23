@@ -227,6 +227,7 @@
 
     ctx.ellipse(0, 0, radius * (0.92 + k * 0.055), radius * (0.32 + k * 0.025), k * 0.83, now * 0.00012 + k * 2, now * 0.00012 + k * 2 + Math.PI * 1.42);
 ctx.strokeStyle = rgba(62,190,255,${0.10 * overall});
+    )  
 ctx.lineWidth = 0.7;
 ctx.stroke();
 }
