@@ -1,7 +1,7 @@
 /*
- * ENCLAVE VOICE — conversational voice layer for EnclaveAI.
- * Uses the existing authenticated EnclaveAI form/Worker pipeline; it does not
- * create a second AI endpoint or bypass Firebase authentication.
+ * ENCLAVE VOICE — orb-first conversational voice interface.
+ * Voice calls the authenticated EnclaveAI core directly; it never opens the
+ * EnclaveAI panel, writes into its composer, or simulates a form submission.
  */
 (() => {
   "use strict";
@@ -21,19 +21,14 @@
     recognition: null,
     restartTimer: null,
     lastTranscript: "",
-    lastSpoken: "",
+    lastFinalTranscript: "",
+    lastFinalAt: 0,
     lastAIAnswer: "",
-    observer: null,
-    spokenNodes: new WeakSet(),
-    aiMic: null,
-    startRequested: false,
-    requestTimeout: null
+    startRequested: false
   };
 
-  // Wake word is matched against normalized text: punctuation and accents from
-  // browser transcription must not prevent "Ehi, Enclave" from being detected.
   const WAKE_PREFIX = /^(?:(?:ehi|ei|hey|hei)\s+)?enclave\b\s*(.*)$/i;
-  const STOP = /^(?:stop|ferma|basta|termina|chiudi)\s*(?:enclave voice|la voce|ascolto|conversazione)?$/i;
+  const STOP = /^(?:stop|ferma|basta|termina|chiudi)(?:\s+(?:enclave voice|la voce|ascolto|conversazione))?$/i;
 
   function normalize(value) {
     return String(value || "").toLocaleLowerCase("it-IT").normalize("NFD")
@@ -41,6 +36,10 @@
       .replace(/[’']/g, " ")
       .replace(/[^\p{L}\p{N}\s]/gu, " ")
       .replace(/\s+/g, " ").trim();
+  }
+
+  function emit(name, detail = {}) {
+    document.dispatchEvent(new CustomEvent(`enclave:voice-${name}`, { detail }));
   }
 
   function setOrbState() {
@@ -51,17 +50,6 @@
       orbButton.setAttribute("aria-pressed", String(state.enabled));
       orbButton.setAttribute("aria-label", state.enabled ? "Disattiva Enclave Voice" : "Attiva Enclave Voice");
     }
-    if (state.aiMic) {
-      state.aiMic.classList.toggle("is-active", state.enabled);
-      state.aiMic.classList.toggle("is-listening", state.listening && !state.speaking);
-      state.aiMic.classList.toggle("is-speaking", state.speaking);
-      state.aiMic.setAttribute("aria-pressed", String(state.enabled));
-      state.aiMic.title = state.speaking ? "Enclave Voice: sto parlando" : state.listening ? "Enclave Voice: sto ascoltando" : state.enabled ? "Enclave Voice attiva" : "Enclave Voice";
-    }
-  }
-
-  function emit(name, detail = {}) {
-    document.dispatchEvent(new CustomEvent(`enclave:voice-${name}`, { detail }));
   }
 
   function stopRecognition() {
@@ -79,10 +67,21 @@
     setOrbState();
   }
 
+  function scheduleRecognition(delay = 220) {
+    if (!state.enabled || state.speaking || state.busy || document.hidden || !SpeechRecognition || state.restartTimer) return;
+    state.restartTimer = window.setTimeout(() => {
+      state.restartTimer = null;
+      startRecognitionInstance();
+    }, delay);
+  }
+
   function speak(text, options = {}) {
     const message = String(text || "").trim();
-    if (!message || !speechAvailable) return false;
-    if (state.recognition) stopRecognition();
+    if (!message || !speechAvailable) {
+      if (state.enabled) scheduleRecognition(180);
+      return false;
+    }
+    stopRecognition();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = options.lang || "it-IT";
@@ -93,134 +92,56 @@
     const italianVoice = voices.find(voice => /^it(?:-|$)/i.test(voice.lang));
     if (italianVoice) utterance.voice = italianVoice;
     state.speaking = true;
-    state.lastSpoken = message;
     setOrbState();
     utterance.onstart = () => emit("speaking", { active: true });
     utterance.onend = utterance.onerror = () => {
       state.speaking = false;
       setOrbState();
       emit("speaking", { active: false });
-      if (state.enabled) scheduleRecognition(180);
+      scheduleRecognition(180);
     };
     window.speechSynthesis.speak(utterance);
     return true;
   }
 
-  function openAI() {
-    // script.js is an ES module, so its functions are intentionally not read
-    // as globals. Use the existing app button, whose listener opens EnclaveAI.
-    const quick = document.getElementById("enclaveAIQuickButton");
-    if (quick) { quick.click(); return true; }
-    return false;
-  }
-
-  function waitForAIComposer(timeout = 9000) {
-    return new Promise((resolve, reject) => {
-      const started = Date.now();
-      const check = () => {
-        const form = document.getElementById("enclaveAIForm");
-        const input = document.getElementById("enclaveAIInput");
-        const send = document.getElementById("enclaveAISend");
-        // The send button is disabled by EnclaveAI only while a request is
-        // running. It is not a readiness signal: wait for the actual composer.
-        if (form && input && send) return resolve({ form, input, send });
-        if (Date.now() - started >= timeout) return reject(new Error("Interfaccia EnclaveAI non disponibile."));
-        window.setTimeout(check, 60);
-      };
-      check();
-    });
+  async function waitForEnclaveAICore(timeout = 10000) {
+    const started = Date.now();
+    while (state.enabled && !window.EnclaveAI?.askFromVoice) {
+      if (Date.now() - started >= timeout) throw new Error("Motore EnclaveAI non ancora disponibile.");
+      await new Promise(resolve => window.setTimeout(resolve, 80));
+    }
+    if (!state.enabled) throw new Error("Sessione vocale interrotta.");
+    return window.EnclaveAI;
   }
 
   async function sendToAI(text) {
     const message = String(text || "").trim();
-    if (!message || state.busy) return false;
+    if (!message || state.busy || !state.enabled) return false;
     state.busy = true;
     state.inConversation = true;
-    openAI();
+    stopRecognition();
+    emit("thinking", { active: true, text: message });
     try {
-      const { form, input, send } = await waitForAIComposer();
-      attachAIResponseObserver();
-      input.focus();
-      input.value = message.slice(0, 4000);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("change", { bubbles: true }));
-      // Use the real EnclaveAI form handler (Firebase auth + existing Worker).
-      form.requestSubmit(send);
+      const core = await waitForEnclaveAICore();
       emit("request", { text: message });
-      if (state.requestTimeout) clearTimeout(state.requestTimeout);
-      state.requestTimeout = window.setTimeout(() => {
-        state.busy = false;
-        state.requestTimeout = null;
-        emit("error", { error: "ai-response-timeout" });
-        if (state.enabled) speak("Non ho ricevuto una risposta da EnclaveAI. Puoi riprovare.");
-      }, 60000);
-      return true;
+      const answer = await core.askFromVoice(message);
+      if (!state.enabled) return false;
+      if (!answer) throw new Error("EnclaveAI non ha restituito una risposta.");
+      state.lastAIAnswer = answer;
+      emit("answer", { answer });
+      return speak(answer);
     } catch (error) {
-      state.busy = false;
-      if (state.requestTimeout) {
-        clearTimeout(state.requestTimeout);
-        state.requestTimeout = null;
-      }
       console.error("Enclave Voice → EnclaveAI:", error);
       emit("error", { error: error?.message || "ai-send-failed" });
-      if (state.enabled) speak("Non riesco a raggiungere EnclaveAI in questo momento.");
+      if (state.enabled) speak(error?.message?.includes("accedere")
+        ? "Devi accedere a Enclave con un account verificato per usare EnclaveAI."
+        : "Non riesco a raggiungere EnclaveAI in questo momento. Riprova tra poco.");
       return false;
+    } finally {
+      state.busy = false;
+      emit("thinking", { active: false });
+      if (state.enabled && !state.speaking) scheduleRecognition(250);
     }
-  }
-
-  function attachAIResponseObserver() {
-    const messages = document.getElementById("enclaveAIMessages");
-    if (!messages || state.observer?.target === messages) return;
-    state.observer?.disconnect();
-    const observer = new MutationObserver(records => {
-      if (!state.enabled) return;
-      for (const record of records) {
-        for (const node of record.addedNodes) {
-          if (!(node instanceof HTMLElement)) continue;
-          const candidates = [];
-          if (node.matches?.(".enclave-ai-message.is-assistant")) candidates.push(node);
-          candidates.push(...(node.querySelectorAll?.(".enclave-ai-message.is-assistant") || []));
-          for (const item of candidates) {
-            if (state.spokenNodes.has(item) || item.classList.contains("is-typing")) continue;
-            const bubble = item.querySelector(".enclave-ai-bubble");
-            const answer = bubble?.innerText?.trim();
-            if (!answer) continue;
-            state.spokenNodes.add(item);
-            state.lastAIAnswer = answer;
-            state.busy = false;
-            state.inConversation = true;
-            if (state.requestTimeout) {
-              clearTimeout(state.requestTimeout);
-              state.requestTimeout = null;
-            }
-            speak(answer);
-          }
-        }
-      }
-    });
-    observer.observe(messages, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
-    state.observer = observer;
-    state.observer.target = messages;
-  }
-
-  function installAIMicrophone() {
-    const row = document.querySelector("#enclaveAIForm .enclave-ai-composer-row");
-    if (!row) return;
-    if (state.aiMic?.isConnected) return;
-    const send = row.querySelector("#enclaveAISend");
-    if (!send) return;
-    const mic = document.createElement("button");
-    mic.type = "button";
-    mic.id = "enclaveAIVoiceButton";
-    mic.className = "enclave-ai-voice-button";
-    mic.setAttribute("aria-label", "Attiva Enclave Voice");
-    mic.setAttribute("aria-pressed", "false");
-    mic.title = "Enclave Voice";
-    mic.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3Z"/><path d="M19 11a7 7 0 0 1-14 0M12 18v4m-4 0h8"/></svg>';
-    mic.addEventListener("click", toggleVoice);
-    row.insertBefore(mic, send);
-    state.aiMic = mic;
-    setOrbState();
   }
 
   function route(target) {
@@ -233,7 +154,11 @@
     const value = normalize(raw);
     if (/^(apri|vai a|mostra) (la )?(chat|conversazioni|conversazione)$/.test(value)) return route("chat");
     if (/^(apri|vai a|mostra) (le )?impostazioni( avanzate)?$/.test(value)) return route("settings");
-    if (/^(apri|vai a) enclave ?ai$/.test(value)) { openAI(); return true; }
+    if (/^(apri|vai a) enclave ?ai$/.test(value)) {
+      // Explicitly requested navigation is the only local command that opens the panel.
+      document.getElementById("enclaveAIQuickButton")?.click();
+      return true;
+    }
     if (/^(cerca|apri) (un )?(utente|utenti|contatto|contatti)$/.test(value)) return route("search");
     const search = value.match(/^(cerca|trova) (.+)$/);
     if (search) {
@@ -246,26 +171,24 @@
       }, 160);
       return true;
     }
-    if (/^(nuova conversazione|nuova chat|azzera conversazione)$/.test(value)) {
-      document.getElementById("enclaveAINew")?.click();
-      state.inConversation = true;
-      speak("Nuova conversazione pronta.");
-      return true;
-    }
     if (/^(torna alla bolla|mostra la bolla|torna al menu)$/.test(value)) {
       document.getElementById("enclaveAIClose")?.click();
       document.getElementById("futureReturnButton")?.click();
       return true;
     }
     if (/^(aiuto|cosa puoi fare|comandi vocali)$/.test(value)) {
-      speak("Puoi parlarmi dopo aver detto Ehi Enclave. Puoi anche chiedermi di aprire chat, impostazioni, ricerca utenti, oppure di ripetere l'ultima risposta.");
+      speak("Puoi parlarmi dopo aver detto Ehi Enclave. Puoi chiedermi di aprire chat, impostazioni o ricerca utenti, oppure di ripetere l'ultima risposta.");
       return true;
     }
     if (/^(ripeti|ripeti risposta|leggi ultima risposta)$/.test(value) && state.lastAIAnswer) {
       speak(state.lastAIAnswer); return true;
     }
     if (/^(non parlare|silenzio|muto)$/.test(value)) {
-      window.speechSynthesis?.cancel(); state.speaking = false; setOrbState(); return true;
+      window.speechSynthesis?.cancel();
+      state.speaking = false;
+      setOrbState();
+      scheduleRecognition(180);
+      return true;
     }
     return false;
   }
@@ -273,26 +196,28 @@
   function processTranscript(raw) {
     const transcript = String(raw || "").trim();
     if (!transcript) return;
-    state.lastTranscript = transcript;
-    emit("transcript", { transcript, source: "speech-recognition" });
     const normalized = normalize(transcript);
+    const now = Date.now();
+    if (normalized === state.lastFinalTranscript && now - state.lastFinalAt < 1800) return;
+    state.lastFinalTranscript = normalized;
+    state.lastFinalAt = now;
+    state.lastTranscript = transcript;
     hub.classList.remove("is-hearing");
+    emit("transcript", { transcript, source: "speech-recognition" });
 
     if (STOP.test(normalized)) {
       stopVoice("spoken-stop");
       return;
     }
 
+    // Wake phrase is handled even during an existing conversation, so saying
+    // "Ehi Enclave" never gets sent to the language model as a user question.
     const wakeMatch = WAKE_PREFIX.exec(normalized);
-    if (!state.inConversation && wakeMatch) {
+    if (wakeMatch) {
       const afterWake = (wakeMatch[1] || "").trim();
       state.inConversation = true;
-      openAI();
-      if (afterWake) {
-        sendToAI(afterWake);
-      } else {
-        speak("Ti ascolto.");
-      }
+      if (afterWake) sendToAI(afterWake);
+      else speak("Ti ascolto.");
       return;
     }
 
@@ -301,29 +226,20 @@
       sendToAI(transcript);
       return;
     }
-
     runLocalCommand(transcript);
   }
 
-  function scheduleRecognition(delay = 250) {
-    if (!state.enabled || state.speaking || document.hidden || state.restartTimer) return;
-    state.restartTimer = window.setTimeout(() => {
-      state.restartTimer = null;
-      startRecognitionInstance();
-    }, delay);
-  }
-
   function startRecognitionInstance() {
-    if (!state.enabled || state.speaking || document.hidden || !SpeechRecognition) return;
-    if (state.recognition) return;
+    if (!state.enabled || state.speaking || state.busy || document.hidden || !SpeechRecognition || state.recognition) return;
     try {
       const recognition = new SpeechRecognition();
       state.recognition = recognition;
       recognition.lang = "it-IT";
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.maxAlternatives = 3;
+      recognition.maxAlternatives = 1;
       recognition.onstart = () => {
+        if (state.recognition !== recognition) return;
         state.listening = true;
         setOrbState();
         emit("listening", { active: true });
@@ -332,33 +248,34 @@
         let interim = "";
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
-          if (result.isFinal && result[0]?.transcript) processTranscript(result[0].transcript);
-          else if (result[0]?.transcript) interim += result[0].transcript;
+          const spoken = result[0]?.transcript || "";
+          if (result.isFinal && spoken.trim()) {
+            processTranscript(spoken);
+            // A single recognition event can contain multiple final segments.
+            // Process one at a time: the next utterance is captured after the
+            // orb has completed its response and restarted recognition.
+            break;
+          } else interim += spoken;
         }
-        // Subtle live feedback: the orb reacts as soon as speech is detected,
-        // without adding permanent labels or icons to the interface.
         hub.classList.toggle("is-hearing", Boolean(interim.trim()));
       };
       recognition.onerror = event => {
         state.listening = false;
         hub.classList.remove("is-hearing");
         emit("error", { error: event.error });
-        if (event.error === "no-speech") {
-          setOrbState();
-          return;
-        }
         if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event.error)) {
           state.enabled = false;
           state.inConversation = false;
-          setOrbState();
+          stopRecognition();
         }
+        setOrbState();
       };
       recognition.onend = () => {
         if (state.recognition === recognition) state.recognition = null;
         state.listening = false;
         setOrbState();
         hub.classList.remove("is-hearing");
-        if (state.enabled && !state.speaking) scheduleRecognition(350);
+        scheduleRecognition(350);
       };
       recognition.start();
     } catch (error) {
@@ -370,18 +287,21 @@
   }
 
   function startVoice() {
-    if (!SpeechRecognition || !window.isSecureContext) {
+    if (!SpeechRecognition || !speechAvailable || !window.isSecureContext) {
       hub.classList.add("voice-unavailable-pulse");
       window.setTimeout(() => hub.classList.remove("voice-unavailable-pulse"), 550);
-      emit("unavailable", { reason: !window.isSecureContext ? "insecure-context" : "unsupported-browser" });
+      const reason = !window.isSecureContext ? "insecure-context"
+        : !SpeechRecognition ? "unsupported-speech-recognition"
+        : "unsupported-speech-synthesis";
+      emit("unavailable", { reason });
       return false;
     }
     if (state.enabled) return true;
     state.enabled = true;
     state.inConversation = false;
-    hub.classList.remove("is-hearing");
     state.startRequested = true;
-    installAIMicrophone();
+    state.lastFinalTranscript = "";
+    hub.classList.remove("is-hearing");
     setOrbState();
     startRecognitionInstance();
     return true;
@@ -390,13 +310,9 @@
   function stopVoice(reason = "manual") {
     state.enabled = false;
     state.inConversation = false;
-    hub.classList.remove("is-hearing");
     state.busy = false;
-    if (state.requestTimeout) {
-      clearTimeout(state.requestTimeout);
-      state.requestTimeout = null;
-    }
     state.startRequested = false;
+    hub.classList.remove("is-hearing");
     stopRecognition();
     if (speechAvailable) window.speechSynthesis.cancel();
     state.speaking = false;
@@ -411,26 +327,12 @@
 
   if (orbButton) orbButton.addEventListener("click", toggleVoice);
 
-  const bodyObserver = new MutationObserver(() => {
-    if (document.getElementById("enclaveAIForm")) {
-      installAIMicrophone();
-      attachAIResponseObserver();
-    }
-  });
-  bodyObserver.observe(document.body, { childList: true, subtree: true });
-
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      stopRecognition();
-    } else if (state.enabled) {
-      scheduleRecognition(300);
-    }
+    if (document.hidden) stopRecognition();
+    else if (state.enabled) scheduleRecognition(300);
   });
   document.addEventListener("enclave:future-mode-change", event => {
-    if (!event.detail?.enabled && !document.getElementById("enclaveAIOverlay")) stopVoice("future-mode-disabled");
-  });
-  document.addEventListener("click", event => {
-    if (event.target.closest?.("#enclaveAIClose")) stopVoice("ai-closed");
+    if (!event.detail?.enabled) stopVoice("future-mode-disabled");
   });
 
   window.EnclaveVoice = Object.freeze({
@@ -441,6 +343,7 @@
     get isListening() { return state.listening; },
     get isActive() { return state.enabled; },
     get isInConversation() { return state.inConversation; },
+    get isBusy() { return state.busy; },
     get lastTranscript() { return state.lastTranscript; },
     get capabilities() {
       return {
