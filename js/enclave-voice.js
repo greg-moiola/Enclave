@@ -1,7 +1,7 @@
 /*
- * ENCLAVE VOICE — orb-first conversational voice interface.
- * Voice calls the authenticated EnclaveAI core directly; it never opens the
- * EnclaveAI panel, writes into its composer, or simulates a form submission.
+ * ENCLAVE VOICE — cross-browser audio capture and authenticated transcription.
+ * The orb is the only entry point. Audio is transcribed by the Enclave Worker;
+ * only an explicit wake phrase (or an already-open voice conversation) reaches EnclaveAI.
  */
 (() => {
   "use strict";
@@ -10,38 +10,43 @@
   const hub = document.getElementById("futureHub");
   if (!hub) return;
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const speechAvailable = "speechSynthesis" in window && !!window.SpeechSynthesisUtterance;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   const state = {
     enabled: false,
     listening: false,
     speaking: false,
     inConversation: false,
     busy: false,
-    recognition: null,
-    restartTimer: null,
-    lastTranscript: "",
-    lastFinalTranscript: "",
-    lastFinalAt: 0,
-    lastAIAnswer: "",
-    lastError: "",
-    startRequested: false,
+    stream: null,
+    audioContext: null,
+    analyser: null,
+    source: null,
+    raf: 0,
+    recorder: null,
+    chunks: [],
+    recordingStartedAt: 0,
+    speechStartedAt: 0,
+    silenceStartedAt: 0,
+    noiseFloor: 0.006,
+    mimeType: "",
     pendingWakeTimer: null,
     pendingWakeAt: 0,
     pendingWakeLead: false,
-    pendingFinalSegments: [],
-    finalFlushTimer: null,
-    conversationIdleTimer: null
+    lastTranscript: "",
+    lastAIAnswer: "",
+    lastError: ""
   };
 
+  const SILENCE_MS = 1150;
+  const MAX_UTTERANCE_MS = 14000;
+  const MIN_UTTERANCE_MS = 350;
   const STOP = /^(?:stop|ferma|basta|termina|chiudi)(?:\s+(?:enclave voice|la voce|ascolto|conversazione))?$/i;
 
   function normalize(value) {
     return String(value || "").toLocaleLowerCase("it-IT").normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[’']/g, " ")
-      .replace(/[^\p{L}\p{N}\s]/gu, " ")
-      .replace(/\s+/g, " ").trim();
+      .replace(/[\u0300-\u036f]/g, "").replace(/[’']/g, " ")
+      .replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim();
   }
 
   function emit(name, detail = {}) {
@@ -49,72 +54,70 @@
   }
 
   function setOrbState() {
-    hub.classList.toggle("is-listening", state.listening && !state.speaking);
+    hub.classList.toggle("is-listening", state.listening && !state.speaking && !state.busy);
     hub.classList.toggle("is-speaking", state.speaking);
     hub.classList.toggle("is-voice-session", state.enabled);
+    hub.classList.toggle("is-hearing", state.listening && !!state.recorder);
     if (orbButton) {
       orbButton.setAttribute("aria-pressed", String(state.enabled));
       orbButton.setAttribute("aria-label", state.enabled ? "Disattiva Enclave Voice" : "Attiva Enclave Voice");
     }
   }
 
-  function stopRecognition() {
-    if (state.restartTimer) {
-      clearTimeout(state.restartTimer);
-      state.restartTimer = null;
-    }
-    const current = state.recognition;
-    state.recognition = null;
-    state.listening = false;
-    if (current) {
-      current.onend = null;
-      try { current.stop(); } catch (_) {}
-    }
-    setOrbState();
-  }
-
-  function scheduleRecognition(delay = 220) {
-    if (!state.enabled || state.speaking || state.busy || document.hidden || !SpeechRecognition || state.restartTimer) return;
-    state.restartTimer = window.setTimeout(() => {
-      state.restartTimer = null;
-      startRecognitionInstance();
-    }, delay);
-  }
-
-  function toSpeakableText(value) {
+  function cleanForSpeech(value) {
     return String(value || "")
       .replace(/```[\s\S]*?```/g, " ")
       .replace(/`([^`]+)`/g, "$1")
-      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/!?\[([^\]]+)\]\([^)]+\)/g, "$1")
       .replace(/^\s{0,3}#{1,6}\s*/gm, "")
       .replace(/^\s*[-*+]\s+/gm, "")
       .replace(/^\s*>\s?/gm, "")
-      .replace(/\*\*(.*?)\*\*/gs, "$1")
-      .replace(/__(.*?)__/gs, "$1")
-      .replace(/\*(.*?)\*/gs, "$1")
-      .replace(/_(.*?)_/gs, "$1")
-      .replace(/~~(.*?)~~/gs, "$1")
-      .replace(/\\\((.*?)\\\)|\\\[(.*?)\\\]/gs, "$1 $2")
-      .replace(/[\*_#>`|{}\[\]]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/__(.*?)__/g, "$1")
+      .replace(/(?<!\*)\*(?!\*)([^*]+)\*(?!\*)/g, "$1")
+      .replace(/(?<!_)_(?!_)([^_]+)_(?!_)/g, "$1")
+      .replace(/~~(.*?)~~/g, "$1")
+      .replace(/[\*_#~]/g, "")
+      .replace(/\s+/g, " ").trim();
+  }
+
+  function stopCaptureLoop() {
+    if (state.raf) cancelAnimationFrame(state.raf);
+    state.raf = 0;
+    state.listening = false;
+    setOrbState();
+  }
+
+  function releaseMicrophone() {
+    stopCaptureLoop();
+    if (state.recorder && state.recorder.state !== "inactive") {
+      try { state.recorder.stop(); } catch (_) {}
+    }
+    state.recorder = null;
+    state.chunks = [];
+    if (state.stream) state.stream.getTracks().forEach(track => track.stop());
+    state.stream = null;
+    if (state.source) { try { state.source.disconnect(); } catch (_) {} }
+    state.source = null;
+    if (state.audioContext) {
+      const context = state.audioContext;
+      state.audioContext = null;
+      context.close().catch(() => {});
+    }
+    state.analyser = null;
   }
 
   function speak(text, options = {}) {
-    const message = toSpeakableText(text);
-    if (!message || !speechAvailable) {
-      if (state.enabled) scheduleRecognition(180);
-      return false;
-    }
-    stopRecognition();
+    const message = cleanForSpeech(text);
+    if (!message || !speechAvailable) return false;
+    stopCaptureLoop();
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = options.lang || "it-IT";
     utterance.rate = options.rate ?? 1;
     utterance.pitch = options.pitch ?? 1;
     utterance.volume = options.volume ?? 1;
-    const voices = window.speechSynthesis.getVoices?.() || [];
-    const italianVoice = voices.find(voice => /^it(?:-|$)/i.test(voice.lang));
+    const italianVoice = (window.speechSynthesis.getVoices?.() || []).find(v => /^it(?:-|$)/i.test(v.lang));
     if (italianVoice) utterance.voice = italianVoice;
     state.speaking = true;
     setOrbState();
@@ -123,51 +126,38 @@
       state.speaking = false;
       setOrbState();
       emit("speaking", { active: false });
-      if (state.inConversation) refreshConversationTimeout();
-      scheduleRecognition(180);
+      if (state.enabled) startCaptureLoop();
     };
     window.speechSynthesis.speak(utterance);
     return true;
   }
 
-  async function waitForEnclaveAICore(timeout = 10000) {
-    const started = Date.now();
-    while (state.enabled && !window.EnclaveAI?.askFromVoice) {
-      if (Date.now() - started >= timeout) throw new Error("Motore EnclaveAI non ancora disponibile.");
-      await new Promise(resolve => window.setTimeout(resolve, 80));
-    }
-    if (!state.enabled) throw new Error("Sessione vocale interrotta.");
-    return window.EnclaveAI;
+  function clearPendingWake() {
+    if (state.pendingWakeTimer) clearTimeout(state.pendingWakeTimer);
+    state.pendingWakeTimer = null;
+    state.pendingWakeAt = 0;
+    state.pendingWakeLead = false;
   }
 
-  async function sendToAI(text) {
-    const message = String(text || "").trim();
-    if (!message || state.busy || !state.enabled) return false;
-    state.busy = true;
-    state.inConversation = true;
-    stopRecognition();
-    emit("thinking", { active: true, text: message });
-    try {
-      const core = await waitForEnclaveAICore();
-      emit("request", { text: message });
-      const answer = await core.askFromVoice(message);
-      if (!state.enabled) return false;
-      if (!answer) throw new Error("EnclaveAI non ha restituito una risposta.");
-      state.lastAIAnswer = answer;
-      emit("answer", { answer });
-      return speak(answer);
-    } catch (error) {
-      console.error("Enclave Voice → EnclaveAI:", error);
-      emit("error", { error: error?.message || "ai-send-failed" });
-      if (state.enabled) speak(error?.message?.includes("accedere")
-        ? "Devi accedere a Enclave con un account verificato per usare EnclaveAI."
-        : "Non riesco a raggiungere EnclaveAI in questo momento. Riprova tra poco.");
-      return false;
-    } finally {
-      state.busy = false;
-      emit("thinking", { active: false });
-      if (state.enabled && !state.speaking) scheduleRecognition(250);
-    }
+  function parseWakePrefix(value) {
+    const words = normalize(value).split(" ").filter(Boolean);
+    if (!words.length) return { matched: false, remainder: "" };
+    const greetings = new Set(["ehi", "ei", "hey", "hei", "e"]);
+    const nameIndex = greetings.has(words[0]) ? 1 : 0;
+    const candidate = words[nameIndex] || "";
+    const aliases = new Set(["enclave", "encalve", "enclav", "enclabe", "enclaves"]);
+    const matched = aliases.has(candidate);
+    return { matched, remainder: words.slice(nameIndex + 1).join(" ") };
+  }
+
+  function armWakePrompt() {
+    clearPendingWake();
+    state.pendingWakeAt = Date.now();
+    state.pendingWakeTimer = setTimeout(() => {
+      state.pendingWakeTimer = null;
+      state.pendingWakeAt = 0;
+      if (state.enabled && !state.busy && !state.speaking) speak("Ti ascolto.");
+    }, 1300);
   }
 
   function route(target) {
@@ -181,315 +171,283 @@
     if (/^(apri|vai a|mostra) (la )?(chat|conversazioni|conversazione)$/.test(value)) return route("chat");
     if (/^(apri|vai a|mostra) (le )?impostazioni( avanzate)?$/.test(value)) return route("settings");
     if (/^(apri|vai a) enclave ?ai$/.test(value)) {
-      // Explicitly requested navigation is the only local command that opens the panel.
-      document.getElementById("enclaveAIQuickButton")?.click();
-      return true;
+      document.getElementById("enclaveAIQuickButton")?.click(); return true;
     }
     if (/^(cerca|apri) (un )?(utente|utenti|contatto|contatti)$/.test(value)) return route("search");
     const search = value.match(/^(cerca|trova) (.+)$/);
     if (search) {
       route("search");
-      window.setTimeout(() => {
+      setTimeout(() => {
         const input = document.getElementById("chatSearch");
-        if (!input) return;
-        input.value = search[2].toUpperCase();
-        input.dispatchEvent(new Event("input", { bubbles: true }));
+        if (input) { input.value = search[2].toUpperCase(); input.dispatchEvent(new Event("input", { bubbles: true })); }
       }, 160);
       return true;
     }
     if (/^(torna alla bolla|mostra la bolla|torna al menu)$/.test(value)) {
       document.getElementById("enclaveAIClose")?.click();
-      document.getElementById("futureReturnButton")?.click();
-      return true;
+      document.getElementById("futureReturnButton")?.click(); return true;
     }
     if (/^(aiuto|cosa puoi fare|comandi vocali)$/.test(value)) {
-      speak("Puoi parlarmi dopo aver detto Ehi Enclave. Puoi chiedermi di aprire chat, impostazioni o ricerca utenti, oppure di ripetere l'ultima risposta.");
-      return true;
+      speak("Dopo aver detto Ehi Enclave, puoi chiedermi di aprire chat, impostazioni o ricerca utenti, oppure di ripetere l'ultima risposta."); return true;
     }
     if (/^(ripeti|ripeti risposta|leggi ultima risposta)$/.test(value) && state.lastAIAnswer) {
       speak(state.lastAIAnswer); return true;
     }
     if (/^(non parlare|silenzio|muto)$/.test(value)) {
-      window.speechSynthesis?.cancel();
-      state.speaking = false;
-      setOrbState();
-      scheduleRecognition(180);
-      return true;
+      window.speechSynthesis.cancel(); state.speaking = false; setOrbState(); startCaptureLoop(); return true;
     }
     return false;
   }
 
-  function clearPendingWake() {
-    if (state.pendingWakeTimer) {
-      clearTimeout(state.pendingWakeTimer);
-      state.pendingWakeTimer = null;
-    }
-    state.pendingWakeLead = false;
-    state.pendingWakeAt = 0;
-  }
-
-  // Speech recognition frequently mishears or splits the product name.
-  // Accept close phonetic spellings such as "encalve" and "enclav".
-  function editDistanceAtMostOne(a, b) {
-    if (a === b) return true;
-    if (Math.abs(a.length - b.length) > 1) return false;
-    let i = 0, j = 0, edits = 0;
-    while (i < a.length && j < b.length) {
-      if (a[i] === b[j]) { i++; j++; continue; }
-      if (++edits > 1) return false;
-      if (a.length > b.length) i++;
-      else if (b.length > a.length) j++;
-      else { i++; j++; }
-    }
-    if (i < a.length || j < b.length) edits++;
-    return edits <= 1;
-  }
-
-  function parseWakePrefix(value) {
-    const words = normalize(value).split(" ").filter(Boolean);
-    if (!words.length) return { matched: false, remainder: "" };
-    const greetings = new Set(["ehi", "ei", "hey", "hei", "e"]);
-    const nameIndex = greetings.has(words[0]) ? 1 : 0;
-    const candidate = words[nameIndex] || "";
-    const aliases = new Set(["enclave", "encalve", "enclav", "enclabe", "enclaves"]);
-    const matches = aliases.has(candidate) || (candidate.length >= 6 && editDistanceAtMostOne(candidate, "enclave"));
-    if (!matches) return { matched: false, remainder: "" };
-    return { matched: true, remainder: words.slice(nameIndex + 1).join(" ") };
-  }
-
-  function armWakePrompt() {
-    clearPendingWake();
-    state.pendingWakeAt = Date.now();
-    state.pendingWakeTimer = window.setTimeout(() => {
-      state.pendingWakeTimer = null;
-      state.pendingWakeLead = false;
-      state.pendingWakeAt = 0;
-      if (!state.enabled || !state.inConversation || state.busy || state.speaking) return;
-      speak("Ti ascolto.");
-    }, 2100);
-  }
-
-  function refreshConversationTimeout() {
-    if (state.conversationIdleTimer) clearTimeout(state.conversationIdleTimer);
-    state.conversationIdleTimer = null;
-    if (!state.enabled || !state.inConversation) return;
-    state.conversationIdleTimer = window.setTimeout(() => {
-      state.conversationIdleTimer = null;
-      if (!state.enabled || state.busy || state.speaking) return;
-      state.inConversation = false;
-      clearPendingWake();
-      emit("conversation-timeout", { active: false });
-    }, 30000);
-  }
-
-  function processTranscript(raw) {
+  async function processTranscript(raw) {
     const transcript = String(raw || "").trim();
     if (!transcript || !state.enabled || state.busy) return;
     const normalized = normalize(transcript);
     if (!normalized) return;
-    const now = Date.now();
-    if (normalized === state.lastFinalTranscript && now - state.lastFinalAt < 1800) return;
-    state.lastFinalTranscript = normalized;
-    state.lastFinalAt = now;
     state.lastTranscript = transcript;
-    if (state.inConversation) refreshConversationTimeout();
-    hub.classList.remove("is-hearing");
-    emit("transcript", { transcript, normalized, source: "speech-recognition" });
+    emit("transcript", { transcript, normalized, source: "groq-whisper" });
 
-    if (STOP.test(normalized)) {
-      clearPendingWake();
-      stopVoice("spoken-stop");
-      return;
-    }
+    if (STOP.test(normalized)) { stopVoice("spoken-stop"); return; }
 
-    // A leading greeting may arrive as its own final result before the name.
     if (/^(?:ehi|ei|hey|hei|e)$/.test(normalized)) {
       state.pendingWakeLead = true;
-      state.pendingWakeAt = now;
-      if (state.pendingWakeTimer) clearTimeout(state.pendingWakeTimer);
-      state.pendingWakeTimer = window.setTimeout(() => {
+      state.pendingWakeAt = Date.now();
+      clearTimeout(state.pendingWakeTimer);
+      state.pendingWakeTimer = setTimeout(() => {
         state.pendingWakeTimer = null;
+        if (!state.enabled || state.busy || state.speaking) return;
         state.pendingWakeLead = false;
         state.pendingWakeAt = 0;
-        if (state.enabled && !state.busy && !state.speaking) {
-          state.inConversation = true;
-          speak("Ti ascolto.");
-        }
-      }, 2600);
+        speak("Ti ascolto.");
+      }, 2200);
       return;
     }
 
     let wakeInput = normalized;
-    if (state.pendingWakeLead && now - state.pendingWakeAt < 5000) {
-      wakeInput = `ei ${normalized}`;
+    if (state.pendingWakeLead && Date.now() - state.pendingWakeAt < 4500) {
+      wakeInput = `ehi ${normalized}`;
       clearPendingWake();
     }
-
     const wake = parseWakePrefix(wakeInput);
     if (wake.matched) {
       state.inConversation = true;
       if (wake.remainder) {
-        clearPendingWake();
         if (runLocalCommand(wake.remainder)) return;
-        sendToAI(wake.remainder);
-      } else {
-        armWakePrompt();
-      }
+        await sendToAI(wake.remainder);
+      } else armWakePrompt();
       return;
     }
 
-    // If only the greeting/name was recognized in a previous segment, the
-    // following final result is the rest of the same spoken request.
-    if (state.pendingWakeTimer && now - state.pendingWakeAt < 5000) {
-      clearPendingWake();
-      state.inConversation = true;
-      if (runLocalCommand(transcript)) return;
-      sendToAI(transcript);
-      return;
-    }
-
-    if (state.inConversation) {
-      if (runLocalCommand(transcript)) return;
-      sendToAI(transcript);
-      return;
-    }
-
-    // Safety gate: while waiting for the wake phrase, never send ambient
-    // speech, recognition noise, or unrelated conversation to EnclaveAI.
-    emit("ignored", { reason: "wake-word-not-detected", transcript });
+    // Strict gate: outside an activated conversation, never forward ambient speech.
+    if (!state.inConversation) return;
+    if (runLocalCommand(transcript)) return;
+    await sendToAI(transcript);
   }
 
-  function startRecognitionInstance() {
-    if (!state.enabled || state.speaking || state.busy || document.hidden || !SpeechRecognition || state.recognition) return;
+  async function sendToAI(text) {
+    const message = String(text || "").trim();
+    if (!message || state.busy || !state.enabled) return false;
+    state.busy = true;
+    stopCaptureLoop();
+    emit("thinking", { active: true, stage: "answer" });
     try {
-      const recognition = new SpeechRecognition();
-      state.recognition = recognition;
-      recognition.lang = "it-IT";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-      recognition.onstart = () => {
-        if (state.recognition !== recognition) return;
-        state.listening = true;
-        setOrbState();
-        emit("listening", { active: true });
-      };
-      recognition.onresult = event => {
-        let interim = "";
-        for (let index = event.resultIndex; index < event.results.length; index += 1) {
-          const result = event.results[index];
-          const alternative = result[0];
-          const spoken = alternative?.transcript || "";
-          if (!result.isFinal) {
-            interim += spoken;
-            continue;
-          }
-          // Ignore very low-confidence fragments when the browser supplies a
-          // confidence score. Some engines report 0 when unavailable.
-          const confidence = Number(alternative?.confidence || 0);
-          if (confidence > 0 && confidence < 0.42) {
-            emit("ignored", { reason: "low-confidence", transcript: spoken, confidence });
-            continue;
-          }
-          if (spoken.trim()) state.pendingFinalSegments.push(spoken.trim());
-        }
-        hub.classList.toggle("is-hearing", Boolean(interim.trim()) && state.listening);
-        if (state.pendingFinalSegments.length) {
-          if (state.finalFlushTimer) clearTimeout(state.finalFlushTimer);
-          // Wait for adjacent final chunks so a split sentence is handled as
-          // one utterance instead of submitting its first fragment too early.
-          state.finalFlushTimer = window.setTimeout(() => {
-            state.finalFlushTimer = null;
-            const utterance = state.pendingFinalSegments.join(" ").replace(/\s+/g, " ").trim();
-            state.pendingFinalSegments = [];
-            if (utterance) processTranscript(utterance);
-          }, 850);
-        }
-      };
-      recognition.onerror = event => {
-        state.listening = false;
-        hub.classList.remove("is-hearing");
-        state.lastError = event.error || "recognition-error";
-        emit("error", { error: state.lastError, stage: "speech-recognition" });
-        if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event.error)) {
-          state.enabled = false;
-          state.inConversation = false;
-          stopRecognition();
-          const explanation = event.error === "audio-capture"
-            ? "Non riesco a trovare un microfono disponibile. Controlla il dispositivo audio."
-            : "Il microfono non è autorizzato. Consenti a Enclave di usare il microfono nelle impostazioni del browser.";
-          speak(explanation);
-        }
-        setOrbState();
-      };
-      recognition.onend = () => {
-        if (state.recognition === recognition) state.recognition = null;
-        state.listening = false;
-        setOrbState();
-        hub.classList.remove("is-hearing");
-        scheduleRecognition(350);
-      };
-      recognition.start();
+      if (!window.EnclaveAI?.askFromVoice) throw new Error("Motore EnclaveAI non disponibile.");
+      const answer = await window.EnclaveAI.askFromVoice(message);
+      if (!state.enabled) return false;
+      if (!answer) throw new Error("EnclaveAI non ha restituito una risposta.");
+      state.lastAIAnswer = answer;
+      emit("answer", { answer });
+      return speak(answer);
     } catch (error) {
-      state.recognition = null;
-      state.listening = false;
-      state.lastError = error?.name || "start-failed";
-      setOrbState();
-      emit("error", { error: state.lastError, stage: "recognition-start" });
-      if (state.enabled) speak("Non riesco ad avviare il microfono. Controlla i permessi del browser e riprova.");
+      console.error("Enclave Voice → EnclaveAI:", error);
+      state.lastError = error?.message || "ai-send-failed";
+      emit("error", { error: state.lastError, stage: "answer" });
+      if (state.enabled) speak(error?.message?.includes("accedere")
+        ? "Devi accedere a Enclave con un account verificato per usare EnclaveAI."
+        : "Non riesco a raggiungere EnclaveAI in questo momento. Riprova tra poco.");
+      return false;
+    } finally {
+      state.busy = false;
+      emit("thinking", { active: false, stage: "answer" });
+      if (state.enabled && !state.speaking) startCaptureLoop();
     }
   }
 
-  function startVoice() {
-    if (!SpeechRecognition || !speechAvailable || !window.isSecureContext) {
+  async function transcribe(blob, mimeType) {
+    if (!window.EnclaveAI?.transcribeFromVoice) throw new Error("Servizio di trascrizione non disponibile.");
+    const extension = mimeType.includes("mp4") ? "mp4" : mimeType.includes("ogg") ? "ogg" : mimeType.includes("wav") ? "wav" : "webm";
+    return window.EnclaveAI.transcribeFromVoice(blob, `enclave-voice.${extension}`);
+  }
+
+  async function handleRecordedAudio(blob, mimeType, duration) {
+    if (!state.enabled || !blob || blob.size < 1200 || duration < MIN_UTTERANCE_MS) return;
+    state.busy = true;
+    state.listening = false;
+    setOrbState();
+    emit("thinking", { active: true, stage: "transcription" });
+    try {
+      const transcript = await transcribe(blob, mimeType);
+      if (!state.enabled) return;
+      state.busy = false;
+      if (transcript) await processTranscript(transcript);
+    } catch (error) {
+      console.error("Enclave Voice transcription:", error);
+      state.lastError = error?.message || "transcription-failed";
+      emit("error", { error: state.lastError, stage: "transcription" });
+      if (state.enabled) speak("Non sono riuscito a capire l'audio. Riprova.");
+    } finally {
+      state.busy = false;
+      emit("thinking", { active: false });
+      if (state.enabled && !state.speaking) startCaptureLoop();
+    }
+  }
+
+  function chooseMimeType() {
+    if (!window.MediaRecorder) return "";
+    const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+    return candidates.find(type => MediaRecorder.isTypeSupported?.(type)) || "";
+  }
+
+  function beginRecording(now) {
+    if (!state.stream || state.recorder || state.busy || state.speaking) return;
+    try {
+      const mimeType = chooseMimeType();
+      const recorder = mimeType ? new MediaRecorder(state.stream, { mimeType }) : new MediaRecorder(state.stream);
+      state.mimeType = recorder.mimeType || mimeType || "audio/webm";
+      state.recorder = recorder;
+      state.chunks = [];
+      state.recordingStartedAt = now;
+      state.speechStartedAt = now;
+      state.silenceStartedAt = 0;
+      recorder.ondataavailable = event => { if (event.data?.size) state.chunks.push(event.data); };
+      recorder.onerror = event => {
+        state.lastError = event.error?.message || "recorder-error";
+        emit("error", { error: state.lastError, stage: "recording" });
+      };
+      recorder.onstop = () => {
+        const chunks = state.chunks;
+        const blob = new Blob(chunks, { type: state.mimeType });
+        const duration = performance.now() - state.recordingStartedAt;
+        state.chunks = [];
+        state.recorder = null;
+        if (state.enabled) handleRecordedAudio(blob, state.mimeType, duration);
+      };
+      recorder.start(250);
+      setOrbState();
+    } catch (error) {
+      state.lastError = error?.message || "recorder-start-failed";
+      emit("error", { error: state.lastError, stage: "recording-start" });
+      throw error;
+    }
+  }
+
+  function finishRecording() {
+    const recorder = state.recorder;
+    if (!recorder || recorder.state === "inactive") return;
+    try { recorder.stop(); } catch (error) { console.warn("MediaRecorder stop:", error); }
+  }
+
+  function captureFrame() {
+    if (!state.enabled || !state.analyser || state.busy || state.speaking) return;
+    const data = new Uint8Array(state.analyser.fftSize);
+    state.analyser.getByteTimeDomainData(data);
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const sample = (data[i] - 128) / 128;
+      sum += sample * sample;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    const now = performance.now();
+
+    if (!state.recorder) {
+      state.noiseFloor = state.noiseFloor * 0.96 + Math.min(rms, 0.04) * 0.04;
+      const threshold = Math.max(0.014, state.noiseFloor * 2.8);
+      if (rms > threshold) {
+        if (!state.speechStartedAt) state.speechStartedAt = now;
+        if (now - state.speechStartedAt >= 120) {
+          try { beginRecording(now); } catch (_) { stopVoice("recording-error"); }
+        }
+      } else state.speechStartedAt = 0;
+    } else {
+      const threshold = Math.max(0.012, state.noiseFloor * 2.2);
+      if (rms < threshold) {
+        if (!state.silenceStartedAt) state.silenceStartedAt = now;
+        if (now - state.silenceStartedAt >= SILENCE_MS) finishRecording();
+      } else state.silenceStartedAt = 0;
+      if (now - state.recordingStartedAt >= MAX_UTTERANCE_MS) finishRecording();
+    }
+    state.raf = requestAnimationFrame(captureFrame);
+  }
+
+  function startCaptureLoop() {
+    if (!state.enabled || state.busy || state.speaking || !state.stream || !state.analyser || state.raf) return;
+    state.listening = true;
+    state.speechStartedAt = 0;
+    setOrbState();
+    emit("listening", { active: true });
+    state.raf = requestAnimationFrame(captureFrame);
+  }
+
+  async function startVoice() {
+    if (state.enabled) return true;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder || !AudioContextClass || !speechAvailable) {
       hub.classList.add("voice-unavailable-pulse");
-      window.setTimeout(() => hub.classList.remove("voice-unavailable-pulse"), 550);
-      const reason = !window.isSecureContext ? "insecure-context"
-        : !SpeechRecognition ? "unsupported-speech-recognition"
-        : "unsupported-speech-synthesis";
+      setTimeout(() => hub.classList.remove("voice-unavailable-pulse"), 550);
+      const reason = !window.isSecureContext ? "insecure-context" : !navigator.mediaDevices?.getUserMedia ? "microphone-api-unavailable" : !window.MediaRecorder ? "media-recorder-unavailable" : !AudioContextClass ? "audio-context-unavailable" : "unsupported-speech-synthesis";
       emit("unavailable", { reason });
       return false;
     }
-    if (state.enabled) return true;
+
+    // getUserMedia is invoked directly from the orb click to preserve iOS permission/user-gesture behavior.
     state.enabled = true;
     state.inConversation = false;
-    state.startRequested = true;
-    state.lastFinalTranscript = "";
-    hub.classList.remove("is-hearing");
+    state.lastError = "";
     setOrbState();
-    startRecognitionInstance();
-    return true;
+    try {
+      const streamPromise = navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
+      // Create/resume AudioContext inside the original orb gesture (important on iOS Safari).
+      state.audioContext = new AudioContextClass();
+      const resumePromise = state.audioContext.state === "suspended" ? state.audioContext.resume() : Promise.resolve();
+      state.stream = await streamPromise;
+      await resumePromise;
+      if (!state.enabled) { releaseMicrophone(); return false; }
+      state.source = state.audioContext.createMediaStreamSource(state.stream);
+      state.analyser = state.audioContext.createAnalyser();
+      state.analyser.fftSize = 2048;
+      state.analyser.smoothingTimeConstant = 0.15;
+      state.source.connect(state.analyser);
+      startCaptureLoop();
+      emit("started", { capabilities: { mediaRecorder: true, transcription: true, speechSynthesis: true, mimeType: chooseMimeType() || "browser-default" } });
+      return true;
+    } catch (error) {
+      console.error("Enclave Voice microphone:", error);
+      state.lastError = error?.name || "microphone-error";
+      state.enabled = false;
+      releaseMicrophone();
+      setOrbState();
+      emit("error", { error: state.lastError, stage: "microphone-permission" });
+      speak(error?.name === "NotAllowedError" ? "Consenti a Enclave di utilizzare il microfono nelle impostazioni del browser." : "Non riesco ad avviare il microfono. Controlla che sia disponibile e riprova.");
+      return false;
+    }
   }
 
   function stopVoice(reason = "manual") {
     state.enabled = false;
-    if (state.finalFlushTimer) clearTimeout(state.finalFlushTimer);
-    state.finalFlushTimer = null;
-    state.pendingFinalSegments = [];
-    if (state.conversationIdleTimer) clearTimeout(state.conversationIdleTimer);
-    state.conversationIdleTimer = null;
     state.inConversation = false;
     state.busy = false;
-    state.startRequested = false;
     clearPendingWake();
-    hub.classList.remove("is-hearing");
-    stopRecognition();
     if (speechAvailable) window.speechSynthesis.cancel();
     state.speaking = false;
+    releaseMicrophone();
     setOrbState();
     emit("stopped", { reason });
   }
 
-  function toggleVoice() {
-    if (state.enabled) stopVoice("toggle");
-    else startVoice();
-  }
+  function toggleVoice() { if (state.enabled) stopVoice("toggle"); else startVoice(); }
 
   if (orbButton) orbButton.addEventListener("click", toggleVoice);
-
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stopRecognition();
-    else if (state.enabled) scheduleRecognition(300);
+    if (document.hidden && state.enabled) stopVoice("page-hidden");
   });
   document.addEventListener("enclave:future-mode-change", event => {
     if (!event.detail?.enabled) stopVoice("future-mode-disabled");
@@ -507,12 +465,7 @@
     get lastTranscript() { return state.lastTranscript; },
     get lastError() { return state.lastError; },
     get capabilities() {
-      return {
-        speechRecognition: !!SpeechRecognition,
-        speechSynthesis: speechAvailable,
-        continuousRecognition: !!SpeechRecognition,
-        secureContext: !!window.isSecureContext
-      };
+      return { mediaRecorder: !!window.MediaRecorder, transcription: !!window.EnclaveAI?.transcribeFromVoice, speechSynthesis: speechAvailable, secureContext: !!window.isSecureContext };
     }
   });
 })();
