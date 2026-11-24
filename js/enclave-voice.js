@@ -30,7 +30,9 @@
     requestTimeout: null
   };
 
-  const WAKE = /\b(?:ehi|ei|hey|hei)\s+enclave\b|\benclave\b/i;
+  // Wake word is matched against normalized text: punctuation and accents from
+  // browser transcription must not prevent "Ehi, Enclave" from being detected.
+  const WAKE_PREFIX = /^(?:(?:ehi|ei|hey|hei)\s+)?enclave\b\s*(.*)$/i;
   const STOP = /^(?:stop|ferma|basta|termina|chiudi)\s*(?:enclave voice|la voce|ascolto|conversazione)?$/i;
 
   function normalize(value) {
@@ -51,7 +53,10 @@
     }
     if (state.aiMic) {
       state.aiMic.classList.toggle("is-active", state.enabled);
+      state.aiMic.classList.toggle("is-listening", state.listening && !state.speaking);
+      state.aiMic.classList.toggle("is-speaking", state.speaking);
       state.aiMic.setAttribute("aria-pressed", String(state.enabled));
+      state.aiMic.title = state.speaking ? "Enclave Voice: sto parlando" : state.listening ? "Enclave Voice: sto ascoltando" : state.enabled ? "Enclave Voice attiva" : "Enclave Voice";
     }
   }
 
@@ -109,14 +114,16 @@
     return false;
   }
 
-  function waitForAIComposer(timeout = 5000) {
+  function waitForAIComposer(timeout = 9000) {
     return new Promise((resolve, reject) => {
       const started = Date.now();
       const check = () => {
         const form = document.getElementById("enclaveAIForm");
         const input = document.getElementById("enclaveAIInput");
         const send = document.getElementById("enclaveAISend");
-        if (form && input && send && !send.disabled) return resolve({ form, input });
+        // The send button is disabled by EnclaveAI only while a request is
+        // running. It is not a readiness signal: wait for the actual composer.
+        if (form && input && send) return resolve({ form, input, send });
         if (Date.now() - started >= timeout) return reject(new Error("Interfaccia EnclaveAI non disponibile."));
         window.setTimeout(check, 60);
       };
@@ -131,20 +138,32 @@
     state.inConversation = true;
     openAI();
     try {
-      const { form, input } = await waitForAIComposer();
-      input.value = message;
+      const { form, input, send } = await waitForAIComposer();
+      attachAIResponseObserver();
+      input.focus();
+      input.value = message.slice(0, 4000);
       input.dispatchEvent(new Event("input", { bubbles: true }));
-      form.requestSubmit();
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      // Use the real EnclaveAI form handler (Firebase auth + existing Worker).
+      form.requestSubmit(send);
       emit("request", { text: message });
       if (state.requestTimeout) clearTimeout(state.requestTimeout);
       state.requestTimeout = window.setTimeout(() => {
         state.busy = false;
         state.requestTimeout = null;
-      }, 45000);
+        emit("error", { error: "ai-response-timeout" });
+        if (state.enabled) speak("Non ho ricevuto una risposta da EnclaveAI. Puoi riprovare.");
+      }, 60000);
       return true;
     } catch (error) {
+      state.busy = false;
+      if (state.requestTimeout) {
+        clearTimeout(state.requestTimeout);
+        state.requestTimeout = null;
+      }
       console.error("Enclave Voice → EnclaveAI:", error);
-      speak("Non riesco a raggiungere EnclaveAI in questo momento.");
+      emit("error", { error: error?.message || "ai-send-failed" });
+      if (state.enabled) speak("Non riesco a raggiungere EnclaveAI in questo momento.");
       return false;
     }
   }
@@ -169,6 +188,7 @@
             state.spokenNodes.add(item);
             state.lastAIAnswer = answer;
             state.busy = false;
+            state.inConversation = true;
             if (state.requestTimeout) {
               clearTimeout(state.requestTimeout);
               state.requestTimeout = null;
@@ -256,16 +276,16 @@
     state.lastTranscript = transcript;
     emit("transcript", { transcript, source: "speech-recognition" });
     const normalized = normalize(transcript);
+    hub.classList.remove("is-hearing");
 
     if (STOP.test(normalized)) {
       stopVoice("spoken-stop");
       return;
     }
 
-    const wakeMatch = WAKE.exec(transcript);
+    const wakeMatch = WAKE_PREFIX.exec(normalized);
     if (!state.inConversation && wakeMatch) {
-      const afterWake = transcript.slice(wakeMatch.index + wakeMatch[0].length).trim()
-        .replace(/^[,.:;!?\s-]+/, "");
+      const afterWake = (wakeMatch[1] || "").trim();
       state.inConversation = true;
       openAI();
       if (afterWake) {
@@ -301,18 +321,32 @@
       state.recognition = recognition;
       recognition.lang = "it-IT";
       recognition.continuous = true;
-      recognition.interimResults = false;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 3;
-      recognition.onstart = () => { state.listening = true; setOrbState(); emit("listening", { active: true }); };
+      recognition.onstart = () => {
+        state.listening = true;
+        setOrbState();
+        emit("listening", { active: true });
+      };
       recognition.onresult = event => {
+        let interim = "";
         for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
           if (result.isFinal && result[0]?.transcript) processTranscript(result[0].transcript);
+          else if (result[0]?.transcript) interim += result[0].transcript;
         }
+        // Subtle live feedback: the orb reacts as soon as speech is detected,
+        // without adding permanent labels or icons to the interface.
+        hub.classList.toggle("is-hearing", Boolean(interim.trim()));
       };
       recognition.onerror = event => {
         state.listening = false;
+        hub.classList.remove("is-hearing");
         emit("error", { error: event.error });
+        if (event.error === "no-speech") {
+          setOrbState();
+          return;
+        }
         if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event.error)) {
           state.enabled = false;
           state.inConversation = false;
@@ -323,6 +357,7 @@
         if (state.recognition === recognition) state.recognition = null;
         state.listening = false;
         setOrbState();
+        hub.classList.remove("is-hearing");
         if (state.enabled && !state.speaking) scheduleRecognition(350);
       };
       recognition.start();
@@ -344,6 +379,7 @@
     if (state.enabled) return true;
     state.enabled = true;
     state.inConversation = false;
+    hub.classList.remove("is-hearing");
     state.startRequested = true;
     installAIMicrophone();
     setOrbState();
@@ -354,6 +390,7 @@
   function stopVoice(reason = "manual") {
     state.enabled = false;
     state.inConversation = false;
+    hub.classList.remove("is-hearing");
     state.busy = false;
     if (state.requestTimeout) {
       clearTimeout(state.requestTimeout);
