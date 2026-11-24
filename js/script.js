@@ -9113,6 +9113,43 @@ async function requestEnclaveAIAnswer(idToken, messages) {
     return typeof result.answer === "string" ? result.answer.trim() : "";
 }
 
+// Public bridge for Enclave Voice. It reuses the exact same authenticated
+// EnclaveAI history and Worker request without creating/opening the chat UI.
+// The method is intentionally narrow: callers can submit plain text only.
+window.EnclaveAI = Object.freeze({
+    async askFromVoice(text) {
+        const message = typeof text === "string" ? text.trim().slice(0, 4000) : "";
+        if (!message) throw new Error("Non ho ricevuto una richiesta vocale valida.");
+        if (enclaveAIWaiting) throw new Error("EnclaveAI sta già elaborando un'altra richiesta. Attendi un momento.");
+
+        const user = auth.currentUser;
+        if (!user || !user.emailVerified) {
+            throw new Error("Devi accedere a Enclave con un account verificato per utilizzare EnclaveAI.");
+        }
+
+        enclaveAIWaiting = true;
+        const userEntry = { role: "user", content: message };
+        enclaveAIHistory.push(userEntry);
+        enclaveAIHistory = enclaveAIHistory.slice(-12);
+
+        try {
+            const idToken = await user.getIdToken();
+            const answer = await requestEnclaveAIAnswer(idToken, enclaveAIHistory);
+            if (!answer) throw new Error("Non sono riuscito a generare una risposta.");
+            enclaveAIHistory.push({ role: "assistant", content: answer });
+            enclaveAIHistory = enclaveAIHistory.slice(-12);
+            return answer;
+        } catch (error) {
+            // Do not leave a failed voice prompt in the shared conversation.
+            const last = enclaveAIHistory[enclaveAIHistory.length - 1];
+            if (last === userEntry) enclaveAIHistory.pop();
+            throw error;
+        } finally {
+            enclaveAIWaiting = false;
+        }
+    }
+});
+
 
 
 function setEnclaveAINexusStage(container, stage, detail, progress) {
