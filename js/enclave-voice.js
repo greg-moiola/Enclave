@@ -24,7 +24,10 @@
     lastFinalTranscript: "",
     lastFinalAt: 0,
     lastAIAnswer: "",
-    startRequested: false
+    startRequested: false,
+    pendingWakeTimer: null,
+    pendingWakeAt: 0,
+    pendingWakeLead: false
   };
 
   const WAKE_PREFIX = /^(?:(?:ehi|ei|hey|hei)\s+)?enclave\b\s*(.*)$/i;
@@ -193,31 +196,90 @@
     return false;
   }
 
+  function clearPendingWake() {
+    if (state.pendingWakeTimer) {
+      clearTimeout(state.pendingWakeTimer);
+      state.pendingWakeTimer = null;
+    }
+    state.pendingWakeLead = false;
+    state.pendingWakeAt = 0;
+  }
+
+  function armWakePrompt() {
+    clearPendingWake();
+    state.pendingWakeAt = Date.now();
+    state.pendingWakeTimer = window.setTimeout(() => {
+      state.pendingWakeTimer = null;
+      state.pendingWakeLead = false;
+      state.pendingWakeAt = 0;
+      if (!state.enabled || !state.inConversation || state.busy || state.speaking) return;
+      speak("Ti ascolto.");
+    }, 1250);
+  }
+
   function processTranscript(raw) {
     const transcript = String(raw || "").trim();
-    if (!transcript) return;
+    if (!transcript || !state.enabled || state.busy) return;
     const normalized = normalize(transcript);
+    if (!normalized) return;
     const now = Date.now();
     if (normalized === state.lastFinalTranscript && now - state.lastFinalAt < 1800) return;
     state.lastFinalTranscript = normalized;
     state.lastFinalAt = now;
     state.lastTranscript = transcript;
     hub.classList.remove("is-hearing");
-    emit("transcript", { transcript, source: "speech-recognition" });
+    emit("transcript", { transcript, normalized, source: "speech-recognition" });
 
     if (STOP.test(normalized)) {
+      clearPendingWake();
       stopVoice("spoken-stop");
       return;
     }
 
-    // Wake phrase is handled even during an existing conversation, so saying
-    // "Ehi Enclave" never gets sent to the language model as a user question.
-    const wakeMatch = WAKE_PREFIX.exec(normalized);
+    // Browsers may split one spoken sentence into multiple final results:
+    // "ei" + "enclave" + "non funziona". Keep the wake word armed briefly
+    // instead of speaking immediately and interrupting the rest of the phrase.
+    if (/^(?:ehi|ei|hey|hei)$/.test(normalized)) {
+      state.inConversation = true;
+      clearPendingWake();
+      state.pendingWakeLead = true;
+      state.pendingWakeAt = now;
+      state.pendingWakeTimer = window.setTimeout(() => {
+        state.pendingWakeTimer = null;
+        state.pendingWakeLead = false;
+        state.pendingWakeAt = 0;
+        if (state.enabled && state.inConversation && !state.busy && !state.speaking) speak("Ti ascolto.");
+      }, 1500);
+      return;
+    }
+
+    let wakeInput = normalized;
+    if (state.pendingWakeLead && now - state.pendingWakeAt < 2600) {
+      clearPendingWake();
+      wakeInput = `ei ${normalized}`;
+    }
+
+    const wakeMatch = WAKE_PREFIX.exec(wakeInput);
     if (wakeMatch) {
       const afterWake = (wakeMatch[1] || "").trim();
       state.inConversation = true;
-      if (afterWake) sendToAI(afterWake);
-      else speak("Ti ascolto.");
+      if (afterWake) {
+        clearPendingWake();
+        if (runLocalCommand(afterWake)) return;
+        sendToAI(afterWake);
+      } else {
+        armWakePrompt();
+      }
+      return;
+    }
+
+    // If the recognizer emitted the wake word and the request as separate
+    // results, this is the continuation of that same utterance.
+    if (state.pendingWakeTimer && now - state.pendingWakeAt < 2600) {
+      clearPendingWake();
+      state.inConversation = true;
+      if (runLocalCommand(transcript)) return;
+      sendToAI(transcript);
       return;
     }
 
@@ -244,20 +306,26 @@
         setOrbState();
         emit("listening", { active: true });
       };
+      let processedFinalCount = 0;
       recognition.onresult = event => {
         let interim = "";
-        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const finalSegments = [];
+        // Read the complete result list, not only resultIndex: Chrome can
+        // deliver the wake word and the rest of the same utterance as separate
+        // final segments in one event. Each final segment is processed once.
+        for (let index = 0; index < event.results.length; index += 1) {
           const result = event.results[index];
           const spoken = result[0]?.transcript || "";
-          if (result.isFinal && spoken.trim()) {
-            processTranscript(spoken);
-            // A single recognition event can contain multiple final segments.
-            // Process one at a time: the next utterance is captured after the
-            // orb has completed its response and restarted recognition.
-            break;
-          } else interim += spoken;
+          if (result.isFinal && spoken.trim()) finalSegments.push(spoken.trim());
+          else interim += spoken;
         }
-        hub.classList.toggle("is-hearing", Boolean(interim.trim()));
+        const freshSegments = finalSegments.slice(processedFinalCount);
+        processedFinalCount = Math.max(processedFinalCount, finalSegments.length);
+        for (const spoken of freshSegments) {
+          processTranscript(spoken);
+          if (!state.enabled || state.busy || state.speaking) break;
+        }
+        hub.classList.toggle("is-hearing", Boolean(interim.trim()) && state.listening);
       };
       recognition.onerror = event => {
         state.listening = false;
@@ -312,6 +380,7 @@
     state.inConversation = false;
     state.busy = false;
     state.startRequested = false;
+    clearPendingWake();
     hub.classList.remove("is-hearing");
     stopRecognition();
     if (speechAvailable) window.speechSynthesis.cancel();
