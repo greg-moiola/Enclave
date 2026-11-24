@@ -220,64 +220,39 @@ html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: none !
 #futureHub.is-searching .future-hub-branch,
 #futureHub.is-searching .future-hub-caption { opacity: 0; pointer-events: none; }
 
-/* Settings dissolve: UI fragments disperse, then are drawn toward the energy core. */
-.future-dissolve-layer {
+/* Settings UI is captured into a canvas particle field and rebuilt into the orb. */
+.future-dissolve-canvas {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  z-index: 12050;
+  width: 100vw;
+  height: 100vh;
   pointer-events: none;
-  overflow: hidden;
 }
-.future-dissolve-layer i {
-  position: fixed;
-  width: var(--size);
-  height: var(--size);
-  border-radius: 50%;
-  background: var(--particle-color, #64dfff);
-  box-shadow: 0 0 5px var(--particle-color, #159cff), 0 0 12px rgba(38,174,255,.75);
-  opacity: .95;
-  animation: future-particle-release 1.48s cubic-bezier(.16,.72,.2,1) var(--delay) both;
-}
-.future-dissolve-layer.is-converging i {
-  animation-name: future-particle-converge;
-}
-@keyframes future-particle-release {
-  0% { transform: translate(0,0) scale(1); opacity: .95; }
-  55% { transform: translate(var(--dx),var(--dy)) scale(1.2); opacity: .98; }
-  100% { transform: translate(var(--dx),var(--dy)) scale(.75); opacity: .72; }
-}
-@keyframes future-particle-converge {
-  0% { transform: translate(var(--dx),var(--dy)) scale(.7); opacity: .65; }
-  100% { transform: translate(calc(50vw - 50%),calc(50vh - 50%)) scale(.12); opacity: 0; }
-}
-.future-settings-disintegrating { animation: future-settings-fade 1.48s ease-in forwards !important; pointer-events: none !important; }
-@keyframes future-settings-fade { 0%,58% { opacity: 1; filter: none; transform: scale(1); } 82% { opacity: .82; filter: none; transform: scale(1.005); } 100% { opacity: 0; filter: none; transform: scale(1); } }
+.future-settings-disintegrating { opacity: 0 !important; visibility: hidden !important; pointer-events: none !important; }
 
 /* EnclaveAI remains in its original + menu in classic and FUTURE modes. */
 html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: flex !important; }
 
 
-/* Voice interaction foundation: explicit user-initiated microphone, never background listening. */
+/* Enclave Voice is an invisible hit-area on the orb: no glyph, badge or caption. */
 .future-voice-trigger {
-  position: absolute; left: 50%; top: 50%; z-index: 7;
-  width: clamp(54px, 9vmin, 76px); height: clamp(54px, 9vmin, 76px);
-  transform: translate(-50%,-50%); border: 1px solid rgba(100,220,255,.42);
-  border-radius: 50%; color: #d8faff; background: radial-gradient(circle, rgba(8,90,145,.48), rgba(2,12,27,.72));
-  box-shadow: 0 0 22px rgba(0,164,255,.28), inset 0 0 18px rgba(45,190,255,.18);
-  font-size: clamp(26px,4vmin,36px); cursor: pointer; opacity: 0; pointer-events: none;
-  transition: opacity .45s ease, box-shadow .25s ease, transform .25s ease;
+  position: absolute; left: 50%; top: 50%; z-index: 8;
+  width: clamp(118px, 24vmin, 220px); height: clamp(118px, 24vmin, 220px);
+  transform: translate(-50%,-50%); border: 0; border-radius: 50%;
+  background: transparent; color: transparent; cursor: pointer;
+  opacity: 0; pointer-events: none; -webkit-tap-highlight-color: transparent;
 }
-#futureHub.is-active .future-voice-trigger { opacity: .94; pointer-events: auto; transition-delay: .65s; }
-.future-voice-trigger:active { transform: translate(-50%,-50%) scale(.94); }
-.future-voice-trigger.is-listening { animation: future-voice-pulse 1.25s ease-in-out infinite; box-shadow: 0 0 34px rgba(48,213,255,.7), inset 0 0 22px rgba(45,190,255,.35); }
-.future-voice-status { position: absolute; left: 50%; top: calc(50% + clamp(42px,7vmin,58px)); z-index: 7; transform: translateX(-50%);
-  color: rgba(165,225,245,.72); font: 500 8px/1.4 Inter, sans-serif; letter-spacing: .18em; white-space: nowrap;
-  opacity: 0; pointer-events: none; transition: opacity .35s ease; }
-#futureHub.is-active .future-voice-status { opacity: 1; transition-delay: .7s; }
-#futureHub.is-routing .future-voice-trigger, #futureHub.is-shutting-down .future-voice-trigger,
-#futureHub.is-routing .future-voice-status, #futureHub.is-shutting-down .future-voice-status { opacity: 0; pointer-events: none; }
-@keyframes future-voice-pulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.55); } }
-@media (prefers-reduced-motion: reduce) { .future-voice-trigger.is-listening { animation: none; } }
+#futureHub.is-active .future-voice-trigger { opacity: 1; pointer-events: auto; }
+.future-voice-trigger:focus-visible { outline: 1px solid rgba(90,210,255,.42); outline-offset: 5px; }
+#futureHub.is-listening .future-hub-core,
+#futureHub.is-speaking .future-hub-core {
+  filter: drop-shadow(0 0 54px rgba(43,205,255,.58));
+}
+#futureHub.is-listening .future-voice-trigger { animation: future-orb-listening 1.35s ease-in-out infinite; }
+#futureHub.is-speaking .future-hub-core { filter: drop-shadow(0 0 64px rgba(43,205,255,.72)); }
+@keyframes future-orb-listening { 0%,100% { box-shadow: inset 0 0 0 0 rgba(47,207,255,0); } 50% { box-shadow: inset 0 0 52px 4px rgba(47,207,255,.16); } }
+@media (prefers-reduced-motion: reduce) { #futureHub.is-listening .future-voice-trigger { animation: none; } }
 
-#futureHub.is-speaking .future-hub-core { filter: drop-shadow(0 0 52px rgba(43,205,255,.52)); }
-#futureHub.is-speaking .future-voice-trigger { box-shadow: 0 0 36px rgba(48,213,255,.72), inset 0 0 25px rgba(45,190,255,.42); }
+#futureHub.voice-unavailable-pulse .future-hub-core { animation: future-voice-unavailable .48s ease-in-out 1; }
+@keyframes future-voice-unavailable { 0%,100% { filter: drop-shadow(0 0 22px rgba(255,110,110,.12)); } 50% { filter: drop-shadow(0 0 48px rgba(255,110,110,.5)); } }
