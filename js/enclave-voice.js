@@ -28,7 +28,10 @@
     startRequested: false,
     pendingWakeTimer: null,
     pendingWakeAt: 0,
-    pendingWakeLead: false
+    pendingWakeLead: false,
+    pendingFinalSegments: [],
+    finalFlushTimer: null,
+    conversationIdleTimer: null
   };
 
   const STOP = /^(?:stop|ferma|basta|termina|chiudi)(?:\s+(?:enclave voice|la voce|ascolto|conversazione))?$/i;
@@ -78,8 +81,27 @@
     }, delay);
   }
 
+  function toSpeakableText(value) {
+    return String(value || "")
+      .replace(/```[\s\S]*?```/g, " ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+      .replace(/^\s{0,3}#{1,6}\s*/gm, "")
+      .replace(/^\s*[-*+]\s+/gm, "")
+      .replace(/^\s*>\s?/gm, "")
+      .replace(/\*\*(.*?)\*\*/gs, "$1")
+      .replace(/__(.*?)__/gs, "$1")
+      .replace(/\*(.*?)\*/gs, "$1")
+      .replace(/_(.*?)_/gs, "$1")
+      .replace(/~~(.*?)~~/gs, "$1")
+      .replace(/\\\((.*?)\\\)|\\\[(.*?)\\\]/gs, "$1 $2")
+      .replace(/[\*_#>`|{}\[\]]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function speak(text, options = {}) {
-    const message = String(text || "").trim();
+    const message = toSpeakableText(text);
     if (!message || !speechAvailable) {
       if (state.enabled) scheduleRecognition(180);
       return false;
@@ -101,6 +123,7 @@
       state.speaking = false;
       setOrbState();
       emit("speaking", { active: false });
+      if (state.inConversation) refreshConversationTimeout();
       scheduleRecognition(180);
     };
     window.speechSynthesis.speak(utterance);
@@ -246,6 +269,19 @@
     }, 2100);
   }
 
+  function refreshConversationTimeout() {
+    if (state.conversationIdleTimer) clearTimeout(state.conversationIdleTimer);
+    state.conversationIdleTimer = null;
+    if (!state.enabled || !state.inConversation) return;
+    state.conversationIdleTimer = window.setTimeout(() => {
+      state.conversationIdleTimer = null;
+      if (!state.enabled || state.busy || state.speaking) return;
+      state.inConversation = false;
+      clearPendingWake();
+      emit("conversation-timeout", { active: false });
+    }, 30000);
+  }
+
   function processTranscript(raw) {
     const transcript = String(raw || "").trim();
     if (!transcript || !state.enabled || state.busy) return;
@@ -256,6 +292,7 @@
     state.lastFinalTranscript = normalized;
     state.lastFinalAt = now;
     state.lastTranscript = transcript;
+    if (state.inConversation) refreshConversationTimeout();
     hub.classList.remove("is-hearing");
     emit("transcript", { transcript, normalized, source: "speech-recognition" });
 
@@ -317,12 +354,9 @@
       return;
     }
 
-    // The orb was explicitly activated by the user. Do not silently discard
-    // the first sentence if the browser fails to recognize the wake phrase:
-    // accept it as a direct prompt. Saying the wake phrase remains supported.
-    state.inConversation = true;
-    if (runLocalCommand(transcript)) return;
-    sendToAI(transcript);
+    // Safety gate: while waiting for the wake phrase, never send ambient
+    // speech, recognition noise, or unrelated conversation to EnclaveAI.
+    emit("ignored", { reason: "wake-word-not-detected", transcript });
   }
 
   function startRecognitionInstance() {
@@ -340,28 +374,39 @@
         setOrbState();
         emit("listening", { active: true });
       };
-      let processedFinalCount = 0;
       recognition.onresult = event => {
         let interim = "";
-        const finalSegments = [];
-        // Read the complete result list, not only resultIndex: Chrome can
-        // deliver the wake word and the rest of the same utterance as separate
-        // final segments in one event. Each final segment is processed once.
-        for (let index = 0; index < event.results.length; index += 1) {
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
           const result = event.results[index];
-          const spoken = result[0]?.transcript || "";
-          if (result.isFinal && spoken.trim()) finalSegments.push(spoken.trim());
-          else interim += spoken;
+          const alternative = result[0];
+          const spoken = alternative?.transcript || "";
+          if (!result.isFinal) {
+            interim += spoken;
+            continue;
+          }
+          // Ignore very low-confidence fragments when the browser supplies a
+          // confidence score. Some engines report 0 when unavailable.
+          const confidence = Number(alternative?.confidence || 0);
+          if (confidence > 0 && confidence < 0.42) {
+            emit("ignored", { reason: "low-confidence", transcript: spoken, confidence });
+            continue;
+          }
+          if (spoken.trim()) state.pendingFinalSegments.push(spoken.trim());
         }
-        const freshSegments = finalSegments.slice(processedFinalCount);
-        processedFinalCount = Math.max(processedFinalCount, finalSegments.length);
-        // Treat final chunks delivered together as one utterance. Processing
-        // them individually could send the first chunk and discard the rest
-        // as soon as the AI request marks the engine busy.
-        if (freshSegments.length) processTranscript(freshSegments.join(" "));
         hub.classList.toggle("is-hearing", Boolean(interim.trim()) && state.listening);
+        if (state.pendingFinalSegments.length) {
+          if (state.finalFlushTimer) clearTimeout(state.finalFlushTimer);
+          // Wait for adjacent final chunks so a split sentence is handled as
+          // one utterance instead of submitting its first fragment too early.
+          state.finalFlushTimer = window.setTimeout(() => {
+            state.finalFlushTimer = null;
+            const utterance = state.pendingFinalSegments.join(" ").replace(/\s+/g, " ").trim();
+            state.pendingFinalSegments = [];
+            if (utterance) processTranscript(utterance);
+          }, 850);
+        }
       };
-        recognition.onerror = event => {
+      recognition.onerror = event => {
         state.listening = false;
         hub.classList.remove("is-hearing");
         state.lastError = event.error || "recognition-error";
@@ -418,6 +463,11 @@
 
   function stopVoice(reason = "manual") {
     state.enabled = false;
+    if (state.finalFlushTimer) clearTimeout(state.finalFlushTimer);
+    state.finalFlushTimer = null;
+    state.pendingFinalSegments = [];
+    if (state.conversationIdleTimer) clearTimeout(state.conversationIdleTimer);
+    state.conversationIdleTimer = null;
     state.inConversation = false;
     state.busy = false;
     state.startRequested = false;
