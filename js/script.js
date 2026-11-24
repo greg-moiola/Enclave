@@ -9117,6 +9117,31 @@ async function requestEnclaveAIAnswer(idToken, messages) {
 // EnclaveAI history and Worker request without creating/opening the chat UI.
 // The method is intentionally narrow: callers can submit plain text only.
 window.EnclaveAI = Object.freeze({
+    async transcribeFromVoice(audioBlob, filename = "enclave-voice.webm") {
+        if (!(audioBlob instanceof Blob) || audioBlob.size < 1200) {
+            throw new Error("Registrazione vocale vuota o non valida.");
+        }
+        if (audioBlob.size > 20 * 1024 * 1024) {
+            throw new Error("Registrazione troppo lunga. Riprova con una frase più breve.");
+        }
+        const user = auth.currentUser;
+        if (!user || !user.emailVerified) {
+            throw new Error("Devi accedere a Enclave con un account verificato per utilizzare Enclave Voice.");
+        }
+        const idToken = await user.getIdToken();
+        const form = new FormData();
+        form.append("audio", audioBlob, filename);
+        const response = await fetch(ENCLAVE_AI_WORKER_URL, {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${idToken}` },
+            body: form
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `Trascrizione non disponibile (${response.status}).`);
+        const transcript = typeof result.transcript === "string" ? result.transcript.trim() : "";
+        if (!transcript) throw new Error("Non ho riconosciuto parole nell'audio.");
+        return transcript;
+    },
     async askFromVoice(text) {
         const message = typeof text === "string" ? text.trim().slice(0, 4000) : "";
         if (!message) throw new Error("Non ho ricevuto una richiesta vocale valida.");
@@ -9128,10 +9153,7 @@ window.EnclaveAI = Object.freeze({
         }
 
         enclaveAIWaiting = true;
-        const userEntry = {
-            role: "user",
-            content: "Questa richiesta arriva dalla modalità vocale di Enclave. Rispondi sempre in italiano naturale, anche se la trascrizione contiene parole ambigue. Non interpretare la richiesta come una domanda sulla lingua o sulla musica a meno che l'utente lo chieda esplicitamente. Evita Markdown, asterischi, titoli, elenchi e simboli decorativi: la risposta verrà letta ad alta voce. Richiesta dell'utente: " + message
-        };
+        const userEntry = { role: "user", content: message };
         enclaveAIHistory.push(userEntry);
         enclaveAIHistory = enclaveAIHistory.slice(-12);
 
