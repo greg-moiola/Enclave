@@ -1436,3 +1436,13 @@ body.enclave-future-mode .notification-switch.is-on .notification-switch-knob {
     flex: 0 0 100% !important;
   }
 }
+
+
+/* FUTURE chat composer: dark input surface with readable typed text and caret. */
+html[data-enclave-mode="future"] #activeChat .chat-input-area #messageInput,
+body.enclave-future-mode #activeChat .chat-input-area #messageInput {
+  background: #101e2d !important; color: #f3f8ff !important; -webkit-text-fill-color: #f3f8ff !important;
+  border: 1px solid rgba(92,203,231,.24) !important; caret-color: #39d9f5 !important;
+}
+html[data-enclave-mode="future"] #activeChat .chat-input-area #messageInput::placeholder,
+body.enclave-future-mode #activeChat .chat-input-area #messageInput::placeholder { color: #9aafc3 !important; opacity: 1 !important; }
