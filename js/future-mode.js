@@ -12,8 +12,7 @@
     <canvas id="futureParticleField" aria-hidden="true"></canvas>
     <div class="future-search-dock" id="futureSearchDock" hidden><div id="futureSearchSlot"></div><div id="futureResultsSlot"></div></div>
     <div class="future-hub-core" aria-hidden="true"></div>
-    <button class="future-voice-trigger" id="futureVoiceButton" type="button" aria-label="Parla con Enclave" title="Parla con Enclave"><span aria-hidden="true">⌁</span></button>
-    <div class="future-voice-status" id="futureVoiceStatus" role="status" aria-live="polite">ENCLAVE VOICE · PRONTA</div>
+    <button class="future-voice-trigger" id="futureVoiceButton" type="button" aria-label="Attiva Enclave Voice"></button>
     <button class="future-hub-branch" type="button" data-direction="top" data-target="search">RICERCA UTENTI</button>
     <button class="future-hub-branch" type="button" data-direction="left" data-target="chat">CHAT</button>
     <button class="future-hub-branch" type="button" data-direction="right" data-target="settings">IMPOSTAZIONI</button>
@@ -45,6 +44,7 @@
   const searchBoxNext = searchBox?.nextSibling || null;
   const resultsNext = searchResults?.nextSibling || null;
   let futureDestination = null;
+  let pendingSettingsDissolveDuration = 0;
   let homeWasHidden = home.classList.contains("hidden");
   const particleCount = () => Math.max(190, Math.min(520, Math.round((width * height) / 2600)));
   const rand = (min,max) => min + Math.random() * (max-min);
@@ -230,39 +230,126 @@
   function dissolveSettingsScreen() {
     const overlay = document.getElementById("enclaveSettingsOverlay");
     const panel = overlay?.querySelector(".enclave-settings-panel");
-    if (!overlay || overlay.classList.contains("hidden") || !panel || overlay.dataset.futureDissolving === "true") return;
+    if (!overlay || overlay.classList.contains("hidden") || !panel || overlay.dataset.futureDissolving === "true") return 0;
     overlay.dataset.futureDissolving = "true";
+
+    // Snapshot the visible settings UI as thousands of tiny points. Text glyph
+    // rectangles and real control/panel surfaces both contribute particles.
     const rect = panel.getBoundingClientRect();
-    const layer = document.createElement("div");
-    layer.className = "future-dissolve-layer";
+    const layer = document.createElement("canvas");
+    layer.className = "future-dissolve-canvas";
     layer.setAttribute("aria-hidden", "true");
+    layer.width = Math.round(window.innerWidth * Math.min(devicePixelRatio || 1, 1.5));
+    layer.height = Math.round(window.innerHeight * Math.min(devicePixelRatio || 1, 1.5));
+    layer.style.width = "100vw";
+    layer.style.height = "100vh";
     document.body.appendChild(layer);
-    // Distribute the particles over the actual visible UI elements (text, controls,
-    // icons and panel surface), rather than spawning an unrelated cloud above it.
-    const surfaces = [panel, ...panel.querySelectorAll("h1,h2,h3,p,button,label,input,select,.settings-tab,[role=tab],.settings-section")]
+    const paint = layer.getContext("2d");
+    const scale = Math.min(devicePixelRatio || 1, 1.5);
+    paint.setTransform(scale, 0, 0, scale, 0, 0);
+
+    const surfaces = [panel, ...panel.querySelectorAll("h1,h2,h3,p,button,label,input,select,textarea,.settings-tab,[role=tab],.settings-section,.settings-option,svg")]
       .map(el => ({ el, r: el.getBoundingClientRect() }))
       .filter(item => item.r.width > 2 && item.r.height > 2);
-    const count = Math.min(620, Math.max(260, Math.round(rect.width * rect.height / 620)));
-    for (let i = 0; i < count; i++) {
-      const surface = surfaces[Math.floor(Math.random() * surfaces.length)] || {el:panel,r:rect};
-      const r = surface.r;
-      const x = r.left + Math.random() * r.width;
-      const y = r.top + Math.random() * r.height;
-      const dot = document.createElement("i");
-      const computed = getComputedStyle(surface.el);
-      const color = computed.color && computed.color !== "rgba(0, 0, 0, 0)" ? computed.color : "#64dfff";
-      dot.style.left = `${x}px`;
-      dot.style.top = `${y}px`;
-      dot.style.setProperty("--particle-color", color);
-      dot.style.setProperty("--dx", `${(Math.random() - .5) * Math.max(width, window.innerWidth) * 1.25}px`);
-      dot.style.setProperty("--dy", `${(Math.random() - .5) * Math.max(height, window.innerHeight) * 1.25}px`);
-      dot.style.setProperty("--delay", `${Math.random() * 360}ms`);
-      dot.style.setProperty("--size", `${1 + Math.random() * 2.5}px`);
-      layer.appendChild(dot);
+    const samples = [];
+    const addSample = (x, y, color, size = 1.7) => {
+      if (x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight) samples.push({ x, y, color, size });
+    };
+
+    // Sample panel/control surfaces in a fine pixel grid.
+    for (const {el, r} of surfaces) {
+      const style = getComputedStyle(el);
+      const bg = style.backgroundColor;
+      const fg = style.color || "#dff7ff";
+      const opaque = bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)";
+      const step = Math.max(4, Math.min(8, Math.round(Math.sqrt((r.width*r.height)/1800))));
+      for (let y = r.top + 1; y < r.bottom; y += step) {
+        for (let x = r.left + 1; x < r.right; x += step) {
+          const edge = x-r.left < step || r.right-x < step || y-r.top < step || r.bottom-y < step;
+          if (opaque ? Math.random() < .42 : edge && Math.random() < .18) addSample(x, y, opaque ? bg : fg, rand(1.1, 2.3));
+        }
+      }
     }
+
+    // Text is sampled per glyph rectangle, so labels break apart at their real positions.
+    const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
+    let textNode;
+    while ((textNode = walker.nextNode())) {
+      if (!textNode.nodeValue.trim()) continue;
+      const range = document.createRange();
+      const parent = textNode.parentElement;
+      const color = parent ? getComputedStyle(parent).color : "#dff7ff";
+      for (let i = 0; i < textNode.nodeValue.length; i++) {
+        range.setStart(textNode, i); range.setEnd(textNode, i + 1);
+        const r = range.getBoundingClientRect();
+        if (!r.width || !r.height) continue;
+        const n = Math.max(1, Math.ceil((r.width*r.height)/5));
+        for (let k=0;k<n;k++) addSample(r.left+Math.random()*r.width, r.top+Math.random()*r.height, color, rand(.8,1.65));
+      }
+    }
+
+    // Keep the particle field dense but bounded on mobile.
+    const max = window.matchMedia("(pointer: coarse)").matches ? 1250 : 2200;
+    if (samples.length > max) {
+      for (let i=samples.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [samples[i],samples[j]]=[samples[j],samples[i]]; }
+      samples.length = max;
+    }
+    const cx = innerWidth/2, cy = innerHeight/2;
+    const orbRadius = Math.min(innerWidth, innerHeight) * (innerWidth < 700 ? .18 : .205);
+    const dots = samples.map((p, i) => {
+      const angle = Math.random()*Math.PI*2;
+      const spread = Math.max(innerWidth,innerHeight) * (.28 + Math.random()*.68);
+      const targetAngle = Math.random()*Math.PI*2;
+      const targetY = Math.random()*2-1;
+      const targetR = Math.sqrt(1-targetY*targetY);
+      return {
+        ...p,
+        mx: cx + Math.cos(angle)*spread,
+        my: cy + Math.sin(angle)*spread,
+        tx: cx + Math.cos(targetAngle)*targetR*orbRadius,
+        ty: cy + targetY*orbRadius,
+        delay: Math.random()*.22,
+        phase: Math.random()*Math.PI*2
+      };
+    });
+
     panel.classList.add("future-settings-disintegrating");
-    window.setTimeout(() => { overlay.classList.add("hidden"); panel.classList.remove("future-settings-disintegrating"); overlay.dataset.futureDissolving = "false"; layer.remove(); }, 1550);
-    window.setTimeout(() => layer.classList.add("is-converging"), 760);
+    const duration = 2250;
+    const startAt = performance.now();
+    const ease = t => t*t*(3-2*t);
+    function render(now) {
+      const t = Math.min(1, (now-startAt)/duration);
+      paint.clearRect(0,0,innerWidth,innerHeight);
+      for (const p of dots) {
+        const local = Math.max(0, Math.min(1, (t-p.delay)/.92));
+        let x, y, alpha, size;
+        if (local < .55) {
+          const q = ease(local/.55);
+          x = p.x+(p.mx-p.x)*q; y = p.y+(p.my-p.y)*q;
+          alpha = .96; size = p.size*(1+.22*Math.sin(q*Math.PI));
+        } else {
+          const q = ease((local-.55)/.45);
+          x = p.mx+(p.tx-p.mx)*q; y = p.my+(p.ty-p.my)*q;
+          alpha = 1-q*.08; size = p.size*(1-q*.32);
+        }
+        const shimmer = .78 + .22*Math.sin(now*.008+p.phase);
+        paint.globalAlpha = alpha*shimmer;
+        paint.fillStyle = p.color;
+        paint.shadowColor = "rgba(52,190,255,.8)";
+        paint.shadowBlur = 3.5;
+        paint.fillRect(x, y, size, size);
+      }
+      paint.globalAlpha = 1; paint.shadowBlur = 0;
+      if (t < 1) requestAnimationFrame(render);
+      else {
+        layer.remove();
+        overlay.classList.add("hidden");
+        panel.classList.remove("future-settings-disintegrating");
+        overlay.dataset.futureDissolving = "false";
+      }
+    }
+    requestAnimationFrame(render);
+    return duration;
   }
 
   function restoreSearch() {
@@ -274,23 +361,27 @@
   function showHub(animate = false) {
     if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
     futureDestination = null;
-    dissolveSettingsScreen();
+    const dissolveDuration = pendingSettingsDissolveDuration || dissolveSettingsScreen();
+    pendingSettingsDissolveDuration = 0;
     hub.classList.remove("is-searching");
     if (searchBox) { const input = searchBox.querySelector("#chatSearch"); if (input) input.value = ""; }
     if (searchResults) searchResults.replaceChildren();
     restoreSearch();
     returnButton.classList.remove("is-visible");
     hub.classList.remove("is-shutting-down","is-routing");
-    hub.classList.add("is-active");
-    returnButton.classList.remove("is-visible");
     resize();
-    if (animate) startAnimation(reducedMotion ? "running" : "opening");
-    else {
-      phase = "running";
-      phaseStarted = performance.now();
-      active = true;
-      if (!raf) raf = requestAnimationFrame(draw);
-    }
+    const activate = () => {
+      hub.classList.add("is-active");
+      if (animate) startAnimation(reducedMotion ? "running" : "opening");
+      else {
+        phase = "running";
+        phaseStarted = performance.now();
+        active = true;
+        if (!raf) raf = requestAnimationFrame(draw);
+      }
+    };
+    if (dissolveDuration) window.setTimeout(activate, Math.max(0, dissolveDuration - 420));
+    else activate();
   }
 
   function shutdown() {
@@ -399,6 +490,19 @@
     new MutationObserver(syncReturnButtonWithChat).observe(activeChatView, { attributes: true, attributeFilter: ["class"] });
     syncReturnButtonWithChat();
   }
+
+
+  // Intercept the settings close gesture before the native panel is hidden,
+  // so its actual interface can fragment into particles instead of fading away.
+  document.addEventListener("click", event => {
+    const overlay = document.getElementById("enclaveSettingsOverlay");
+    if (!overlay || overlay.classList.contains("hidden") || futureDestination !== "settings") return;
+    const close = event.target.closest(".group-info-close");
+    const backdrop = event.target === overlay;
+    if ((close && overlay.contains(close)) || backdrop) {
+      pendingSettingsDissolveDuration = dissolveSettingsScreen();
+    }
+  }, true);
 
   // Closing the native settings panel returns directly to the orb, without
   // replaying the particle-formation intro. Ignore transitions to nickname editor.
