@@ -233,25 +233,25 @@ html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: none !
   width: var(--size);
   height: var(--size);
   border-radius: 50%;
-  background: #64dfff;
-  box-shadow: 0 0 7px #159cff, 0 0 15px rgba(38,174,255,.85);
+  background: var(--particle-color, #64dfff);
+  box-shadow: 0 0 5px var(--particle-color, #159cff), 0 0 12px rgba(38,174,255,.75);
   opacity: .95;
-  animation: future-particle-release 1.35s cubic-bezier(.16,.72,.2,1) var(--delay) both;
+  animation: future-particle-release 1.48s cubic-bezier(.16,.72,.2,1) var(--delay) both;
 }
 .future-dissolve-layer.is-converging i {
   animation-name: future-particle-converge;
 }
 @keyframes future-particle-release {
   0% { transform: translate(0,0) scale(1); opacity: .95; }
-  55% { transform: translate(var(--dx),var(--dy)) scale(1.25); opacity: .9; }
-  100% { transform: translate(var(--dx),var(--dy)) scale(.7); opacity: .55; }
+  55% { transform: translate(var(--dx),var(--dy)) scale(1.2); opacity: .98; }
+  100% { transform: translate(var(--dx),var(--dy)) scale(.75); opacity: .72; }
 }
 @keyframes future-particle-converge {
   0% { transform: translate(var(--dx),var(--dy)) scale(.7); opacity: .65; }
-  100% { transform: translate(calc(50vw - 50%),calc(50vh - 50%)) scale(.15); opacity: 0; }
+  100% { transform: translate(calc(50vw - 50%),calc(50vh - 50%)) scale(.12); opacity: 0; }
 }
-.future-settings-disintegrating { animation: future-settings-fade 1.25s ease forwards !important; pointer-events: none !important; }
-@keyframes future-settings-fade { 0% { opacity: 1; filter: none; transform: scale(1); } 45% { opacity: .8; filter: blur(1px); transform: scale(1.015); } 100% { opacity: 0; filter: blur(8px); transform: scale(.96); } }
+.future-settings-disintegrating { animation: future-settings-fade 1.48s ease-in forwards !important; pointer-events: none !important; }
+@keyframes future-settings-fade { 0%,58% { opacity: 1; filter: none; transform: scale(1); } 82% { opacity: .82; filter: none; transform: scale(1.005); } 100% { opacity: 0; filter: none; transform: scale(1); } }
 
 /* EnclaveAI remains in its original + menu in classic and FUTURE modes. */
 html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: flex !important; }
