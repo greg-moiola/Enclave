@@ -12,6 +12,8 @@
     <canvas id="futureParticleField" aria-hidden="true"></canvas>
     <div class="future-search-dock" id="futureSearchDock" hidden><div id="futureSearchSlot"></div><div id="futureResultsSlot"></div></div>
     <div class="future-hub-core" aria-hidden="true"></div>
+    <button class="future-voice-trigger" id="futureVoiceButton" type="button" aria-label="Parla con Enclave" title="Parla con Enclave"><span aria-hidden="true">⌁</span></button>
+    <div class="future-voice-status" id="futureVoiceStatus" role="status" aria-live="polite">ENCLAVE VOICE · PRONTA</div>
     <button class="future-hub-branch" type="button" data-direction="top" data-target="search">RICERCA UTENTI</button>
     <button class="future-hub-branch" type="button" data-direction="left" data-target="chat">CHAT</button>
     <button class="future-hub-branch" type="button" data-direction="right" data-target="settings">IMPOSTAZIONI</button>
@@ -269,8 +271,9 @@
     if (searchResults && resultsHomeAnchor && searchResults.parentNode !== resultsHomeAnchor) resultsHomeAnchor.insertBefore(searchResults, resultsNext);
   }
 
-  function showHub() {
+  function showHub(animate = false) {
     if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
+    futureDestination = null;
     dissolveSettingsScreen();
     hub.classList.remove("is-searching");
     if (searchBox) { const input = searchBox.querySelector("#chatSearch"); if (input) input.value = ""; }
@@ -279,8 +282,15 @@
     returnButton.classList.remove("is-visible");
     hub.classList.remove("is-shutting-down","is-routing");
     hub.classList.add("is-active");
+    returnButton.classList.remove("is-visible");
     resize();
-    startAnimation(reducedMotion ? "running" : "opening");
+    if (animate) startAnimation(reducedMotion ? "running" : "opening");
+    else {
+      phase = "running";
+      phaseStarted = performance.now();
+      active = true;
+      if (!raf) raf = requestAnimationFrame(draw);
+    }
   }
 
   function shutdown() {
@@ -337,7 +347,7 @@
   hub.querySelectorAll(".future-hub-branch").forEach(button => {
     button.addEventListener("click", () => routeAway(button.dataset.target));
   });
-  returnButton.addEventListener("click", showHub);
+  returnButton.addEventListener("click", () => showHub(false));
   searchResults?.addEventListener("click", event => {
     const result = event.target.closest(".search-result, .user-result");
     if (!result || !hub.classList.contains("is-searching")) return;
@@ -370,9 +380,40 @@
   aiObserver.observe(document.body, { childList: true, subtree: true });
 
   document.addEventListener("enclave:future-mode-change", event => {
-    if (event.detail?.enabled) showHub();
-    else shutdown();
+    if (event.detail?.enabled) showHub(true);
+    else {
+      futureDestination = null;
+      shutdown();
+    }
   });
+
+  // The classic chat view owns its composer: the floating FUTURE return control
+  // is hidden while a private conversation or group is actually open.
+  const activeChatView = document.getElementById("activeChat");
+  const syncReturnButtonWithChat = () => {
+    const chatOpen = !!activeChatView && !activeChatView.classList.contains("hidden");
+    if (chatOpen) returnButton.classList.remove("is-visible");
+    else if (futureDestination === "chat" || futureDestination === "search-chat") returnButton.classList.add("is-visible");
+  };
+  if (activeChatView) {
+    new MutationObserver(syncReturnButtonWithChat).observe(activeChatView, { attributes: true, attributeFilter: ["class"] });
+    syncReturnButtonWithChat();
+  }
+
+  // Closing the native settings panel returns directly to the orb, without
+  // replaying the particle-formation intro. Ignore transitions to nickname editor.
+  const settingsCloseObserver = new MutationObserver(() => {
+    const settings = document.getElementById("enclaveSettingsOverlay");
+    const nicknameEditor = document.getElementById("ownProfileNicknameOverlay");
+    if (futureDestination !== "settings" || !settings || !settings.classList.contains("hidden")) return;
+    if (nicknameEditor && !nicknameEditor.classList.contains("hidden")) return;
+    if (localStorage.getItem("enclaveFutureMode") !== "true") return;
+    futureDestination = null;
+    window.setTimeout(() => {
+      if (settings.classList.contains("hidden") && !(nicknameEditor && !nicknameEditor.classList.contains("hidden"))) showHub(false);
+    }, 80);
+  });
+  settingsCloseObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
 
   const observer = new MutationObserver(() => {
     const isHidden = home.classList.contains("hidden");
@@ -397,5 +438,5 @@
   window.addEventListener("resize", () => { if (hub.classList.contains("is-active")) resize(); }, {passive:true});
   window.addEventListener("orientationchange", () => { if (hub.classList.contains("is-active")) resize(); }, {passive:true});
 
-  if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden")) showHub();
+  if (localStorage.getItem("enclaveFutureMode") === "true" && !home.classList.contains("hidden")) showHub(false);
 })();
