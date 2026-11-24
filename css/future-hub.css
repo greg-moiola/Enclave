@@ -256,3 +256,27 @@ html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: flex !
 
 #futureHub.voice-unavailable-pulse .future-hub-core { animation: future-voice-unavailable .48s ease-in-out 1; }
 @keyframes future-voice-unavailable { 0%,100% { filter: drop-shadow(0 0 22px rgba(255,110,110,.12)); } 50% { filter: drop-shadow(0 0 48px rgba(255,110,110,.5)); } }
+
+/* Enclave Voice: state is communicated only through the orb's light. */
+#futureHub.is-voice-session .future-hub-core {
+  filter: drop-shadow(0 0 42px rgba(38, 190, 255, .34));
+}
+#futureHub.is-voice-session.is-listening .future-hub-core {
+  filter: drop-shadow(0 0 58px rgba(38, 210, 255, .68));
+  animation: enclave-voice-breathe 2.1s ease-in-out infinite;
+}
+#futureHub.is-voice-session.is-speaking .future-hub-core {
+  filter: drop-shadow(0 0 70px rgba(100, 224, 255, .82));
+  animation: enclave-voice-speaking 1.05s ease-in-out infinite alternate;
+}
+@keyframes enclave-voice-breathe {
+  0%, 100% { opacity: .88; }
+  50% { opacity: 1; }
+}
+@keyframes enclave-voice-speaking {
+  from { transform: scale(.985); }
+  to { transform: scale(1.035); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #futureHub.is-voice-session .future-hub-core { animation: none; }
+}
