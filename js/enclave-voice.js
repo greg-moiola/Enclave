@@ -24,13 +24,13 @@
     lastFinalTranscript: "",
     lastFinalAt: 0,
     lastAIAnswer: "",
+    lastError: "",
     startRequested: false,
     pendingWakeTimer: null,
     pendingWakeAt: 0,
     pendingWakeLead: false
   };
 
-  const WAKE_PREFIX = /^(?:(?:ehi|ei|hey|hei)\s+)?enclave\b\s*(.*)$/i;
   const STOP = /^(?:stop|ferma|basta|termina|chiudi)(?:\s+(?:enclave voice|la voce|ascolto|conversazione))?$/i;
 
   function normalize(value) {
@@ -205,6 +205,35 @@
     state.pendingWakeAt = 0;
   }
 
+  // Speech recognition frequently mishears or splits the product name.
+  // Accept close phonetic spellings such as "encalve" and "enclav".
+  function editDistanceAtMostOne(a, b) {
+    if (a === b) return true;
+    if (Math.abs(a.length - b.length) > 1) return false;
+    let i = 0, j = 0, edits = 0;
+    while (i < a.length && j < b.length) {
+      if (a[i] === b[j]) { i++; j++; continue; }
+      if (++edits > 1) return false;
+      if (a.length > b.length) i++;
+      else if (b.length > a.length) j++;
+      else { i++; j++; }
+    }
+    if (i < a.length || j < b.length) edits++;
+    return edits <= 1;
+  }
+
+  function parseWakePrefix(value) {
+    const words = normalize(value).split(" ").filter(Boolean);
+    if (!words.length) return { matched: false, remainder: "" };
+    const greetings = new Set(["ehi", "ei", "hey", "hei", "e"]);
+    const nameIndex = greetings.has(words[0]) ? 1 : 0;
+    const candidate = words[nameIndex] || "";
+    const aliases = new Set(["enclave", "encalve", "enclav", "enclabe", "enclaves"]);
+    const matches = aliases.has(candidate) || (candidate.length >= 6 && editDistanceAtMostOne(candidate, "enclave"));
+    if (!matches) return { matched: false, remainder: "" };
+    return { matched: true, remainder: words.slice(nameIndex + 1).join(" ") };
+  }
+
   function armWakePrompt() {
     clearPendingWake();
     state.pendingWakeAt = Date.now();
@@ -214,7 +243,7 @@
       state.pendingWakeAt = 0;
       if (!state.enabled || !state.inConversation || state.busy || state.speaking) return;
       speak("Ti ascolto.");
-    }, 1250);
+    }, 2100);
   }
 
   function processTranscript(raw) {
@@ -236,46 +265,45 @@
       return;
     }
 
-    // Browsers may split one spoken sentence into multiple final results:
-    // "ei" + "enclave" + "non funziona". Keep the wake word armed briefly
-    // instead of speaking immediately and interrupting the rest of the phrase.
-    if (/^(?:ehi|ei|hey|hei)$/.test(normalized)) {
-      state.inConversation = true;
-      clearPendingWake();
+    // A leading greeting may arrive as its own final result before the name.
+    if (/^(?:ehi|ei|hey|hei|e)$/.test(normalized)) {
       state.pendingWakeLead = true;
       state.pendingWakeAt = now;
+      if (state.pendingWakeTimer) clearTimeout(state.pendingWakeTimer);
       state.pendingWakeTimer = window.setTimeout(() => {
         state.pendingWakeTimer = null;
         state.pendingWakeLead = false;
         state.pendingWakeAt = 0;
-        if (state.enabled && state.inConversation && !state.busy && !state.speaking) speak("Ti ascolto.");
-      }, 1500);
+        if (state.enabled && !state.busy && !state.speaking) {
+          state.inConversation = true;
+          speak("Ti ascolto.");
+        }
+      }, 2600);
       return;
     }
 
     let wakeInput = normalized;
-    if (state.pendingWakeLead && now - state.pendingWakeAt < 2600) {
-      clearPendingWake();
+    if (state.pendingWakeLead && now - state.pendingWakeAt < 5000) {
       wakeInput = `ei ${normalized}`;
+      clearPendingWake();
     }
 
-    const wakeMatch = WAKE_PREFIX.exec(wakeInput);
-    if (wakeMatch) {
-      const afterWake = (wakeMatch[1] || "").trim();
+    const wake = parseWakePrefix(wakeInput);
+    if (wake.matched) {
       state.inConversation = true;
-      if (afterWake) {
+      if (wake.remainder) {
         clearPendingWake();
-        if (runLocalCommand(afterWake)) return;
-        sendToAI(afterWake);
+        if (runLocalCommand(wake.remainder)) return;
+        sendToAI(wake.remainder);
       } else {
         armWakePrompt();
       }
       return;
     }
 
-    // If the recognizer emitted the wake word and the request as separate
-    // results, this is the continuation of that same utterance.
-    if (state.pendingWakeTimer && now - state.pendingWakeAt < 2600) {
+    // If only the greeting/name was recognized in a previous segment, the
+    // following final result is the rest of the same spoken request.
+    if (state.pendingWakeTimer && now - state.pendingWakeAt < 5000) {
       clearPendingWake();
       state.inConversation = true;
       if (runLocalCommand(transcript)) return;
@@ -288,7 +316,13 @@
       sendToAI(transcript);
       return;
     }
-    runLocalCommand(transcript);
+
+    // The orb was explicitly activated by the user. Do not silently discard
+    // the first sentence if the browser fails to recognize the wake phrase:
+    // accept it as a direct prompt. Saying the wake phrase remains supported.
+    state.inConversation = true;
+    if (runLocalCommand(transcript)) return;
+    sendToAI(transcript);
   }
 
   function startRecognitionInstance() {
@@ -321,20 +355,25 @@
         }
         const freshSegments = finalSegments.slice(processedFinalCount);
         processedFinalCount = Math.max(processedFinalCount, finalSegments.length);
-        for (const spoken of freshSegments) {
-          processTranscript(spoken);
-          if (!state.enabled || state.busy || state.speaking) break;
-        }
+        // Treat final chunks delivered together as one utterance. Processing
+        // them individually could send the first chunk and discard the rest
+        // as soon as the AI request marks the engine busy.
+        if (freshSegments.length) processTranscript(freshSegments.join(" "));
         hub.classList.toggle("is-hearing", Boolean(interim.trim()) && state.listening);
       };
-      recognition.onerror = event => {
+        recognition.onerror = event => {
         state.listening = false;
         hub.classList.remove("is-hearing");
-        emit("error", { error: event.error });
+        state.lastError = event.error || "recognition-error";
+        emit("error", { error: state.lastError, stage: "speech-recognition" });
         if (["not-allowed", "service-not-allowed", "audio-capture"].includes(event.error)) {
           state.enabled = false;
           state.inConversation = false;
           stopRecognition();
+          const explanation = event.error === "audio-capture"
+            ? "Non riesco a trovare un microfono disponibile. Controlla il dispositivo audio."
+            : "Il microfono non è autorizzato. Consenti a Enclave di usare il microfono nelle impostazioni del browser.";
+          speak(explanation);
         }
         setOrbState();
       };
@@ -349,8 +388,10 @@
     } catch (error) {
       state.recognition = null;
       state.listening = false;
+      state.lastError = error?.name || "start-failed";
       setOrbState();
-      emit("error", { error: error?.name || "start-failed" });
+      emit("error", { error: state.lastError, stage: "recognition-start" });
+      if (state.enabled) speak("Non riesco ad avviare il microfono. Controlla i permessi del browser e riprova.");
     }
   }
 
@@ -414,6 +455,7 @@
     get isInConversation() { return state.inConversation; },
     get isBusy() { return state.busy; },
     get lastTranscript() { return state.lastTranscript; },
+    get lastError() { return state.lastError; },
     get capabilities() {
       return {
         speechRecognition: !!SpeechRecognition,
