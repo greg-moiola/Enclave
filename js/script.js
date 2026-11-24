@@ -9128,7 +9128,10 @@ window.EnclaveAI = Object.freeze({
         }
 
         enclaveAIWaiting = true;
-        const userEntry = { role: "user", content: message };
+        const userEntry = {
+            role: "user",
+            content: "Questa richiesta arriva dalla modalità vocale di Enclave. Rispondi sempre in italiano naturale, anche se la trascrizione contiene parole ambigue. Non interpretare la richiesta come una domanda sulla lingua o sulla musica a meno che l'utente lo chieda esplicitamente. Evita Markdown, asterischi, titoli, elenchi e simboli decorativi: la risposta verrà letta ad alta voce. Richiesta dell'utente: " + message
+        };
         enclaveAIHistory.push(userEntry);
         enclaveAIHistory = enclaveAIHistory.slice(-12);
 
