@@ -42,6 +42,8 @@
   const resultsHomeAnchor = searchResults?.parentNode;
   const searchBoxNext = searchBox?.nextSibling || null;
   const resultsNext = searchResults?.nextSibling || null;
+  let futureDestination = null;
+  let homeWasHidden = home.classList.contains("hidden");
   const particleCount = () => Math.max(190, Math.min(520, Math.round((width * height) / 2600)));
   const rand = (min,max) => min + Math.random() * (max-min);
 
@@ -233,22 +235,32 @@
     layer.className = "future-dissolve-layer";
     layer.setAttribute("aria-hidden", "true");
     document.body.appendChild(layer);
-    const count = Math.min(190, Math.max(90, Math.round(rect.width * rect.height / 2100)));
+    // Distribute the particles over the actual visible UI elements (text, controls,
+    // icons and panel surface), rather than spawning an unrelated cloud above it.
+    const surfaces = [panel, ...panel.querySelectorAll("h1,h2,h3,p,button,label,input,select,.settings-tab,[role=tab],.settings-section")]
+      .map(el => ({ el, r: el.getBoundingClientRect() }))
+      .filter(item => item.r.width > 2 && item.r.height > 2);
+    const count = Math.min(620, Math.max(260, Math.round(rect.width * rect.height / 620)));
     for (let i = 0; i < count; i++) {
+      const surface = surfaces[Math.floor(Math.random() * surfaces.length)] || {el:panel,r:rect};
+      const r = surface.r;
+      const x = r.left + Math.random() * r.width;
+      const y = r.top + Math.random() * r.height;
       const dot = document.createElement("i");
-      const x = Math.random() * rect.width;
-      const y = Math.random() * rect.height;
-      dot.style.left = `${rect.left + x}px`;
-      dot.style.top = `${rect.top + y}px`;
-      dot.style.setProperty("--dx", `${(Math.random() - .5) * Math.max(width, window.innerWidth) * .95}px`);
-      dot.style.setProperty("--dy", `${(Math.random() - .5) * Math.max(height, window.innerHeight) * .95}px`);
-      dot.style.setProperty("--delay", `${Math.random() * 420}ms`);
-      dot.style.setProperty("--size", `${1 + Math.random() * 3}px`);
+      const computed = getComputedStyle(surface.el);
+      const color = computed.color && computed.color !== "rgba(0, 0, 0, 0)" ? computed.color : "#64dfff";
+      dot.style.left = `${x}px`;
+      dot.style.top = `${y}px`;
+      dot.style.setProperty("--particle-color", color);
+      dot.style.setProperty("--dx", `${(Math.random() - .5) * Math.max(width, window.innerWidth) * 1.25}px`);
+      dot.style.setProperty("--dy", `${(Math.random() - .5) * Math.max(height, window.innerHeight) * 1.25}px`);
+      dot.style.setProperty("--delay", `${Math.random() * 360}ms`);
+      dot.style.setProperty("--size", `${1 + Math.random() * 2.5}px`);
       layer.appendChild(dot);
     }
     panel.classList.add("future-settings-disintegrating");
-    window.setTimeout(() => { overlay.classList.add("hidden"); panel.classList.remove("future-settings-disintegrating"); overlay.dataset.futureDissolving = "false"; layer.remove(); }, 1450);
-    window.setTimeout(() => layer.classList.add("is-converging"), 520);
+    window.setTimeout(() => { overlay.classList.add("hidden"); panel.classList.remove("future-settings-disintegrating"); overlay.dataset.futureDissolving = "false"; layer.remove(); }, 1550);
+    window.setTimeout(() => layer.classList.add("is-converging"), 760);
   }
 
   function restoreSearch() {
@@ -260,6 +272,9 @@
   function showHub() {
     if (localStorage.getItem("enclaveFutureMode") !== "true" || home.classList.contains("hidden")) return;
     dissolveSettingsScreen();
+    hub.classList.remove("is-searching");
+    if (searchBox) { const input = searchBox.querySelector("#chatSearch"); if (input) input.value = ""; }
+    if (searchResults) searchResults.replaceChildren();
     restoreSearch();
     returnButton.classList.remove("is-visible");
     hub.classList.remove("is-shutting-down","is-routing");
@@ -269,7 +284,6 @@
   }
 
   function shutdown() {
-    const aiButton = document.getElementById("enclaveAIQuickButton");
     if (!hub.classList.contains("is-active")) {
       hub.classList.remove("is-shutting-down","is-routing");
       returnButton.classList.remove("is-visible");
@@ -295,11 +309,13 @@
     hub.classList.remove("is-searching");
     // Each destination exits the hub before opening its existing Enclave view.
     if (target === "settings") {
+      futureDestination = "settings";
       hub.classList.remove("is-active"); hub.classList.add("is-routing");
       startAnimation("routing");
       window.setTimeout(() => { returnButton.classList.add("is-visible"); document.getElementById("settingsButton")?.click(); }, 180);
       return;
     }
+    futureDestination = target;
     hub.classList.remove("is-active");
     hub.classList.add("is-routing");
     startAnimation("routing");
@@ -308,8 +324,8 @@
       if (target === "search") {
         document.getElementById("chatSearch")?.focus({ preventScroll: true });
       } else if (target === "chat") {
-        const back = document.getElementById("chatBackButton");
-        if (back && !document.getElementById("activeChat")?.classList.contains("hidden")) back.click();
+        const activeChat = document.getElementById("activeChat");
+        if (activeChat && !activeChat.classList.contains("hidden")) document.getElementById("chatBackButton")?.click();
         document.querySelector(".conversation-section")?.scrollIntoView({ block: "nearest" });
       } else if (target === "ai") {
         const ai = document.getElementById("enclaveAIQuickButton");
@@ -323,10 +339,35 @@
   });
   returnButton.addEventListener("click", showHub);
   searchResults?.addEventListener("click", event => {
-    if (hub.classList.contains("is-searching") && event.target.closest("button, [role=button], .search-result, .user-result")) {
-      window.setTimeout(() => routeAway("search-chat"), 0);
+    const result = event.target.closest(".search-result, .user-result");
+    if (!result || !hub.classList.contains("is-searching")) return;
+    // The original Enclave result handler opens the private conversation.
+    // FUTURE only gets out of the way; it must never replace that navigation.
+    window.setTimeout(() => {
+      hub.classList.remove("is-active", "is-searching", "is-routing");
+      restoreSearch();
+      returnButton.classList.add("is-visible");
+      futureDestination = "search-chat";
+    }, 0);
+  });
+
+  // Escape / native close gestures return directly to the orb when search is empty.
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && hub.classList.contains("is-searching")) {
+      event.preventDefault(); showHub();
     }
   });
+
+  // EnclaveAI is an independent destination. Its own close button/backdrop
+  // returns to FUTURE, never to the classic conversation list.
+  const aiObserver = new MutationObserver(() => {
+    const ai = document.getElementById("enclaveAIOverlay");
+    if (futureDestination === "ai" && !ai && !hub.classList.contains("is-active") && !home.classList.contains("hidden")) {
+      futureDestination = null;
+      showHub();
+    }
+  });
+  aiObserver.observe(document.body, { childList: true, subtree: true });
 
   document.addEventListener("enclave:future-mode-change", event => {
     if (event.detail?.enabled) showHub();
@@ -334,12 +375,14 @@
   });
 
   const observer = new MutationObserver(() => {
-    if (home.classList.contains("hidden")) {
+    const isHidden = home.classList.contains("hidden");
+    if (isHidden) {
       if (hub.classList.contains("is-active")) shutdown();
       returnButton.classList.remove("is-visible");
-    } else if (localStorage.getItem("enclaveFutureMode") === "true" && phase === "idle") {
+    } else if (homeWasHidden && localStorage.getItem("enclaveFutureMode") === "true") {
       showHub();
     }
+    homeWasHidden = isHidden;
   });
   observer.observe(home,{attributes:true,attributeFilter:["class"]});
   document.addEventListener("visibilitychange", () => {
