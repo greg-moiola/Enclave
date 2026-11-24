@@ -1446,3 +1446,34 @@ body.enclave-future-mode #activeChat .chat-input-area #messageInput {
 }
 html[data-enclave-mode="future"] #activeChat .chat-input-area #messageInput::placeholder,
 body.enclave-future-mode #activeChat .chat-input-area #messageInput::placeholder { color: #9aafc3 !important; opacity: 1 !important; }
+
+/* Compact microphone control inside EnclaveAI's composer (not on the orb). */
+.enclave-ai-voice-button {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(91, 204, 236, .22);
+  border-radius: 50%;
+  color: #bdeeff;
+  background: rgba(29, 91, 119, .18);
+  cursor: pointer;
+  transition: background .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.enclave-ai-voice-button svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.enclave-ai-voice-button.is-active {
+  color: #fff;
+  background: rgba(24, 169, 207, .34);
+  border-color: rgba(91, 220, 255, .72);
+  box-shadow: 0 0 0 4px rgba(48, 195, 235, .10), 0 0 24px rgba(48, 195, 235, .25);
+}
