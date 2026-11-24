@@ -1477,3 +1477,24 @@ body.enclave-future-mode #activeChat .chat-input-area #messageInput::placeholder
   border-color: rgba(91, 220, 255, .72);
   box-shadow: 0 0 0 4px rgba(48, 195, 235, .10), 0 0 24px rgba(48, 195, 235, .25);
 }
+
+/* Voice button reports the actual recognition/speech state, not only activation. */
+.enclave-ai-voice-button.is-listening {
+  color: #ffffff;
+  border-color: rgba(91, 220, 255, .95);
+  background: rgba(24, 169, 207, .42);
+  box-shadow: 0 0 0 5px rgba(48, 195, 235, .13), 0 0 30px rgba(48, 195, 235, .38);
+  animation: enclave-ai-mic-listening 1.15s ease-in-out infinite;
+}
+.enclave-ai-voice-button.is-speaking {
+  color: #ffffff;
+  border-color: rgba(139, 230, 255, .95);
+  box-shadow: 0 0 0 4px rgba(48, 195, 235, .17), 0 0 34px rgba(48, 195, 235, .48);
+}
+@keyframes enclave-ai-mic-listening {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.075); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .enclave-ai-voice-button.is-listening { animation: none; }
+}
