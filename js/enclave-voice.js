@@ -187,8 +187,8 @@
       document.getElementById("enclaveAIClose")?.click();
       document.getElementById("futureReturnButton")?.click(); return true;
     }
-    if (/^(aiuto|cosa puoi fare|comandi vocali)$/.test(value)) {
-      speak("Dopo aver detto Ehi Enclave, puoi chiedermi di aprire chat, impostazioni o ricerca utenti, oppure di ripetere l'ultima risposta."); return true;
+    if (/^(aiuto|(?:che )?cosa puoi fare|comandi vocali)$/.test(value)) {
+      speak("Puoi parlarmi direttamente, chiedermi informazioni oppure dirmi di aprire chat, impostazioni o ricerca utenti. Puoi anche chiedermi di ripetere l'ultima risposta."); return true;
     }
     if (/^(ripeti|ripeti risposta|leggi ultima risposta)$/.test(value) && state.lastAIAnswer) {
       speak(state.lastAIAnswer); return true;
@@ -238,8 +238,10 @@
       return;
     }
 
-    // Strict gate: outside an activated conversation, never forward ambient speech.
-    if (!state.inConversation) return;
+    // Voice is explicitly activated by the user from the central orb.
+    // Therefore every recognized utterance is an intentional request: do not
+    // silently discard it merely because the wake phrase was not recognized.
+    state.inConversation = true;
     if (runLocalCommand(transcript)) return;
     await sendToAI(transcript);
   }
@@ -280,7 +282,12 @@
   }
 
   async function handleRecordedAudio(blob, mimeType, duration) {
-    if (!state.enabled || !blob || blob.size < 1200 || duration < MIN_UTTERANCE_MS) return;
+    if (!state.enabled) return;
+    if (!blob || blob.size < 1200 || duration < MIN_UTTERANCE_MS) {
+      state.lastError = `audio-too-short:size=${blob?.size || 0}:duration=${Math.round(duration || 0)}`;
+      emit("error", { error: state.lastError, stage: "recording-validation" });
+      return;
+    }
     state.busy = true;
     state.listening = false;
     setOrbState();
@@ -348,6 +355,9 @@
   }
 
   function captureFrame() {
+    // The callback currently being executed is no longer pending. Reset its
+    // handle before every early return so startCaptureLoop() can restart it.
+    state.raf = 0;
     if (!state.enabled || !state.analyser || state.busy || state.speaking) return;
     const data = new Uint8Array(state.analyser.fftSize);
     state.analyser.getByteTimeDomainData(data);
