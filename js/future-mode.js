@@ -11,7 +11,6 @@
   hub.innerHTML = `
     <canvas id="futureParticleField" aria-hidden="true"></canvas>
     <div class="future-search-dock" id="futureSearchDock" hidden><div id="futureSearchSlot"></div><div id="futureResultsSlot"></div></div>
-    <div class="future-hub-core" aria-hidden="true"></div>
     <button class="future-voice-trigger" id="futureVoiceButton" type="button" aria-label="Attiva Enclave Voice"></button>
     <button class="future-hub-branch" type="button" data-direction="top" data-target="search">RICERCA UTENTI</button>
     <button class="future-hub-branch" type="button" data-direction="left" data-target="chat">CHAT</button>
@@ -77,6 +76,8 @@
         z: Math.sin(theta)*radius*spread,
         size: rand(.65,1.75),
         seed: rand(0,Math.PI*2),
+        startAngle: rand(0,Math.PI*2),
+        startDistance: rand(Math.min(width,height)*.28,Math.min(width,height)*.62),
         drift: rand(.3,1.25),
         alpha: rand(.48,1)
       });
@@ -99,10 +100,14 @@
     const minSide = Math.min(width,height);
     const radius = minSide * (width < 700 ? .185 : .205);
     const build = phase === "opening" ? Math.min(1,elapsed/1.55) : 1;
+    const formation = build * build * (3 - 2 * build);
     const collapse = phase === "closing" ? Math.max(0,1-elapsed/1.05) : 1;
     const routing = phase === "routing" ? Math.max(0,1-elapsed/.58) : 1;
-    const overall = build * collapse * routing;
+    const overall = collapse * routing;
     const time = now*.00022;
+    const speaking = hub.classList.contains("is-speaking");
+    // A procedural energy envelope keeps the particle shell alive while EnclaveAI speaks.
+    const voiceEnergy = speaking ? (.5 + .5 * Math.sin(now * .009)) : 0;
     const rotY = time*.75, rotX = Math.sin(time*.55)*.16;
 
     // Atmospheric particles converge from the periphery while opening, then scatter on exit.
@@ -128,14 +133,24 @@
       let z=p.x*Math.sin(rotY)+p.z*Math.cos(rotY);
       let y=p.y*Math.cos(rotX)-z*Math.sin(rotX);
       z=p.y*Math.sin(rotX)+z*Math.cos(rotX);
-      const pulse=1 + .035*Math.sin(now*.0011+p.seed*2);
-      const organic=1 + .075*Math.sin(p.seed+now*.0007*p.drift) + .035*Math.cos(p.seed*2-now*.0004);
+      const speechRipple = speaking
+        ? (.026 * Math.sin(p.seed * 2.8 - now * .006) + .014 * Math.sin(p.seed * 5.2 + now * .009)) * (.35 + voiceEnergy)
+        : 0;
+      const pulse = 1 + .035*Math.sin(now*.0011+p.seed*2) + (speaking ? .035 * voiceEnergy : 0);
+      const organic = 1 + .075*Math.sin(p.seed+now*.0007*p.drift) + .035*Math.cos(p.seed*2-now*.0004) + speechRipple;
       const depth=1/(1.8-z*.52);
       const breathe=radius*pulse*organic*overall;
-      const px=cx+x*breathe*depth;
-      const py=cy+y*breathe*depth;
+      const targetX=cx+x*breathe*depth;
+      const targetY=cy+y*breathe*depth;
+      // At startup each point travels in from its own scattered position and
+      // settles onto the spherical shell: the orb is assembled by these particles.
+      const startX=cx+Math.cos(p.startAngle)*p.startDistance+x*radius*.08;
+      const startY=cy+Math.sin(p.startAngle)*p.startDistance+y*radius*.08;
+      const px=startX+(targetX-startX)*formation;
+      const py=startY+(targetY-startY)*formation;
       const front=(z+1)/2;
-      const alpha=(.22+front*.78)*p.alpha*overall;
+      const formationAlpha=phase === "opening" ? (.12+.88*formation) : 1;
+      const alpha=(.22+front*.78)*p.alpha*overall*formationAlpha;
       projected.push({x:px,y:py,z,alpha,size:p.size*(.65+front*.9),front});
     }
 
@@ -147,29 +162,24 @@
         const b=projected[j];
         const dx=a.x-b.x,dy=a.y-b.y,dist=dx*dx+dy*dy;
         if(dist < radius*radius*.085 && a.z>-.35 && b.z>-.35) {
-          const alpha=(1-Math.sqrt(dist)/(radius*.292))*.11*Math.min(a.alpha,b.alpha);
+          const alpha=(1-Math.sqrt(dist)/(radius*.292))*(speaking ? .17 + voiceEnergy*.08 : .11)*Math.min(a.alpha,b.alpha);
           ctx.strokeStyle=`rgba(44,177,255,${alpha})`;
           ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
         }
       }
     }
 
-    // Central luminous volume.
-    const glow=ctx.createRadialGradient(cx,cy,radius*.12,cx,cy,radius*1.28);
-    glow.addColorStop(0,"rgba(0,115,230,0)");
-    glow.addColorStop(.55,`rgba(0,112,220,${.08*overall})`);
-    glow.addColorStop(.82,`rgba(0,180,255,${.09*overall})`);
-    glow.addColorStop(1,"rgba(0,100,220,0)");
-    ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.28,0,Math.PI*2);ctx.fill();
+    // No pre-drawn orb: the luminous shell is made entirely from the projected particles.
 
     // Bright particles, with depth-based glow and organic flicker.
     for(const p of projected) {
       if(p.alpha<.015) continue;
       const flicker=.72+.28*Math.sin(now*.002+p.x*.018+p.y*.013);
-      const a=p.alpha*flicker;
+      const voiceFlicker = speaking ? (.72 + .28 * Math.sin(now * .012 + p.x * .035 + p.y * .027)) : 1;
+      const a=p.alpha*flicker*(speaking ? .82 + voiceEnergy*.3 : 1);
       ctx.beginPath();
       ctx.fillStyle=`rgba(${Math.round(44+35*p.front)},${Math.round(150+85*p.front)},255,${a})`;
-      ctx.shadowBlur=5+p.front*12;
+      ctx.shadowBlur=5+p.front*12+(speaking ? 7 + voiceFlicker*10 : 0);
       ctx.shadowColor=`rgba(28,164,255,${a*.8})`;
       ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
       ctx.fill();
