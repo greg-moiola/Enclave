@@ -37,10 +37,11 @@
   pointer-events: none;
 }
 #futureHub::before {
+  /* Peripheral atmosphere only: the central sphere is formed exclusively by canvas particles. */
   background:
-    radial-gradient(ellipse at 50% 48%, rgba(0, 113, 190, .15), transparent 27%),
-    radial-gradient(ellipse at 50% 50%, rgba(0, 44, 93, .2), transparent 58%);
-  animation: future-nebula 12s ease-in-out infinite alternate;
+    radial-gradient(ellipse at 12% 18%, rgba(0, 76, 132, .10), transparent 34%),
+    radial-gradient(ellipse at 88% 82%, rgba(0, 54, 112, .12), transparent 38%);
+  animation: future-nebula 18s ease-in-out infinite alternate;
 }
 #futureHub::after {
   opacity: .28;
