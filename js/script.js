@@ -9154,6 +9154,32 @@ window.EnclaveAI = Object.freeze({
         if (!transcript) throw new Error("Non ho riconosciuto parole nell'audio.");
         return transcript;
     },
+    async speakFromVoice(text) {
+        const message = typeof text === "string" ? text.trim().slice(0, 4000) : "";
+        if (!message) throw new Error("Testo da pronunciare non valido.");
+        const user = auth.currentUser;
+        if (!user || !user.emailVerified) {
+            throw new Error("Devi accedere a Enclave con un account verificato per utilizzare Enclave Voice.");
+        }
+        const idToken = await user.getIdToken();
+        const response = await fetch(ENCLAVE_VOICE_WORKER_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${idToken}`
+            },
+            body: JSON.stringify({ action: "voice-tts", text: message })
+        });
+        if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || `Sintesi vocale non disponibile (${response.status}).`);
+        }
+        const audio = await response.arrayBuffer();
+        if (!audio || audio.byteLength < 128) {
+            throw new Error("Il servizio vocale ha restituito un audio vuoto.");
+        }
+        return audio;
+    },
     async askFromVoice(text) {
         const message = typeof text === "string" ? text.trim().slice(0, 4000) : "";
         if (!message) throw new Error("Non ho ricevuto una richiesta vocale valida.");
