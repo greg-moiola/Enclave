@@ -264,9 +264,7 @@
       console.error("Enclave Voice → EnclaveAI:", error);
       state.lastError = error?.message || "ai-send-failed";
       emit("error", { error: state.lastError, stage: "answer" });
-      if (state.enabled) speak(error?.message?.includes("accedere")
-        ? "Devi accedere a Enclave con un account verificato per usare EnclaveAI."
-        : "Non riesco a raggiungere EnclaveAI in questo momento. Riprova tra poco.");
+      if (state.enabled) speak(error?.message || "Non riesco a raggiungere Enclave Voice in questo momento. Riprova tra poco.");
       return false;
     } finally {
       state.busy = false;
@@ -284,8 +282,9 @@
   async function handleRecordedAudio(blob, mimeType, duration) {
     if (!state.enabled) return;
     if (!blob || blob.size < 1200 || duration < MIN_UTTERANCE_MS) {
-      state.lastError = `audio-too-short:size=${blob?.size || 0}:duration=${Math.round(duration || 0)}`;
+      state.lastError = `Registrazione audio non valida (dimensione: ${blob?.size || 0} byte; durata: ${Math.round(duration || 0)} ms).`;
       emit("error", { error: state.lastError, stage: "recording-validation" });
+      if (state.enabled) speak("Non ho ricevuto una registrazione audio valida. Riprova parlando un po' più a lungo.");
       return;
     }
     state.busy = true;
@@ -301,7 +300,7 @@
       console.error("Enclave Voice transcription:", error);
       state.lastError = error?.message || "transcription-failed";
       emit("error", { error: state.lastError, stage: "transcription" });
-      if (state.enabled) speak("Non sono riuscito a capire l'audio. Riprova.");
+      if (state.enabled) speak(error?.message || "Non sono riuscito a trascrivere l'audio. Riprova.");
     } finally {
       state.busy = false;
       emit("thinking", { active: false });
