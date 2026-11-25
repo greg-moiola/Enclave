@@ -35,7 +35,9 @@
     pendingWakeLead: false,
     lastTranscript: "",
     lastAIAnswer: "",
-    lastError: ""
+    lastError: "",
+    speechPrimed: false,
+    speechStartTimer: null
   };
 
   const SILENCE_MS = 1150;
@@ -145,38 +147,119 @@
     state.analyser = null;
   }
 
+  // iOS Safari may reject speech synthesis started after an asynchronous
+  // network request unless the speech engine was first activated by a tap.
+  // Prime it synchronously from the user's orb tap, with a muted short utterance.
+  function primeSpeechSynthesisFromGesture() {
+    if (!speechAvailable) return;
+    try {
+      const synth = window.speechSynthesis;
+      const primer = new SpeechSynthesisUtterance("Enclave.");
+      primer.lang = "it-IT";
+      primer.volume = 0;
+      primer.rate = 1;
+      primer.onstart = () => {
+        state.speechPrimed = true;
+        diagnostic("Voce di sistema sbloccata", "Motore vocale pronto.");
+      };
+      primer.onerror = event => {
+        diagnostic("Sblocco voce non riuscito", event?.error || "speech-primer-error");
+      };
+      synth.cancel();
+      synth.resume?.();
+      synth.speak(primer);
+      // Do not cancel the primer immediately: WebKit needs to start it
+      // while the original tap activation is still valid.
+    } catch (error) {
+      diagnostic("Errore inizializzazione voce", error?.message || error);
+    }
+  }
+
   function speak(text, options = {}) {
     const message = cleanForSpeech(text);
-    if (!message || !speechAvailable) return false;
+    if (!message || !speechAvailable) {
+      diagnostic("Voce non disponibile", "Speech Synthesis non supportato o testo vuoto.");
+      return false;
+    }
     stopCaptureLoop();
-    window.speechSynthesis.cancel();
+    const synth = window.speechSynthesis;
+    try {
+      // Avoid cancel() on every response: on iOS Safari it can leave the
+      // synthesis queue stalled. Cancel only a genuinely active old utterance.
+      if (state.speaking || synth.speaking || synth.pending) synth.cancel();
+      synth.resume?.();
+    } catch (_) {}
+
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = options.lang || "it-IT";
-    utterance.rate = options.rate ?? 1;
+    utterance.rate = options.rate ?? 0.96;
     utterance.pitch = options.pitch ?? 1;
     utterance.volume = options.volume ?? 1;
-    const italianVoice = (window.speechSynthesis.getVoices?.() || []).find(v => /^it(?:-|$)/i.test(v.lang));
+    const voices = synth.getVoices?.() || [];
+    const italianVoice = voices.find(v => /^it(?:-|$)/i.test(v.lang));
     if (italianVoice) utterance.voice = italianVoice;
+
     state.speaking = true;
     setOrbState();
-    diagnostic("Riproduzione risposta", message.slice(0, 180));
-    utterance.onstart = () => emit("speaking", { active: true });
-    utterance.onend = () => {
+    diagnostic("Riproduzione risposta in attesa", `${message.slice(0, 180)}\nVoci italiane disponibili: ${voices.filter(v => /^it(?:-|$)/i.test(v.lang)).length} · Motore sbloccato: ${state.speechPrimed ? "sì" : "non confermato"}`);
+
+    let started = false;
+    if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+    state.speechStartTimer = setTimeout(() => {
+      if (started || !state.speaking) return;
       state.speaking = false;
-      diagnostic("Risposta terminata", "Puoi parlare di nuovo.");
+      state.lastError = "speech-start-timeout";
+      diagnostic("ERRORE: iPhone non avvia la voce", "La risposta è arrivata, ma Safari non ha avviato la sintesi vocale. Riprova toccando l'orbita per riattivare la voce.");
+      emit("error", { error: state.lastError, stage: "speech-synthesis-start" });
+      setOrbState();
+      if (state.enabled) startCaptureLoop();
+    }, 5000);
+
+    utterance.onstart = () => {
+      started = true;
+      if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+      state.speechStartTimer = null;
+      state.speechPrimed = true;
+      diagnostic("Voce avviata", `Riproduzione in corso · ${italianVoice?.name || "voce italiana predefinita"}`);
+      emit("speaking", { active: true });
+    };
+    utterance.onend = () => {
+      if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+      state.speechStartTimer = null;
+      state.speaking = false;
+      diagnostic("Risposta pronunciata", "Puoi parlare di nuovo.");
       setOrbState();
       emit("speaking", { active: false });
       if (state.enabled) startCaptureLoop();
     };
     utterance.onerror = event => {
+      if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+      state.speechStartTimer = null;
       state.speaking = false;
       state.lastError = event?.error || "speech-synthesis-error";
-      diagnostic("Errore riproduzione voce", state.lastError);
+      diagnostic("Errore riproduzione voce", `${state.lastError} · ${event?.message || ""}`);
       emit("error", { error: state.lastError, stage: "speech-synthesis" });
       setOrbState();
       if (state.enabled) startCaptureLoop();
     };
-    window.speechSynthesis.speak(utterance);
+
+    try {
+      synth.resume?.();
+      synth.speak(utterance);
+      // A second resume helps with WebKit's suspended speech queue.
+      setTimeout(() => {
+        if (state.speaking && !started) synth.resume?.();
+      }, 250);
+    } catch (error) {
+      if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+      state.speechStartTimer = null;
+      state.speaking = false;
+      state.lastError = error?.message || "speech-synthesis-exception";
+      diagnostic("Errore avvio sintesi vocale", state.lastError);
+      setOrbState();
+      if (state.enabled) startCaptureLoop();
+      return false;
+    }
     return true;
   }
 
@@ -485,6 +568,10 @@
       return false;
     }
 
+    // Prime speech synthesis synchronously inside the orb click. iOS Safari
+    // can block speech started only after the later async Whisper/Groq response.
+    primeSpeechSynthesisFromGesture();
+
     // getUserMedia is invoked directly from the orb click to preserve iOS permission/user-gesture behavior.
     state.enabled = true;
     state.inConversation = false;
@@ -525,6 +612,8 @@
     state.inConversation = false;
     state.busy = false;
     clearPendingWake();
+    if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
+    state.speechStartTimer = null;
     if (speechAvailable) window.speechSynthesis.cancel();
     state.speaking = false;
     releaseMicrophone();
