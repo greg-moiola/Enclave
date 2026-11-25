@@ -1,7 +1,7 @@
 /*
  * ENCLAVE VOICE — cross-browser audio capture and authenticated transcription.
  * The orb is the only entry point. Audio is transcribed by the Enclave Worker;
- * only an explicit wake phrase (or an already-open voice conversation) reaches EnclaveAI.
+ * every utterance captured after explicit activation is transcribed and sent to EnclaveAI.
  */
 (() => {
   "use strict";
@@ -51,6 +51,44 @@
 
   function emit(name, detail = {}) {
     document.dispatchEvent(new CustomEvent(`enclave:voice-${name}`, { detail }));
+  }
+
+  // Temporary on-device diagnostics: lets us see exactly where iPhone stops.
+  // No audio is stored or displayed; only phase, byte count, duration and transcript.
+  let diagnosticPanel = null;
+  let diagnosticTitle = null;
+  let diagnosticDetail = null;
+
+  function ensureDiagnosticPanel() {
+    if (diagnosticPanel) return;
+    diagnosticPanel = document.createElement("div");
+    diagnosticPanel.id = "enclaveVoiceDiagnostic";
+    diagnosticPanel.setAttribute("role", "status");
+    diagnosticPanel.setAttribute("aria-live", "polite");
+    diagnosticPanel.style.cssText = [
+      "position:fixed", "left:12px", "right:12px",
+      "bottom:calc(env(safe-area-inset-bottom, 0px) + 12px)",
+      "z-index:2147483646", "display:none", "padding:11px 13px",
+      "border:1px solid rgba(255,255,255,.2)", "border-radius:12px",
+      "background:rgba(12,18,25,.94)", "color:#fff",
+      "font:13px/1.4 -apple-system,BlinkMacSystemFont, sans-serif",
+      "box-shadow:0 5px 24px rgba(0,0,0,.28)", "pointer-events:none",
+      "overflow-wrap:anywhere"
+    ].join(";");
+    diagnosticTitle = document.createElement("div");
+    diagnosticTitle.style.cssText = "font-weight:700;margin-bottom:3px";
+    diagnosticDetail = document.createElement("div");
+    diagnosticDetail.style.cssText = "opacity:.88;white-space:pre-wrap";
+    diagnosticPanel.append(diagnosticTitle, diagnosticDetail);
+    document.body.appendChild(diagnosticPanel);
+  }
+
+  function diagnostic(stage, detail = "") {
+    ensureDiagnosticPanel();
+    diagnosticTitle.textContent = `Enclave Voice · ${stage}`;
+    diagnosticDetail.textContent = String(detail || "");
+    diagnosticPanel.style.display = state.enabled ? "block" : "none";
+    emit("diagnostic", { stage, detail: String(detail || "") });
   }
 
   function setOrbState() {
@@ -121,11 +159,21 @@
     if (italianVoice) utterance.voice = italianVoice;
     state.speaking = true;
     setOrbState();
+    diagnostic("Riproduzione risposta", message.slice(0, 180));
     utterance.onstart = () => emit("speaking", { active: true });
-    utterance.onend = utterance.onerror = () => {
+    utterance.onend = () => {
       state.speaking = false;
+      diagnostic("Risposta terminata", "Puoi parlare di nuovo.");
       setOrbState();
       emit("speaking", { active: false });
+      if (state.enabled) startCaptureLoop();
+    };
+    utterance.onerror = event => {
+      state.speaking = false;
+      state.lastError = event?.error || "speech-synthesis-error";
+      diagnostic("Errore riproduzione voce", state.lastError);
+      emit("error", { error: state.lastError, stage: "speech-synthesis" });
+      setOrbState();
       if (state.enabled) startCaptureLoop();
     };
     window.speechSynthesis.speak(utterance);
@@ -252,17 +300,20 @@
     state.busy = true;
     stopCaptureLoop();
     emit("thinking", { active: true, stage: "answer" });
+    diagnostic("Invio domanda a EnclaveAI", message.slice(0, 180));
     try {
       if (!window.EnclaveAI?.askFromVoice) throw new Error("Motore EnclaveAI non disponibile.");
       const answer = await window.EnclaveAI.askFromVoice(message);
       if (!state.enabled) return false;
       if (!answer) throw new Error("EnclaveAI non ha restituito una risposta.");
       state.lastAIAnswer = answer;
+      diagnostic("Risposta IA ricevuta", answer.slice(0, 220));
       emit("answer", { answer });
       return speak(answer);
     } catch (error) {
       console.error("Enclave Voice → EnclaveAI:", error);
       state.lastError = error?.message || "ai-send-failed";
+      diagnostic("ERRORE IA", state.lastError);
       emit("error", { error: state.lastError, stage: "answer" });
       if (state.enabled) speak(error?.message || "Non riesco a raggiungere Enclave Voice in questo momento. Riprova tra poco.");
       return false;
@@ -281,8 +332,9 @@
 
   async function handleRecordedAudio(blob, mimeType, duration) {
     if (!state.enabled) return;
-    if (!blob || blob.size < 1200 || duration < MIN_UTTERANCE_MS) {
+    if (!blob || blob.size < 256 || duration < MIN_UTTERANCE_MS) {
       state.lastError = `Registrazione audio non valida (dimensione: ${blob?.size || 0} byte; durata: ${Math.round(duration || 0)} ms).`;
+      diagnostic("Registrazione non valida", state.lastError);
       emit("error", { error: state.lastError, stage: "recording-validation" });
       if (state.enabled) speak("Non ho ricevuto una registrazione audio valida. Riprova parlando un po' più a lungo.");
       return;
@@ -291,14 +343,17 @@
     state.listening = false;
     setOrbState();
     emit("thinking", { active: true, stage: "transcription" });
+    diagnostic("Invio audio a Whisper", `${blob.size} byte · ${Math.round(duration)} ms · ${mimeType || "MIME sconosciuto"}`);
     try {
       const transcript = await transcribe(blob, mimeType);
       if (!state.enabled) return;
       state.busy = false;
+      diagnostic("Trascrizione completata", transcript ? transcript.slice(0, 220) : "Whisper ha restituito testo vuoto.");
       if (transcript) await processTranscript(transcript);
     } catch (error) {
       console.error("Enclave Voice transcription:", error);
       state.lastError = error?.message || "transcription-failed";
+      diagnostic("ERRORE TRASCRIZIONE", state.lastError);
       emit("error", { error: state.lastError, stage: "transcription" });
       if (state.enabled) speak(error?.message || "Non sono riuscito a trascrivere l'audio. Riprova.");
     } finally {
@@ -324,10 +379,18 @@
       state.chunks = [];
       state.recordingStartedAt = now;
       state.speechStartedAt = now;
+      diagnostic("Registrazione in corso", `MediaRecorder: ${state.mimeType}`);
       state.silenceStartedAt = 0;
-      recorder.ondataavailable = event => { if (event.data?.size) state.chunks.push(event.data); };
+      recorder.onstart = () => diagnostic("Registrazione avviata", `Formato: ${state.mimeType}`);
+      recorder.ondataavailable = event => {
+        if (event.data?.size) {
+          state.chunks.push(event.data);
+          emit("recording-data", { chunkBytes: event.data.size, chunks: state.chunks.length });
+        }
+      };
       recorder.onerror = event => {
         state.lastError = event.error?.message || "recorder-error";
+        diagnostic("ERRORE REGISTRATORE", state.lastError);
         emit("error", { error: state.lastError, stage: "recording" });
       };
       recorder.onstop = () => {
@@ -336,12 +399,14 @@
         const duration = performance.now() - state.recordingStartedAt;
         state.chunks = [];
         state.recorder = null;
+        diagnostic("Registrazione conclusa", `${blob.size} byte · ${Math.round(duration)} ms · ${state.mimeType}`);
         if (state.enabled) handleRecordedAudio(blob, state.mimeType, duration);
       };
       recorder.start(250);
       setOrbState();
     } catch (error) {
       state.lastError = error?.message || "recorder-start-failed";
+      diagnostic("ERRORE AVVIO REGISTRAZIONE", state.lastError);
       emit("error", { error: state.lastError, stage: "recording-start" });
       throw error;
     }
@@ -350,7 +415,19 @@
   function finishRecording() {
     const recorder = state.recorder;
     if (!recorder || recorder.state === "inactive") return;
-    try { recorder.stop(); } catch (error) { console.warn("MediaRecorder stop:", error); }
+    diagnostic("Chiusura registrazione", "Attendo i dati finali del microfono…");
+    try {
+      recorder.stop();
+      setTimeout(() => {
+        if (state.enabled && state.recorder === recorder && recorder.state === "inactive") {
+          diagnostic("Registratore bloccato", "Il browser ha chiuso il microfono ma non ha completato l'evento finale della registrazione.");
+        }
+      }, 3000);
+    } catch (error) {
+      state.lastError = error?.message || "recorder-stop-failed";
+      diagnostic("ERRORE CHIUSURA REGISTRAZIONE", state.lastError);
+      console.warn("MediaRecorder stop:", error);
+    }
   }
 
   function captureFrame() {
@@ -393,6 +470,7 @@
     state.listening = true;
     state.speechStartedAt = 0;
     setOrbState();
+    diagnostic("In ascolto", "Parla normalmente. La registrazione termina dopo circa 1,15 secondi di silenzio.");
     emit("listening", { active: true });
     state.raf = requestAnimationFrame(captureFrame);
   }
@@ -425,12 +503,14 @@
       state.analyser.fftSize = 2048;
       state.analyser.smoothingTimeConstant = 0.15;
       state.source.connect(state.analyser);
+      diagnostic("Microfono attivo", `AudioContext: ${state.audioContext.state} · MediaRecorder: disponibile`);
       startCaptureLoop();
       emit("started", { capabilities: { mediaRecorder: true, transcription: true, speechSynthesis: true, mimeType: chooseMimeType() || "browser-default" } });
       return true;
     } catch (error) {
       console.error("Enclave Voice microphone:", error);
       state.lastError = error?.name || "microphone-error";
+      diagnostic("ERRORE MICROFONO", state.lastError);
       state.enabled = false;
       releaseMicrophone();
       setOrbState();
@@ -448,6 +528,7 @@
     if (speechAvailable) window.speechSynthesis.cancel();
     state.speaking = false;
     releaseMicrophone();
+    if (diagnosticPanel) diagnosticPanel.style.display = "none";
     setOrbState();
     emit("stopped", { reason });
   }
