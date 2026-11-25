@@ -74,10 +74,12 @@
         x: Math.cos(theta)*radius*spread,
         y: y*spread,
         z: Math.sin(theta)*radius*spread,
-        size: rand(.65,1.75),
+        size: rand(.8,1.9),
         seed: rand(0,Math.PI*2),
-        startAngle: rand(0,Math.PI*2),
-        startDistance: rand(Math.min(width,height)*.28,Math.min(width,height)*.62),
+        // Each particle begins at its own point in a 3D cloud, not on a flat ring.
+        startX: rand(-2.05,2.05),
+        startY: rand(-2.05,2.05),
+        startZ: rand(-2.05,2.05),
         drift: rand(.3,1.25),
         alpha: rand(.48,1)
       });
@@ -110,29 +112,24 @@
     const voiceEnergy = speaking ? (.5 + .5 * Math.sin(now * .009)) : 0;
     const rotY = time*.75, rotX = Math.sin(time*.55)*.16;
 
-    // Atmospheric particles converge from the periphery while opening, then scatter on exit.
-    const cloudCount = Math.min(150, Math.round(particles.length*.34));
-    for (let i=0;i<cloudCount;i++) {
-      const p=particles[i];
-      const a=p.seed + now*.00012*p.drift;
-      const dist=radius*(1.7 + .7*Math.sin(a*1.7));
-      const convergence = phase === "opening" ? Math.max(0,1-elapsed/1.6) : 0;
-      const scatter = phase === "closing" ? Math.min(1,elapsed/1.05) : 0;
-      const px=cx+Math.cos(a)*(dist*(convergence+scatter)*.65+radius*1.35);
-      const py=cy+Math.sin(a*1.31)*(dist*(convergence+scatter)*.5+radius*1.2);
-      const alpha=(convergence*.52+scatter*.36)*p.alpha;
-      if(alpha>.015) {
-        ctx.beginPath(); ctx.fillStyle=`rgba(75,190,255,${alpha})`;
-        ctx.arc(px,py,p.size*.8,0,Math.PI*2); ctx.fill();
-      }
-    }
-
+    // The same particles form the entire object: no secondary cloud or pre-rendered orb layer.
     const projected=[];
     for (const p of particles) {
-      let x=p.x*Math.cos(rotY)-p.z*Math.sin(rotY);
-      let z=p.x*Math.sin(rotY)+p.z*Math.cos(rotY);
-      let y=p.y*Math.cos(rotX)-z*Math.sin(rotX);
-      z=p.y*Math.sin(rotX)+z*Math.cos(rotX);
+      let targetX=p.x*Math.cos(rotY)-p.z*Math.sin(rotY);
+      let targetZ=p.x*Math.sin(rotY)+p.z*Math.cos(rotY);
+      let targetY=p.y*Math.cos(rotX)-targetZ*Math.sin(rotX);
+      targetZ=p.y*Math.sin(rotX)+targetZ*Math.cos(rotX);
+
+      // Rotate the dispersed starting point with the same coordinate system,
+      // then continuously morph it into its final position on the particle shell.
+      let startX=p.startX*Math.cos(rotY)-p.startZ*Math.sin(rotY);
+      let startZ=p.startX*Math.sin(rotY)+p.startZ*Math.cos(rotY);
+      let startY=p.startY*Math.cos(rotX)-startZ*Math.sin(rotX);
+      startZ=p.startY*Math.sin(rotX)+startZ*Math.cos(rotX);
+
+      let x=startX+(targetX-startX)*formation;
+      let y=startY+(targetY-startY)*formation;
+      let z=startZ+(targetZ-startZ)*formation;
       const speechRipple = speaking
         ? (.026 * Math.sin(p.seed * 2.8 - now * .006) + .014 * Math.sin(p.seed * 5.2 + now * .009)) * (.35 + voiceEnergy)
         : 0;
@@ -140,14 +137,8 @@
       const organic = 1 + .075*Math.sin(p.seed+now*.0007*p.drift) + .035*Math.cos(p.seed*2-now*.0004) + speechRipple;
       const depth=1/(1.8-z*.52);
       const breathe=radius*pulse*organic*overall;
-      const targetX=cx+x*breathe*depth;
-      const targetY=cy+y*breathe*depth;
-      // At startup each point travels in from its own scattered position and
-      // settles onto the spherical shell: the orb is assembled by these particles.
-      const startX=cx+Math.cos(p.startAngle)*p.startDistance+x*radius*.08;
-      const startY=cy+Math.sin(p.startAngle)*p.startDistance+y*radius*.08;
-      const px=startX+(targetX-startX)*formation;
-      const py=startY+(targetY-startY)*formation;
+      const px=cx+x*breathe*depth;
+      const py=cy+y*breathe*depth;
       const front=(z+1)/2;
       const formationAlpha=phase === "opening" ? (.12+.88*formation) : 1;
       const alpha=(.22+front*.78)*p.alpha*overall*formationAlpha;
@@ -171,19 +162,31 @@
 
     // No pre-drawn orb: the luminous shell is made entirely from the projected particles.
 
-    // Bright particles, with depth-based glow and organic flicker.
+    // Soft overlapping particle fields create a continuous shell during formation.
+    // The luminous volume is accumulated from the particles themselves, never from a fixed orb image.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
     for(const p of projected) {
-      if(p.alpha<.015) continue;
-      const flicker=.72+.28*Math.sin(now*.002+p.x*.018+p.y*.013);
-      const voiceFlicker = speaking ? (.72 + .28 * Math.sin(now * .012 + p.x * .035 + p.y * .027)) : 1;
-      const a=p.alpha*flicker*(speaking ? .82 + voiceEnergy*.3 : 1);
+      if(p.alpha<.012) continue;
+      const flicker=.82+.18*Math.sin(now*.0017+p.x*.014+p.y*.011);
+      const voiceFlicker = speaking ? (.78 + .22 * Math.sin(now * .012 + p.x * .035 + p.y * .027)) : 1;
+      const a=p.alpha*flicker*(speaking ? .9 + voiceEnergy*.24 : 1);
+      const haloRadius=p.size*(speaking ? 8.8+voiceEnergy*2.4 : 7.2);
       ctx.beginPath();
-      ctx.fillStyle=`rgba(${Math.round(44+35*p.front)},${Math.round(150+85*p.front)},255,${a})`;
-      ctx.shadowBlur=5+p.front*12+(speaking ? 7 + voiceFlicker*10 : 0);
-      ctx.shadowColor=`rgba(28,164,255,${a*.8})`;
-      ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${Math.round(24+35*p.front)},${Math.round(130+90*p.front)},255,${a*.075})`;
+      ctx.shadowBlur=haloRadius;
+      ctx.shadowColor=`rgba(34,174,255,${a*(speaking ? .48 : .34)})`;
+      ctx.arc(p.x,p.y,haloRadius*.18,0,Math.PI*2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.fillStyle=`rgba(${Math.round(55+35*p.front)},${Math.round(166+82*p.front)},255,${a})`;
+      ctx.shadowBlur=4+p.front*8+(speaking ? 6+voiceFlicker*8 : 0);
+      ctx.shadowColor=`rgba(28,164,255,${a*.92})`;
+      ctx.arc(p.x,p.y,p.size*(speaking ? 1.08 : 1),0,Math.PI*2);
       ctx.fill();
     }
+    ctx.restore();
     ctx.shadowBlur=0;
 
     // A few moving energy arcs add volume without enclosing the sphere in a wire cage.
