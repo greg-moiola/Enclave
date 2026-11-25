@@ -236,13 +236,11 @@ html:not([data-enclave-mode="future"]) .enclave-ai-menu-option { display: flex !
 }
 #futureHub.is-active .future-voice-trigger { opacity: 1; pointer-events: auto; }
 .future-voice-trigger:focus-visible { outline: 1px solid rgba(90,210,255,.42); outline-offset: 5px; }
+/* The voice hit-area stays visually empty; the particle canvas alone draws the orb. */
 #futureHub.is-listening #futureParticleField {
   filter: saturate(1.12) brightness(1.08);
 }
-#futureHub.is-listening .future-voice-trigger { animation: future-orb-listening 1.35s ease-in-out infinite; }
 #futureHub.is-speaking #futureParticleField { filter: saturate(1.42) brightness(1.22); }
-@keyframes future-orb-listening { 0%,100% { box-shadow: inset 0 0 0 0 rgba(47,207,255,0); } 50% { box-shadow: inset 0 0 52px 4px rgba(47,207,255,.16); } }
-@media (prefers-reduced-motion: reduce) { #futureHub.is-listening .future-voice-trigger { animation: none; } }
 
 /* Enclave Voice: state is communicated only through the orb's light. */
 #futureHub.is-voice-session.is-listening #futureParticleField {
