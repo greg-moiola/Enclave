@@ -189,17 +189,7 @@
     ctx.restore();
     ctx.shadowBlur=0;
 
-    // A few moving energy arcs add volume without enclosing the sphere in a wire cage.
-    ctx.save();
-    ctx.translate(cx,cy);
-    ctx.rotate(now*.00009);
-    for(let k=0;k<3;k++) {
-      ctx.beginPath();
-      ctx.ellipse(0,0,radius*(.92+k*.055),radius*(.32+k*.025),k*.83,now*.00012+k*2,now*.00012+k*2+Math.PI*1.42);
-      ctx.strokeStyle=`rgba(62,190,255,${.10*overall})`;
-      ctx.lineWidth=.7;ctx.stroke();
-    }
-    ctx.restore();
+    // No geometric orb overlays: only the live particle field defines the sphere.
 
     // Four delicate animated rays connect the orb to navigation nodes.
     const rayAlpha=overall*(phase==="opening"?Math.min(1,elapsed/1.25):1);
