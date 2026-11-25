@@ -8799,6 +8799,7 @@ function loadConversations() {
 // ENCLAVEAI — SESSIONE TEMPORANEA
 // =========================
 const ENCLAVE_AI_WORKER_URL = "https://enclave-notification.gpvyw7wnf8.workers.dev/";
+const ENCLAVE_VOICE_WORKER_URL = "https://enclave-voice.gpvyw7wnf8.workers.dev/";
 
 // NEXUS Engine - caricamento dinamico
 let nexusEnginePromise = null;
@@ -9113,13 +9114,24 @@ async function requestEnclaveAIAnswer(idToken, messages) {
     return typeof result.answer === "string" ? result.answer.trim() : "";
 }
 
-// Public bridge for Enclave Voice. It reuses the exact same authenticated
-// EnclaveAI history and Worker request without creating/opening the chat UI.
-// The method is intentionally narrow: callers can submit plain text only.
+// Voice has its own Worker: it never calls the notification/call Worker.
+async function requestEnclaveVoiceAnswer(idToken, messages) {
+    const response = await fetch(ENCLAVE_VOICE_WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${idToken}` },
+        body: JSON.stringify({ action: "voice-chat", messages: messagesForEnclaveAI(messages) })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || `Enclave Voice non disponibile (${response.status}).`);
+    return typeof result.answer === "string" ? result.answer.trim() : "";
+}
+
+// Public bridge for Enclave Voice. It reuses the authenticated EnclaveAI history
+// without opening the chat UI; Voice requests go only to its dedicated Worker.
 window.EnclaveAI = Object.freeze({
     async transcribeFromVoice(audioBlob, filename = "enclave-voice.webm") {
-        if (!(audioBlob instanceof Blob) || audioBlob.size < 1200) {
-            throw new Error("Registrazione vocale vuota o non valida.");
+        if (!(audioBlob instanceof Blob) || audioBlob.size < 256) {
+            throw new Error("Registrazione vocale vuota o troppo breve.");
         }
         if (audioBlob.size > 20 * 1024 * 1024) {
             throw new Error("Registrazione troppo lunga. Riprova con una frase più breve.");
@@ -9131,7 +9143,7 @@ window.EnclaveAI = Object.freeze({
         const idToken = await user.getIdToken();
         const form = new FormData();
         form.append("audio", audioBlob, filename);
-        const response = await fetch(ENCLAVE_AI_WORKER_URL, {
+        const response = await fetch(ENCLAVE_VOICE_WORKER_URL, {
             method: "POST",
             headers: { "Authorization": `Bearer ${idToken}` },
             body: form
@@ -9159,7 +9171,7 @@ window.EnclaveAI = Object.freeze({
 
         try {
             const idToken = await user.getIdToken();
-            const answer = await requestEnclaveAIAnswer(idToken, enclaveAIHistory);
+            const answer = await requestEnclaveVoiceAnswer(idToken, enclaveAIHistory);
             if (!answer) throw new Error("Non sono riuscito a generare una risposta.");
             enclaveAIHistory.push({ role: "assistant", content: answer });
             enclaveAIHistory = enclaveAIHistory.slice(-12);
