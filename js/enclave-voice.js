@@ -37,11 +37,14 @@
     lastAIAnswer: "",
     lastError: "",
     speechPrimed: false,
-    speechStartTimer: null
+    speechStartTimer: null,
+    conversationIdleTimer: null
   };
 
-  const SILENCE_MS = 1150;
-  const MAX_UTTERANCE_MS = 14000;
+  // Allow natural pauses inside long sentences; the hard cap is a safety boundary.
+  const SILENCE_MS = 2500;
+  const MAX_UTTERANCE_MS = 30000;
+  const CONVERSATION_IDLE_MS = 45000;
   const MIN_UTTERANCE_MS = 350;
   const STOP = /^(?:stop|ferma|basta|termina|chiudi)(?:\s+(?:enclave voice|la voce|ascolto|conversazione))?$/i;
 
@@ -179,7 +182,10 @@
       diagnostic("ERRORE: iPhone non avvia la voce", "La risposta è arrivata, ma Safari non ha avviato la sintesi vocale. Riprova toccando l'orbita per riattivare la voce.");
       emit("error", { error: state.lastError, stage: "speech-synthesis-start" });
       setOrbState();
-      if (state.enabled) startCaptureLoop();
+      if (state.enabled) {
+        if (state.inConversation) refreshConversationIdleTimer();
+        startCaptureLoop();
+      }
     }, 5000);
 
     utterance.onstart = () => {
@@ -197,7 +203,10 @@
       diagnostic("Risposta pronunciata", "Puoi parlare di nuovo.");
       setOrbState();
       emit("speaking", { active: false });
-      if (state.enabled) startCaptureLoop();
+      if (state.enabled) {
+        if (state.inConversation) refreshConversationIdleTimer();
+        startCaptureLoop();
+      }
     };
     utterance.onerror = event => {
       if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
@@ -207,7 +216,10 @@
       diagnostic("Errore riproduzione voce", `${state.lastError} · ${event?.message || ""}`);
       emit("error", { error: state.lastError, stage: "speech-synthesis" });
       setOrbState();
-      if (state.enabled) startCaptureLoop();
+      if (state.enabled) {
+        if (state.inConversation) refreshConversationIdleTimer();
+        startCaptureLoop();
+      }
     };
 
     try {
@@ -228,6 +240,27 @@
       return false;
     }
     return true;
+  }
+
+  function clearConversationIdleTimer() {
+    if (state.conversationIdleTimer) clearTimeout(state.conversationIdleTimer);
+    state.conversationIdleTimer = null;
+  }
+
+  function refreshConversationIdleTimer() {
+    clearConversationIdleTimer();
+    if (!state.enabled || !state.inConversation) return;
+    state.conversationIdleTimer = setTimeout(() => {
+      state.conversationIdleTimer = null;
+      if (!state.enabled) return;
+      if (state.busy || state.speaking || state.recorder) {
+        refreshConversationIdleTimer();
+        return;
+      }
+      state.inConversation = false;
+      diagnostic("Conversazione in standby", "Per riattivare la conversazione pronuncia «Ehi Enclave».");
+      emit("conversation-idle", { active: false });
+    }, CONVERSATION_IDLE_MS);
   }
 
   function clearPendingWake() {
@@ -307,41 +340,45 @@
 
     if (STOP.test(normalized)) { stopVoice("spoken-stop"); return; }
 
-    if (/^(?:ehi|ei|hey|hei|e)$/.test(normalized)) {
-      state.pendingWakeLead = true;
-      state.pendingWakeAt = Date.now();
-      clearTimeout(state.pendingWakeTimer);
-      state.pendingWakeTimer = setTimeout(() => {
-        state.pendingWakeTimer = null;
-        if (!state.enabled || state.busy || state.speaking) return;
-        state.pendingWakeLead = false;
-        state.pendingWakeAt = 0;
-        speak("Ti ascolto.");
-      }, 2200);
-      return;
-    }
+    // The wake phrase is required only to open (or reopen) a conversation.
+    if (!state.inConversation) {
+      if (/^(?:ehi|ei|hey|hei|e)$/.test(normalized)) {
+        state.pendingWakeLead = true;
+        state.pendingWakeAt = Date.now();
+        clearTimeout(state.pendingWakeTimer);
+        state.pendingWakeTimer = setTimeout(() => {
+          state.pendingWakeTimer = null;
+          if (!state.enabled || state.busy || state.speaking) return;
+          state.pendingWakeLead = false;
+          state.pendingWakeAt = 0;
+          speak("Ti ascolto.");
+        }, 2200);
+        return;
+      }
 
-    let wakeInput = normalized;
-    if (state.pendingWakeLead && Date.now() - state.pendingWakeAt < 4500) {
-      wakeInput = `ehi ${normalized}`;
-      clearPendingWake();
-    }
-    const wake = parseWakePrefix(wakeInput);
-    if (wake.matched) {
+      const wake = parseWakePrefix(normalized);
+      if (!wake.matched) {
+        diagnostic("In attesa della parola di attivazione", "Pronuncia «Ehi Enclave» per iniziare.");
+        return;
+      }
       state.inConversation = true;
-      if (wake.remainder) {
-        if (runLocalCommand(wake.remainder)) return;
-        await sendToAI(wake.remainder);
-      } else armWakePrompt();
+      clearPendingWake();
+      refreshConversationIdleTimer();
+      if (!wake.remainder) { armWakePrompt(); return; }
+      if (runLocalCommand(wake.remainder)) return;
+      await sendToAI(wake.remainder);
       return;
     }
 
-    // Voice is explicitly activated by the user from the central orb.
-    // Therefore every recognized utterance is an intentional request: do not
-    // silently discard it merely because the wake phrase was not recognized.
-    state.inConversation = true;
-    if (runLocalCommand(transcript)) return;
-    await sendToAI(transcript);
+    refreshConversationIdleTimer();
+    let command = transcript;
+    const wake = parseWakePrefix(normalized);
+    if (wake.matched) {
+      command = wake.remainder;
+      if (!command) return;
+    }
+    if (runLocalCommand(command)) return;
+    await sendToAI(command);
   }
 
   async function sendToAI(text) {
@@ -429,6 +466,7 @@
       state.chunks = [];
       state.recordingStartedAt = now;
       state.speechStartedAt = now;
+      if (state.inConversation) refreshConversationIdleTimer();
       diagnostic("Registrazione in corso", `MediaRecorder: ${state.mimeType}`);
       state.silenceStartedAt = 0;
       recorder.onstart = () => diagnostic("Registrazione avviata", `Formato: ${state.mimeType}`);
@@ -579,6 +617,7 @@
     state.inConversation = false;
     state.busy = false;
     clearPendingWake();
+    clearConversationIdleTimer();
     if (state.speechStartTimer) clearTimeout(state.speechStartTimer);
     state.speechStartTimer = null;
     if (speechAvailable) window.speechSynthesis.cancel();
