@@ -58,9 +58,7 @@
     canvas.style.width = width+"px";
     canvas.style.height = height+"px";
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    // Particle identity is persistent: resizing changes only the projection,
-    // never replaces the particles that formed the sphere.
-    if (!particles.length) seedParticles();
+    seedParticles();
   }
 
   function seedParticles() {
