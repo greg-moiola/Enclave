@@ -58,7 +58,9 @@
     canvas.style.width = width+"px";
     canvas.style.height = height+"px";
     ctx.setTransform(dpr,0,0,dpr,0,0);
-    seedParticles();
+    // Particle identity is persistent: resizing changes only the projection,
+    // never replaces the particles that formed the sphere.
+    if (!particles.length) seedParticles();
   }
 
   function seedParticles() {
@@ -69,7 +71,7 @@
       const y = 1 - (i/(count-1))*2;
       const radius = Math.sqrt(1-y*y);
       const theta = golden*i;
-      const spread = rand(.86,1.13);
+      const spread = rand(.96,1.04);
       particles.push({
         x: Math.cos(theta)*radius*spread,
         y: y*spread,
@@ -142,7 +144,7 @@
       const front=(z+1)/2;
       const formationAlpha=phase === "opening" ? (.12+.88*formation) : 1;
       const alpha=(.22+front*.78)*p.alpha*overall*formationAlpha;
-      projected.push({x:px,y:py,z,alpha,size:p.size*(.65+front*.9),front});
+      projected.push({x:px,y:py,z,alpha,size:p.size,front});
     }
 
     // Loose energy filaments: local links only, avoiding a geometric wireframe appearance.
@@ -236,123 +238,96 @@
     if (!overlay || overlay.classList.contains("hidden") || !panel || overlay.dataset.futureDissolving === "true") return 0;
     overlay.dataset.futureDissolving = "true";
 
-    // Snapshot the visible settings UI as thousands of tiny points. Text glyph
-    // rectangles and real control/panel surfaces both contribute particles.
-    const rect = panel.getBoundingClientRect();
-    const layer = document.createElement("canvas");
-    layer.className = "future-dissolve-canvas";
-    layer.setAttribute("aria-hidden", "true");
-    layer.width = Math.round(window.innerWidth * Math.min(devicePixelRatio || 1, 1.5));
-    layer.height = Math.round(window.innerHeight * Math.min(devicePixelRatio || 1, 1.5));
-    layer.style.width = "100vw";
-    layer.style.height = "100vh";
-    document.body.appendChild(layer);
-    const paint = layer.getContext("2d");
-    const scale = Math.min(devicePixelRatio || 1, 1.5);
-    paint.setTransform(scale, 0, 0, scale, 0, 0);
+    // Reuse the permanent FUTURE canvas and particle array. The settings UI is
+    // sampled once, then every sampled point becomes one of the orb particles.
+    const samples = [];
+    const maxParticles = 520;
+    let samplesSeen = 0;
+    const addSample = (x, y, size = 1.4) => {
+      if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return;
+      samplesSeen++;
+      const sample = { x, y, size };
+      if (samples.length < maxParticles) samples.push(sample);
+      else {
+        // Reservoir sampling bounds memory and avoids a costly full-array shuffle.
+        const slot = Math.floor(Math.random() * samplesSeen);
+        if (slot < maxParticles) samples[slot] = sample;
+      }
+    };
 
     const surfaces = [panel, ...panel.querySelectorAll("h1,h2,h3,p,button,label,input,select,textarea,.settings-tab,[role=tab],.settings-section,.settings-option,svg")]
       .map(el => ({ el, r: el.getBoundingClientRect() }))
       .filter(item => item.r.width > 2 && item.r.height > 2);
-    const samples = [];
-    const addSample = (x, y, color, size = 1.7) => {
-      if (x >= 0 && y >= 0 && x <= innerWidth && y <= innerHeight) samples.push({ x, y, color, size });
-    };
 
-    // Sample panel/control surfaces in a fine pixel grid.
-    for (const {el, r} of surfaces) {
+    // Sample visible surfaces at a bounded density; no temporary canvas is created.
+    for (const { el, r } of surfaces) {
       const style = getComputedStyle(el);
       const bg = style.backgroundColor;
-      const fg = style.color || "#dff7ff";
       const opaque = bg && bg !== "transparent" && bg !== "rgba(0, 0, 0, 0)";
-      const step = Math.max(4, Math.min(8, Math.round(Math.sqrt((r.width*r.height)/1800))));
+      const step = Math.max(5, Math.min(9, Math.round(Math.sqrt((r.width * r.height) / 1400))));
       for (let y = r.top + 1; y < r.bottom; y += step) {
         for (let x = r.left + 1; x < r.right; x += step) {
           const edge = x-r.left < step || r.right-x < step || y-r.top < step || r.bottom-y < step;
-          if (opaque ? Math.random() < .42 : edge && Math.random() < .18) addSample(x, y, opaque ? bg : fg, rand(1.1, 2.3));
+          if (opaque ? Math.random() < .34 : edge && Math.random() < .15) addSample(x, y, rand(1.0, 1.8));
         }
       }
     }
 
-    // Text is sampled per glyph rectangle, so labels break apart at their real positions.
+    // Text glyphs contribute points too, but the reservoir keeps the total bounded.
     const walker = document.createTreeWalker(panel, NodeFilter.SHOW_TEXT);
     let textNode;
     while ((textNode = walker.nextNode())) {
       if (!textNode.nodeValue.trim()) continue;
       const range = document.createRange();
-      const parent = textNode.parentElement;
-      const color = parent ? getComputedStyle(parent).color : "#dff7ff";
       for (let i = 0; i < textNode.nodeValue.length; i++) {
-        range.setStart(textNode, i); range.setEnd(textNode, i + 1);
+        range.setStart(textNode, i);
+        range.setEnd(textNode, i + 1);
         const r = range.getBoundingClientRect();
         if (!r.width || !r.height) continue;
-        const n = Math.max(1, Math.ceil((r.width*r.height)/5));
-        for (let k=0;k<n;k++) addSample(r.left+Math.random()*r.width, r.top+Math.random()*r.height, color, rand(.8,1.65));
-      }
-    }
-
-    // Keep the particle field dense but bounded on mobile.
-    const max = window.matchMedia("(pointer: coarse)").matches ? 1250 : 2200;
-    if (samples.length > max) {
-      for (let i=samples.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [samples[i],samples[j]]=[samples[j],samples[i]]; }
-      samples.length = max;
-    }
-    const cx = innerWidth/2, cy = innerHeight/2;
-    const orbRadius = Math.min(innerWidth, innerHeight) * (innerWidth < 700 ? .18 : .205);
-    const dots = samples.map((p, i) => {
-      const angle = Math.random()*Math.PI*2;
-      const spread = Math.max(innerWidth,innerHeight) * (.28 + Math.random()*.68);
-      const targetAngle = Math.random()*Math.PI*2;
-      const targetY = Math.random()*2-1;
-      const targetR = Math.sqrt(1-targetY*targetY);
-      return {
-        ...p,
-        mx: cx + Math.cos(angle)*spread,
-        my: cy + Math.sin(angle)*spread,
-        tx: cx + Math.cos(targetAngle)*targetR*orbRadius,
-        ty: cy + targetY*orbRadius,
-        delay: Math.random()*.22,
-        phase: Math.random()*Math.PI*2
-      };
-    });
-
-    panel.classList.add("future-settings-disintegrating");
-    const duration = 2250;
-    const startAt = performance.now();
-    const ease = t => t*t*(3-2*t);
-    function render(now) {
-      const t = Math.min(1, (now-startAt)/duration);
-      paint.clearRect(0,0,innerWidth,innerHeight);
-      for (const p of dots) {
-        const local = Math.max(0, Math.min(1, (t-p.delay)/.92));
-        let x, y, alpha, size;
-        if (local < .55) {
-          const q = ease(local/.55);
-          x = p.x+(p.mx-p.x)*q; y = p.y+(p.my-p.y)*q;
-          alpha = .96; size = p.size*(1+.22*Math.sin(q*Math.PI));
-        } else {
-          const q = ease((local-.55)/.45);
-          x = p.mx+(p.tx-p.mx)*q; y = p.my+(p.ty-p.my)*q;
-          alpha = 1-q*.08; size = p.size*(1-q*.32);
+        const area = r.width * r.height;
+        const count = Math.min(3, Math.max(1, Math.ceil(area / 9)));
+        for (let k = 0; k < count; k++) {
+          addSample(r.left + Math.random() * r.width, r.top + Math.random() * r.height, rand(.85, 1.45));
         }
-        const shimmer = .78 + .22*Math.sin(now*.008+p.phase);
-        paint.globalAlpha = alpha*shimmer;
-        paint.fillStyle = p.color;
-        paint.shadowColor = "rgba(52,190,255,.8)";
-        paint.shadowBlur = 3.5;
-        paint.fillRect(x, y, size, size);
-      }
-      paint.globalAlpha = 1; paint.shadowBlur = 0;
-      if (t < 1) requestAnimationFrame(render);
-      else {
-        layer.remove();
-        overlay.classList.add("hidden");
-        panel.classList.remove("future-settings-disintegrating");
-        overlay.dataset.futureDissolving = "false";
       }
     }
-    requestAnimationFrame(render);
-    return duration;
+
+    if (samples.length) {
+      const cx = innerWidth / 2;
+      const cy = innerHeight / 2;
+      const minSide = Math.min(innerWidth, innerHeight);
+      const orbRadius = minSide * (innerWidth < 700 ? .185 : .205);
+      const golden = Math.PI * (3 - Math.sqrt(5));
+      particles = samples.map((sample, i) => {
+        const targetY = 1 - (i / Math.max(1, samples.length - 1)) * 2;
+        const targetRadius = Math.sqrt(1 - targetY * targetY);
+        const theta = golden * i;
+        const startZ = rand(-.22, .22);
+        const startDepth = 1 / (1.8 - startZ * .52);
+        return {
+          x: Math.cos(theta) * targetRadius * rand(.985, 1.015),
+          y: targetY,
+          z: Math.sin(theta) * targetRadius * rand(.985, 1.015),
+          size: sample.size,
+          seed: rand(0, Math.PI * 2),
+          startX: (sample.x - cx) / (orbRadius * startDepth),
+          startY: (sample.y - cy) / (orbRadius * startDepth),
+          startZ,
+          drift: rand(.3, 1.0),
+          alpha: rand(.72, 1)
+        };
+      });
+    }
+
+    // Hide the source panel only after its points have been transferred into
+    // the permanent particle population. The main canvas now owns the whole transition.
+    panel.classList.add("future-settings-disintegrating");
+    // Restore the source panel's reusable state after the formation completes.
+    window.setTimeout(() => {
+      panel.classList.remove("future-settings-disintegrating");
+      overlay.dataset.futureDissolving = "false";
+    }, 1700);
+    return samples.length ? 1 : 0;
   }
 
   function restoreSearch() {
@@ -375,7 +350,7 @@
     resize();
     const activate = () => {
       hub.classList.add("is-active");
-      if (animate) startAnimation(reducedMotion ? "running" : "opening");
+      if (animate || dissolveDuration) startAnimation(reducedMotion ? "running" : "opening");
       else {
         phase = "running";
         phaseStarted = performance.now();
@@ -383,7 +358,7 @@
         if (!raf) raf = requestAnimationFrame(draw);
       }
     };
-    if (dissolveDuration) window.setTimeout(activate, Math.max(0, dissolveDuration - 420));
+    if (dissolveDuration) requestAnimationFrame(activate);
     else activate();
   }
 
