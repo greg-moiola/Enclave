@@ -6,9 +6,12 @@
 (() => {
   "use strict";
 
-  const orbButton = document.getElementById("futureVoiceButton");
-  const hub = document.getElementById("futureHub");
-  if (!hub) return;
+  // Future Mode creates the orb dynamically. Wait for it if this script is
+  // evaluated first, otherwise the old early-return silently disabled Voice.
+  function initializeEnclaveVoice() {
+    const orbButton = document.getElementById("futureVoiceButton");
+    const hub = document.getElementById("futureHub");
+    if (!hub) return;
 
   const speechAvailable = "speechSynthesis" in window && !!window.SpeechSynthesisUtterance;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -652,4 +655,16 @@
       return { mediaRecorder: !!window.MediaRecorder, transcription: !!window.EnclaveAI?.transcribeFromVoice, speechSynthesis: speechAvailable, secureContext: !!window.isSecureContext };
     }
   });
+  }
+
+  if (document.getElementById("futureHub")) {
+    initializeEnclaveVoice();
+  } else {
+    const hubObserver = new MutationObserver(() => {
+      if (!document.getElementById("futureHub")) return;
+      hubObserver.disconnect();
+      initializeEnclaveVoice();
+    });
+    hubObserver.observe(document.documentElement || document, { childList: true, subtree: true });
+  }
 })();
